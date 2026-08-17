@@ -27,7 +27,10 @@ COPY --from=build /nguon/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD wget -q --spider http://localhost/ || exit 1
+# Bat buoc dung 127.0.0.1 chu khong phai "localhost": trong container, "localhost"
+# phan giai ra ::1 truoc, trong khi Nginx chi lang nghe IPv4 0.0.0.0:80. BusyBox wget
+# khong tu chuyen sang dia chi con lai nen se bao "Connection refused" du web van chay.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
+    CMD wget -q --spider http://127.0.0.1/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

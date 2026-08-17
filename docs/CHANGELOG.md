@@ -95,3 +95,6 @@ end-to-end 29 bước chạy qua API thật với 8 tài khoản thuộc 6 vai t
   fail-fast cho lỗi migration thật.
 - Cổng máy chủ trong docker-compose bị cố định → tham số hóa toàn bộ qua biến `*_PORT` để triển
   khai được trên máy đã dùng sẵn các cổng mặc định.
+- Container web luôn báo `unhealthy` dù phục vụ HTTP 200: health check dùng `localhost`, tên này
+  phân giải ra `::1` trước trong khi Nginx chỉ lắng nghe IPv4, và BusyBox `wget` không tự chuyển
+  sang địa chỉ còn lại → đổi sang `127.0.0.1` và thêm `--start-period`.
