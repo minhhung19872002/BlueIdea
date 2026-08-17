@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using BlueIdea.Api.Chung;
 using BlueIdea.Api.Hubs;
 using BlueIdea.Application.Chung;
@@ -166,20 +167,41 @@ builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    o.AddPolicy("MacDinh", ngCanh =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            ngCanh.Connection.RemoteIpAddress?.ToString() ?? "khong-xac-dinh",
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+    // Gioi han chung PHAI dat bang GlobalLimiter, khong duoc dat bang
+    // MapControllers().RequireRateLimiting("MacDinh").
+    //
+    // RequireRateLimiting them metadata o cap convention, ma convention duoc ap SAU thuoc
+    // tinh khai bao tren action, con middleware chi doc metadata CUOI CUNG cua endpoint.
+    // Vi vay [EnableRateLimiting("DangNhap")] tren POST /api/v1/xac-thuc/dang-nhap bi ghi
+    // de, va gioi han 5 lan dang nhap moi phut (Muc 6 dac ta) khong he chay. Day la loi im
+    // lang: request sai mat khau van tra 401 nhu binh thuong nen khong co dau hieu gi bat
+    // thuong - da kiem chung bang 7 lan goi lien tiep ma khong nhan duoc 429 nao.
+    // GlobalLimiter thi chay CONG DON voi policy cua tung endpoint nen ca hai deu co hieu luc.
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ngCanh =>
+    {
+        // Mien tru health check. Docker goi /health moi 20 giay va Nginx cung goi de kiem
+        // tra song chet; de chung an chung han muc voi luu luong nguoi dung thi dung luc bi
+        // tan cong, health check se that bai theo, container bi danh dau unhealthy roi khoi
+        // dong lai - dung luc can no chay nhat.
+        if (ngCanh.Request.Path.StartsWithSegments("/health"))
+        {
+            return RateLimitPartition.GetNoLimiter("health");
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            KhoaPhanVungTheoIp(ngCanh),
+            _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = gioiHanChung,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
-            }));
+            });
+    });
 
     o.AddPolicy("DangNhap", ngCanh =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            ngCanh.Connection.RemoteIpAddress?.ToString() ?? "khong-xac-dinh",
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+        RateLimitPartition.GetFixedWindowLimiter(
+            KhoaPhanVungTheoIp(ngCanh),
+            _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = gioiHanDangNhap,
                 Window = TimeSpan.FromMinutes(1),
@@ -256,7 +278,9 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers().RequireRateLimiting("MacDinh");
+// Khong gan RequireRateLimiting o day: gioi han chung da do GlobalLimiter dam nhan.
+// Gan lai se ghi de policy "DangNhap" cua endpoint dang nhap (xem giai thich o AddRateLimiter).
+app.MapControllers();
 app.MapHub<ThongBaoHub>("/hubs/thong-bao");
 
 app.MapHealthChecks("/health");
@@ -402,6 +426,16 @@ static void DangKyCongViecDinhKy(WebApplication app)
         Lich("QuetTrungLap", "*/15 * * * *"),
         new RecurringJobOptions { TimeZone = muiGio });
 }
+
+/// <summary>
+/// Khoá phân vùng rate limit: địa chỉ IP của người gọi.
+///
+/// Sau <c>UseForwardedHeaders</c> thì <c>Connection.RemoteIpAddress</c> đã là IP thật của
+/// người dùng chứ không còn là IP của Nginx, nên mỗi người có hạn mức riêng. Nếu không bật
+/// tin cậy proxy, mọi người dùng sẽ dùng chung một xô — xem phần cấu hình ForwardedHeaders.
+/// </summary>
+static string KhoaPhanVungTheoIp(HttpContext ngCanh)
+    => ngCanh.Connection.RemoteIpAddress?.ToString() ?? "khong-xac-dinh";
 
 static IEnumerable<string> LayTatCaMaQuyen()
     => typeof(MaQuyen)
