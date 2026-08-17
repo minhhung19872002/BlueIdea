@@ -1,0 +1,42 @@
+# --- .NET ---------------------------------------------------------------
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+.idea/
+artifacts/
+TestResults/
+coverage*.json
+*.coverage
+*.trx
+
+# --- Node / Web ---------------------------------------------------------
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+.eslintcache
+
+# --- Dữ liệu chạy cục bộ ------------------------------------------------
+logs/
+du-lieu/
+api-run.log
+*.log
+
+# --- Bí mật (KHÔNG BAO GIỜ commit) --------------------------------------
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.Production.json
+secrets.json
+*.pfx
+*.p12
+*.key
+
+# --- Hệ điều hành -------------------------------------------------------
+Thumbs.db
+.DS_Store
+desktop.ini

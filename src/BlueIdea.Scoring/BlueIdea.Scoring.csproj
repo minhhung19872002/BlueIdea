@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>BlueIdea.Scoring</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BlueIdea.Domain\BlueIdea.Domain.csproj" />
+    <ProjectReference Include="..\BlueIdea.Shared\BlueIdea.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

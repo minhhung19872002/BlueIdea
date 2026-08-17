@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>BlueIdea.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BlueIdea.Ai\BlueIdea.Ai.csproj" />
+    <ProjectReference Include="..\BlueIdea.Domain\BlueIdea.Domain.csproj" />
+    <ProjectReference Include="..\BlueIdea.Scoring\BlueIdea.Scoring.csproj" />
+    <ProjectReference Include="..\BlueIdea.Shared\BlueIdea.Shared.csproj" />
+    <ProjectReference Include="..\BlueIdea.Workflow\BlueIdea.Workflow.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

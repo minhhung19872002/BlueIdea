@@ -1,0 +1,165 @@
+using System.Net;
+using System.Text.Json;
+using BlueIdea.Application.Chung;
+using BlueIdea.Shared.KetQua;
+using FluentValidation;
+
+namespace BlueIdea.Api.Chung;
+
+/// <summary>
+/// Middleware bat toan bo ngoai le va chuyen thanh phan hoi chuan (Muc 8 dac ta).
+/// Khong bao gio lo stack trace ra client o moi truong production.
+/// </summary>
+public sealed class MiddlewareXuLyLoi
+{
+    private static readonly JsonSerializerOptions TuyChonJson = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    private readonly RequestDelegate _tiepTheo;
+    private readonly ILogger<MiddlewareXuLyLoi> _logger;
+    private readonly IHostEnvironment _moiTruong;
+
+    public MiddlewareXuLyLoi(
+        RequestDelegate tiepTheo, ILogger<MiddlewareXuLyLoi> logger, IHostEnvironment moiTruong)
+    {
+        _tiepTheo = tiepTheo;
+        _logger = logger;
+        _moiTruong = moiTruong;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _tiepTheo(context).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await XuLyAsync(context, ex).ConfigureAwait(false);
+        }
+    }
+
+    private async Task XuLyAsync(HttpContext context, Exception ex)
+    {
+        var (maHttp, maLoi, thongBao, chiTiet) = PhanLoai(ex);
+
+        if (maHttp >= 500)
+        {
+            _logger.LogError(ex, "Lỗi hệ thống khi xử lý {Method} {Path}",
+                context.Request.Method, context.Request.Path);
+        }
+        else
+        {
+            _logger.LogWarning("Lỗi nghiệp vụ {MaLoi} tại {Path}: {ThongBao}",
+                maLoi, context.Request.Path, thongBao);
+        }
+
+        if (context.Response.HasStarted)
+        {
+            return;
+        }
+
+        context.Response.Clear();
+        context.Response.StatusCode = maHttp;
+        context.Response.ContentType = "application/json; charset=utf-8";
+
+        var phanHoi = PhanHoiApi.Loi(
+            maLoi,
+            maHttp >= 500 && !_moiTruong.IsDevelopment()
+                ? "Đã xảy ra lỗi hệ thống. Vui lòng liên hệ quản trị viên."
+                : thongBao,
+            chiTiet);
+
+        await context.Response
+            .WriteAsync(JsonSerializer.Serialize(phanHoi, TuyChonJson))
+            .ConfigureAwait(false);
+    }
+
+    private static (int MaHttp, string MaLoi, string ThongBao, IReadOnlyList<ChiTietLoiApi>? ChiTiet)
+        PhanLoai(Exception ex) => ex switch
+    {
+        ValidationException v => (
+            (int)HttpStatusCode.UnprocessableEntity,
+            MaLoiHeThong.DuLieuKhongHopLe,
+            "Dữ liệu không hợp lệ.",
+            v.Errors.Select(e => new ChiTietLoiApi(ChuanHoaTenTruong(e.PropertyName), e.ErrorMessage))
+                .ToList()),
+
+        KhongCoQuyenException q => (
+            (int)HttpStatusCode.Forbidden, MaLoiHeThong.KhongCoQuyen, q.Message, null),
+
+        KhongTimThayException k => (
+            (int)HttpStatusCode.NotFound, MaLoiHeThong.KhongTimThay, k.Message, null),
+
+        NghiepVuException n => (
+            MaHttpTheoMaLoi(n.MaLoi), n.MaLoi, n.Message, null),
+
+        UnauthorizedAccessException => (
+            (int)HttpStatusCode.Unauthorized, MaLoiHeThong.ChuaXacThuc,
+            "Bạn cần đăng nhập để sử dụng chức năng này.", null),
+
+        OperationCanceledException => (
+            499, "YEU_CAU_BI_HUY", "Yêu cầu đã bị hủy.", null),
+
+        _ => ((int)HttpStatusCode.InternalServerError, MaLoiHeThong.LoiHeThong, ex.Message, null)
+    };
+
+    /// <summary>Anh xa ma loi nghiep vu sang ma HTTP phu hop.</summary>
+    private static int MaHttpTheoMaLoi(string maLoi) => maLoi switch
+    {
+        MaLoiHeThong.ChuaXacThuc => (int)HttpStatusCode.Unauthorized,
+        MaLoiHeThong.KhongCoQuyen or MaLoiHeThong.KhongCoQuyenXuLyBuoc
+            => (int)HttpStatusCode.Forbidden,
+        MaLoiHeThong.KhongTimThay => (int)HttpStatusCode.NotFound,
+        MaLoiHeThong.DangDuocThamChieu or MaLoiHeThong.TrungMa
+            or MaLoiHeThong.QuyTrinhDangSuDung or MaLoiHeThong.XungDotDuLieu
+            => (int)HttpStatusCode.Conflict,
+        MaLoiHeThong.DuLieuKhongHopLe or MaLoiHeThong.TyLeDongGopKhongHopLe
+            or MaLoiHeThong.ThieuThanhPhanBatBuoc or MaLoiHeThong.TrongSoKhongDu100
+            or MaLoiHeThong.KhoangDiemChongLan
+            => (int)HttpStatusCode.UnprocessableEntity,
+        MaLoiHeThong.YeuCauTrungLap => (int)HttpStatusCode.Conflict,
+        _ => (int)HttpStatusCode.BadRequest
+    };
+
+    /// <summary>Doi ten truong tu PascalCase cua validator sang camelCase theo hop dong API.</summary>
+    private static string ChuanHoaTenTruong(string ten)
+    {
+        if (string.IsNullOrEmpty(ten))
+        {
+            return ten;
+        }
+
+        var phan = ten.Split('.');
+        return string.Join('.', phan.Select(p =>
+            p.Length > 0 ? char.ToLowerInvariant(p[0]) + p[1..] : p));
+    }
+}
+
+/// <summary>Them cac header bao mat bat buoc (Muc 6 dac ta).</summary>
+public sealed class MiddlewareHeaderBaoMat
+{
+    private readonly RequestDelegate _tiepTheo;
+
+    public MiddlewareHeaderBaoMat(RequestDelegate tiepTheo) => _tiepTheo = tiepTheo;
+
+    public Task InvokeAsync(HttpContext context)
+    {
+        var headers = context.Response.Headers;
+
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
+        headers["Content-Security-Policy"] =
+            "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
+
+        // Loai bo header lo thong tin phien ban may chu.
+        headers.Remove("Server");
+        headers.Remove("X-Powered-By");
+
+        return _tiepTheo(context);
+    }
+}

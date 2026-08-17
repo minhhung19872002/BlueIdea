@@ -1,0 +1,58 @@
+# =============================================================================
+# API .NET 8 - build nhieu giai doan, chay bang user khong phai root (Muc 6 dac ta).
+# =============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /nguon
+
+# Copy file cau hinh goi truoc de tan dung cache lop Docker.
+COPY Directory.Build.props Directory.Packages.props BlueIdea.sln ./
+COPY src/BlueIdea.Shared/*.csproj        src/BlueIdea.Shared/
+COPY src/BlueIdea.Domain/*.csproj        src/BlueIdea.Domain/
+COPY src/BlueIdea.Application/*.csproj   src/BlueIdea.Application/
+COPY src/BlueIdea.Workflow/*.csproj      src/BlueIdea.Workflow/
+COPY src/BlueIdea.Scoring/*.csproj       src/BlueIdea.Scoring/
+COPY src/BlueIdea.Ai/*.csproj            src/BlueIdea.Ai/
+COPY src/BlueIdea.Reporting/*.csproj     src/BlueIdea.Reporting/
+COPY src/BlueIdea.Infrastructure/*.csproj src/BlueIdea.Infrastructure/
+COPY src/BlueIdea.Api/*.csproj           src/BlueIdea.Api/
+COPY tests/BlueIdea.UnitTests/*.csproj   tests/BlueIdea.UnitTests/
+
+RUN dotnet restore src/BlueIdea.Api/BlueIdea.Api.csproj
+
+COPY src/ src/
+RUN dotnet publish src/BlueIdea.Api/BlueIdea.Api.csproj \
+    -c Release -o /xuat --no-restore /p:UseAppHost=false
+
+# -----------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+
+# curl phuc vu healthcheck; tzdata de hien thi dung gio Viet Nam.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl tzdata locales \
+    && sed -i 's/# vi_VN.UTF-8 UTF-8/vi_VN.UTF-8 UTF-8/' /etc/locale.gen \
+    && locale-gen \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Asia/Ho_Chi_Minh \
+    LANG=vi_VN.UTF-8 \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    ASPNETCORE_URLS=http://+:8080
+
+COPY --from=build /xuat ./
+
+# Tai khoan khong phai root + thu muc du lieu/log ghi duoc.
+RUN groupadd --system blueidea \
+    && useradd --system --gid blueidea --home /app blueidea \
+    && mkdir -p /app/du-lieu/tep-tin /app/logs \
+    && chown -R blueidea:blueidea /app
+
+USER blueidea
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["dotnet", "BlueIdea.Api.dll"]
