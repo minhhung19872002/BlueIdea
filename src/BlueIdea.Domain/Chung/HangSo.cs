@@ -256,6 +256,37 @@ public static class MaTruongHop
     public const string RutHoSo = "RUT_HO_SO";
 }
 
+/// <summary>Trang thai trich xuat van ban (OCR) cua mot tep dinh kem.</summary>
+public static class TrangThaiOcrTep
+{
+    public const string ChuaXuLy = "CHUA_XU_LY";
+    public const string DangXuLy = "DANG_XU_LY";
+    public const string HoanThanh = "HOAN_THANH";
+
+    /// <summary>Dinh dang khong rut duoc van ban (vi du .zip, .xlsx) - khong phai loi.</summary>
+    public const string KhongCan = "KHONG_CAN";
+
+    public const string Loi = "LOI";
+}
+
+/// <summary>Trang thai luot phan cong cham diem cho thanh vien hoi dong.</summary>
+public static class TrangThaiPhanCongCham
+{
+    public const string ChuaCham = "CHUA_CHAM";
+    public const string DangCham = "DANG_CHAM";
+    public const string DaCham = "DA_CHAM";
+    public const string QuaHan = "QUA_HAN";
+}
+
+/// <summary>Trang thai ban tin trong hang doi gui email/SMS.</summary>
+public static class TrangThaiGuiTin
+{
+    public const string ChoGui = "CHO_GUI";
+    public const string DangGui = "DANG_GUI";
+    public const string DaGui = "DA_GUI";
+    public const string Loi = "LOI";
+}
+
 /// <summary>Hanh dong tu dong chay khi di qua mot truong hop chuyen tiep.</summary>
 public static class HanhDongTuDong
 {

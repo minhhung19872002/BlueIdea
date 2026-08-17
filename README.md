@@ -29,11 +29,14 @@ docker compose --env-file .env -f deploy/docker-compose.yml up -d
 | API + Swagger | http://localhost:8080/swagger | Tài liệu API tiếng Việt |
 | Health check | http://localhost:8080/health | `/health/ready` kiểm tra CSDL |
 | Dịch vụ OCR nội bộ | http://localhost:8088/health | Tesseract 5 với `vie` + `eng` |
+| Công việc nền | http://localhost:8080/hangfire | Chỉ Quản trị hệ thống mở được |
 | MinIO Console | http://localhost:9001 | Lưu trữ tệp |
 | Seq | http://localhost:5341 | Log tập trung |
 
 Lần khởi động đầu tiên hệ thống tự chạy migration và nạp dữ liệu mẫu (Mục 10 đặc tả).
 API tự thử lại kết nối cơ sở dữ liệu có backoff, nên không phụ thuộc thứ tự khởi động container.
+
+> Nếu đổi `WEB_PORT`, cấu hình CORS của API tự bám theo — không phải sửa thêm chỗ nào.
 
 ### Tài khoản demo
 
@@ -77,7 +80,8 @@ dotnet test
 ```
 
 Kịch bản end-to-end đi trọn vòng đời hồ sơ: nộp → tiếp nhận → thẩm định → phân công →
-3 thành viên chấm → tổng hợp điểm → hội đồng kết luận Đạt → ban hành quyết định → báo cáo.
+3 thành viên chấm → tổng hợp điểm → hội đồng kết luận Đạt → ban hành quyết định công nhận →
+công bố kết quả → xuất PDF → báo cáo.
 
 ---
 
@@ -123,6 +127,11 @@ interceptor; gõ "sang kien" vẫn ra "sáng kiến".
 **Kiểm tra trùng lặp nhiều tầng.** Lọc thô bằng SimHash + MinHash/LSH, so khớp tinh bằng
 TF-IDF cosine (từ vựng) và cosine embedding (ngữ nghĩa), điểm tổng hợp theo hệ số cấu hình
 được. Kết quả kèm từng cặp đoạn trùng và vị trí ký tự để giao diện highlight đối chiếu 2 cột.
+
+**Công việc nền có lưới an toàn.** Hangfire lưu hàng đợi trong chính PostgreSQL. OCR chạy trước,
+kiểm tra trùng lặp chỉ chạy khi không còn tệp nào đang chờ trích xuất — và một vòng quét định kỳ
+dọn nốt hồ sơ mắc kẹt nếu OCR thất bại hẳn. Không có vòng quét đó, một lần OCR hỏng sẽ khiến hồ sơ
+vĩnh viễn không được kiểm tra mà không ai biết. Tắt toàn bộ bằng `CongViecNen:BatHangfire=false`.
 
 ---
 

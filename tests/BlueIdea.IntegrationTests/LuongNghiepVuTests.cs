@@ -273,7 +273,7 @@ public sealed class LuongNghiepVuTests
             matKhau = "sai-mat-khau"
         });
 
-        phanHoi.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         var noiDung = await phanHoi.Content.ReadFromJsonAsync<JsonElement>();
         noiDung.GetProperty("maLoi").GetString().Should().Be("SAI_TAI_KHOAN_MAT_KHAU");

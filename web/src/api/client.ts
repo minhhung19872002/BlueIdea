@@ -191,6 +191,12 @@ export async function capNhatDuLieu<T>(duongDan: string, than?: unknown): Promis
   return data.duLieu;
 }
 
+/** PATCH — dùng khi chỉ đổi một phần bản ghi (ví dụ khoá/mở khoá tài khoản). */
+export async function capNhatMotPhan<T>(duongDan: string, than?: unknown): Promise<T> {
+  const { data } = await http.patch<PhanHoiApi<T>>(duongDan, than);
+  return data.duLieu;
+}
+
 export async function xoaDuLieu(duongDan: string): Promise<void> {
   await http.delete(duongDan);
 }

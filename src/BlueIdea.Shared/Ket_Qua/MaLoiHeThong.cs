@@ -36,6 +36,7 @@ public static class MaLoiHeThong
     public const string TyLeDongGopKhongHopLe = "TY_LE_DONG_GOP_KHONG_HOP_LE";
     public const string VuotSoTacGiaToiDa = "VUOT_SO_TAC_GIA_TOI_DA";
     public const string TrangThaiKhongChoPhepSua = "TRANG_THAI_KHONG_CHO_PHEP_SUA";
+    public const string TrangThaiKhongChoPhepXoa = "TRANG_THAI_KHONG_CHO_PHEP_XOA";
     public const string TepKhongHopLe = "TEP_KHONG_HOP_LE";
     public const string VuotDungLuongToiDa = "VUOT_DUNG_LUONG_TOI_DA";
 

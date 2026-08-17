@@ -1,5 +1,6 @@
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.Chung;
+using BlueIdea.Application.QuanTri;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.QuanTri;
 using BlueIdea.Shared.KetQua;
@@ -33,12 +34,16 @@ public sealed class HeThongController : ControllerBase
     private readonly IAppDbContext _db;
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDichVuPhanQuyen _phanQuyen;
+    private readonly DichVuQuanTriNguoiDung _quanTri;
 
-    public HeThongController(IAppDbContext db, IDichVuCauHinh cauHinh, IDichVuPhanQuyen phanQuyen)
+    public HeThongController(
+        IAppDbContext db, IDichVuCauHinh cauHinh, IDichVuPhanQuyen phanQuyen,
+        DichVuQuanTriNguoiDung quanTri)
     {
         _db = db;
         _cauHinh = cauHinh;
         _phanQuyen = phanQuyen;
+        _quanTri = quanTri;
     }
 
     /// <summary>Cấu hình hiển thị công khai — không cần đăng nhập.</summary>
@@ -336,5 +341,77 @@ public sealed class HeThongController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         return Ok(PhanHoiApi.Ok("Đã đánh dấu đã đọc"));
+    }
+
+    // ------------------------------------------------------ Chức năng 43 — Quản lý người dùng
+
+    /// <summary>Chi tiết một tài khoản kèm vai trò đang gán.</summary>
+    [HttpGet("nguoi-dung/{id:guid}")]
+    [Authorize(Policy = MaQuyen.NguoiDungXem)]
+    public async Task<IActionResult> LayChiTietNguoiDungAsync(Guid id, CancellationToken ct)
+        => Ok(PhanHoiApi<ThongTinNguoiDungDto>.Ok(await _quanTri.ChiTietAsync(id, ct)));
+
+    /// <summary>
+    /// Tạo tài khoản mới. Hệ thống sinh mật khẩu tạm và trả về đúng MỘT LẦN trong phản hồi này —
+    /// mật khẩu chỉ lưu dưới dạng băm Argon2id nên không thể xem lại về sau.
+    /// </summary>
+    [HttpPost("nguoi-dung")]
+    [Authorize(Policy = MaQuyen.NguoiDungThem)]
+    public async Task<IActionResult> ThemNguoiDungAsync(
+        [FromBody] LuuNguoiDungDto duLieu, CancellationToken ct)
+    {
+        var (id, matKhauTam) = await _quanTri.ThemAsync(duLieu, ct);
+
+        return Ok(PhanHoiApi<object>.Ok(
+            new { id, matKhauTam },
+            "Đã tạo tài khoản. Hãy bàn giao mật khẩu tạm cho người dùng — mật khẩu này không xem lại được."));
+    }
+
+    [HttpPut("nguoi-dung/{id:guid}")]
+    [Authorize(Policy = MaQuyen.NguoiDungSua)]
+    public async Task<IActionResult> SuaNguoiDungAsync(
+        Guid id, [FromBody] LuuNguoiDungDto duLieu, CancellationToken ct)
+    {
+        await _quanTri.CapNhatAsync(id, duLieu, ct);
+        return Ok(PhanHoiApi.Ok("Đã cập nhật tài khoản"));
+    }
+
+    /// <summary>Đặt lại mật khẩu, thu hồi mọi phiên đang mở và bắt đổi ở lần đăng nhập kế tiếp.</summary>
+    [HttpPost("nguoi-dung/{id:guid}/dat-lai-mat-khau")]
+    [Authorize(Policy = MaQuyen.NguoiDungDatLaiMatKhau)]
+    public async Task<IActionResult> DatLaiMatKhauAsync(Guid id, CancellationToken ct)
+    {
+        var matKhauTam = await _quanTri.DatLaiMatKhauAsync(id, ct);
+
+        return Ok(PhanHoiApi<object>.Ok(
+            new { matKhauTam },
+            "Đã đặt lại mật khẩu. Toàn bộ phiên đăng nhập cũ đã bị thu hồi."));
+    }
+
+    // --------------------------------------------------------- Chức năng 45 — Quản lý vai trò
+
+    [HttpPost("vai-tro")]
+    [Authorize(Policy = MaQuyen.VaiTroCauHinh)]
+    public async Task<IActionResult> ThemVaiTroAsync([FromBody] LuuVaiTroDto duLieu, CancellationToken ct)
+    {
+        var id = await _quanTri.ThemVaiTroAsync(duLieu, ct);
+        return Ok(PhanHoiApi<Guid>.Ok(id, "Đã tạo vai trò"));
+    }
+
+    [HttpPut("vai-tro/{id:guid}")]
+    [Authorize(Policy = MaQuyen.VaiTroCauHinh)]
+    public async Task<IActionResult> SuaVaiTroAsync(
+        Guid id, [FromBody] LuuVaiTroDto duLieu, CancellationToken ct)
+    {
+        await _quanTri.CapNhatVaiTroAsync(id, duLieu, ct);
+        return Ok(PhanHoiApi.Ok("Đã cập nhật ma trận phân quyền"));
+    }
+
+    [HttpDelete("vai-tro/{id:guid}")]
+    [Authorize(Policy = MaQuyen.VaiTroCauHinh)]
+    public async Task<IActionResult> XoaVaiTroAsync(Guid id, CancellationToken ct)
+    {
+        await _quanTri.XoaVaiTroAsync(id, ct);
+        return Ok(PhanHoiApi.Ok("Đã xoá vai trò"));
     }
 }

@@ -53,16 +53,21 @@ public sealed class TepTinController : ControllerBase
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDongHoHeThong _dongHo;
+    private readonly IDichVuOcr _ocr;
+    private readonly IHangDoiCongViecNen _hangDoi;
 
     public TepTinController(
         IAppDbContext db, ILuuTruTep luuTru, INguoiDungHienTai nguoiDung,
-        IDichVuCauHinh cauHinh, IDongHoHeThong dongHo)
+        IDichVuCauHinh cauHinh, IDongHoHeThong dongHo,
+        IDichVuOcr ocr, IHangDoiCongViecNen hangDoi)
     {
         _db = db;
         _luuTru = luuTru;
         _nguoiDung = nguoiDung;
         _cauHinh = cauHinh;
         _dongHo = dongHo;
+        _ocr = ocr;
+        _hangDoi = hangDoi;
     }
 
     /// <summary>Tải tệp lên và gắn vào một thành phần hồ sơ của sáng kiến.</summary>
@@ -178,6 +183,17 @@ public sealed class TepTinController : ControllerBase
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        // Trich xuat van ban chay NEN de khong keo dai thoi gian tai len: OCR mot PDF scan
+        // co the mat vai phut.
+        //
+        // Dieu kien la TRANG THAI OCR chu khong phai "tep moi": mot tep trung noi dung duoc dung
+        // lai van co the chua tung duoc trich xuat (vi du duoc tai len tu truoc khi bat OCR).
+        // Trang thai HOAN_THANH / KHONG_CAN / LOI deu khong xep lich lai.
+        if (_ocr.HoTro(tepTin.PhanMoRong) && tepTin.TrangThaiOcr == TrangThaiOcrTep.ChuaXuLy)
+        {
+            _hangDoi.XepLichTrichXuatVanBan(tepTin.Id);
+        }
 
         return Ok(PhanHoiApi<TepTinDto>.Ok(
             new TepTinDto(tepTin.Id, tepTin.TenGoc, tepTin.KichThuoc, tepTin.MimeType,

@@ -42,6 +42,7 @@ const TrangDonVi = lazy(() => import('@/features/quan-tri/TrangDonVi'));
 const TrangVaiTro = lazy(() => import('@/features/quan-tri/TrangVaiTro'));
 const TrangCauHinhHeThong = lazy(() => import('@/features/quan-tri/TrangCauHinhHeThong'));
 const TrangNhatKy = lazy(() => import('@/features/quan-tri/TrangNhatKy'));
+const TrangQuyetDinh = lazy(() => import('@/features/quyet-dinh/TrangQuyetDinh'));
 const TrangCongKhai = lazy(() => import('@/features/cong-khai/TrangCongKhai'));
 
 export const router = createBrowserRouter([
@@ -83,6 +84,8 @@ export const router = createBrowserRouter([
 
       { path: 'danh-gia', element: <ChoTai><TrangViecDanhGia /></ChoTai> },
       { path: 'danh-gia/:id/cham-diem', element: <ChoTai><TrangChamDiem /></ChoTai> },
+
+      { path: 'quyet-dinh', element: <ChoTai><TrangQuyetDinh /></ChoTai> },
 
       { path: 'tra-cuu', element: <ChoTai><TrangTraCuu /></ChoTai> },
       { path: 'bao-cao/:loai', element: <ChoTai><TrangBaoCao /></ChoTai> },

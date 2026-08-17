@@ -37,7 +37,16 @@ public sealed class UngDungKiemThu : WebApplicationFactory<Program>, IAsyncLifet
         ["KhoiTao:TuDongMigrate"] = "true",
         ["KhoiTao:NapDuLieuMau"] = "true",
         ["LuuTru:ThuMucGoc"] = Path.Combine(Path.GetTempPath(), "blueidea-test-files"),
-        ["Serilog:MinimumLevel:Default"] = "Warning"
+        ["Serilog:MinimumLevel:Default"] = "Warning",
+
+        // Tat bo dieu phoi Hangfire: kiem thu goi THANG vao lop cong viec de ket qua tat dinh,
+        // thay vi cho scheduler chay nen roi phai poll.
+        ["CongViecNen:BatHangfire"] = "false",
+
+        // Toan bo kiem thu di chung mot IP nen se cham tran gioi han 100 req/phut cua moi truong
+        // that. Nang nguong rieng cho kiem thu de khong bi 429 gia.
+        ["GioiHanTruyCap:SoRequestMoiPhut"] = "100000",
+        ["GioiHanTruyCap:SoLanDangNhapMoiPhut"] = "100000"
     };
 
     public async Task InitializeAsync()

@@ -1,5 +1,6 @@
 import {
   capNhatDuLieu,
+  capNhatMotPhan,
   guiDuLieu,
   layDuLieu,
   layPhanTrang,
@@ -617,6 +618,49 @@ export interface CauHinhMuc {
   choPhepSua: boolean;
 }
 
+export interface ThongTinNguoiDung {
+  id: string;
+  tenDangNhap: string;
+  hoTen: string;
+  email?: string | null;
+  dienThoai?: string | null;
+  chucVu?: string | null;
+  donViId?: string | null;
+  tenDonVi?: string | null;
+  ngaySinh?: string | null;
+  gioiTinh?: string | null;
+  trangThaiTaiKhoan: string;
+  buocDoiMatKhau: boolean;
+  lanDangNhapCuoi?: string | null;
+  vaiTroIds: string[];
+  tenVaiTro: string[];
+}
+
+export interface LuuNguoiDung {
+  tenDangNhap: string;
+  hoTen: string;
+  email?: string | null;
+  dienThoai?: string | null;
+  chucVu?: string | null;
+  donViId?: string | null;
+  soCccd?: string | null;
+  ngaySinh?: string | null;
+  gioiTinh?: string | null;
+  trangThaiTaiKhoan: string;
+  vaiTroIds: string[];
+}
+
+export interface LuuVaiTro {
+  ma: string;
+  ten: string;
+  moTa?: string | null;
+  thuTu: number;
+  trangThai: number;
+  quyenIds: string[];
+  loaiPhamVi: string;
+  donViIds: string[];
+}
+
 export const apiHeThong = {
   cauHinh: (nhom?: string) =>
     layDuLieu<CauHinhMuc[]>('/api/v1/he-thong/cau-hinh', { params: { nhom } }),
@@ -629,6 +673,88 @@ export const apiHeThong = {
     layPhanTrang<Record<string, unknown>>('/api/v1/he-thong/nhat-ky/he-thong', thamSo),
   nhatKyDangNhap: (thamSo?: Record<string, unknown>) =>
     layPhanTrang<Record<string, unknown>>('/api/v1/he-thong/nhat-ky/dang-nhap', thamSo),
+
+  // Chức năng 43 — quản lý người dùng
+  chiTietNguoiDung: (id: string) =>
+    layDuLieu<ThongTinNguoiDung>(`/api/v1/he-thong/nguoi-dung/${id}`),
+  themNguoiDung: (duLieu: LuuNguoiDung) =>
+    guiDuLieu<{ id: string; matKhauTam: string }>('/api/v1/he-thong/nguoi-dung', duLieu),
+  suaNguoiDung: (id: string, duLieu: LuuNguoiDung) =>
+    capNhatDuLieu(`/api/v1/he-thong/nguoi-dung/${id}`, duLieu),
+  doiTrangThaiNguoiDung: (id: string, trangThai: string) =>
+    capNhatMotPhan(
+      `/api/v1/he-thong/nguoi-dung/${id}/trang-thai?trangThai=${encodeURIComponent(trangThai)}`,
+    ),
+  datLaiMatKhau: (id: string) =>
+    guiDuLieu<{ matKhauTam: string }>(`/api/v1/he-thong/nguoi-dung/${id}/dat-lai-mat-khau`),
+
+  // Chức năng 45 — ma trận phân quyền
+  themVaiTro: (duLieu: LuuVaiTro) => guiDuLieu<string>('/api/v1/he-thong/vai-tro', duLieu),
+  suaVaiTro: (id: string, duLieu: LuuVaiTro) =>
+    capNhatDuLieu(`/api/v1/he-thong/vai-tro/${id}`, duLieu),
+  xoaVaiTro: (id: string) => xoaDuLieu(`/api/v1/he-thong/vai-tro/${id}`),
+};
+
+// --- Quyết định công nhận (chức năng 8, 31, 32, 36) -------------------------
+
+export interface HoSoDuDieuKien {
+  id: string;
+  maHoSo: string;
+  tenSangKien: string;
+  tenTacGiaChinh?: string | null;
+  tenDonVi?: string | null;
+  tenLinhVuc?: string | null;
+  tongDiem?: number | null;
+  mucCongNhanId?: string | null;
+  tenMucCongNhan?: string | null;
+}
+
+export interface QuyetDinh {
+  id: string;
+  soQuyetDinh: string;
+  ngayBanHanh: string;
+  loai: string;
+  trichYeu?: string | null;
+  nguoiKy?: string | null;
+  chucVuNguoiKy?: string | null;
+  donViBanHanhId?: string | null;
+  tenDonViBanHanh?: string | null;
+  dotDeNghiId?: string | null;
+  tenDot?: string | null;
+  daKySo: boolean;
+  soSangKien: number;
+  soDaCongBo: number;
+}
+
+export interface LuuQuyetDinh {
+  soQuyetDinh: string;
+  ngayBanHanh: string;
+  loai: string;
+  trichYeu?: string | null;
+  nguoiKy?: string | null;
+  chucVuNguoiKy?: string | null;
+  donViBanHanhId?: string | null;
+  dotDeNghiId?: string | null;
+  sangKienIds: string[];
+}
+
+export const apiQuyetDinh = {
+  danhSach: (thamSo?: Record<string, unknown>) =>
+    layPhanTrang<QuyetDinh>('/api/v1/quyet-dinh', thamSo),
+  chiTiet: (id: string) =>
+    layDuLieu<{ thongTin: QuyetDinh; danhSachSangKien: HoSoDuDieuKien[] }>(
+      `/api/v1/quyet-dinh/${id}`,
+    ),
+  hoSoDuDieuKien: (dotDeNghiId?: string, quyetDinhDangSua?: string) =>
+    layDuLieu<HoSoDuDieuKien[]>('/api/v1/quyet-dinh/ho-so-du-dieu-kien', {
+      params: { dotDeNghiId, quyetDinhDangSua },
+    }),
+  banHanh: (duLieu: LuuQuyetDinh) => guiDuLieu<string>('/api/v1/quyet-dinh', duLieu),
+  sua: (id: string, duLieu: LuuQuyetDinh) => capNhatDuLieu(`/api/v1/quyet-dinh/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/quyet-dinh/${id}`),
+  congBo: (id: string, congKhai: boolean) =>
+    guiDuLieu(`/api/v1/quyet-dinh/${id}/cong-bo?congKhai=${congKhai}`),
+  duongDanPdf: (id: string) => `/api/v1/quyet-dinh/${id}/xuat-pdf`,
 };
 
 export type { PhanHoiPhanTrang };

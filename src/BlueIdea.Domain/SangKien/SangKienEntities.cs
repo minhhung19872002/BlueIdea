@@ -77,6 +77,17 @@ public class HoSoSangKien : ThucThe
 
     public Guid? QuyetDinhId { get; set; }
 
+    /// <summary>
+    /// Ket qua da duoc CONG BO chinh thuc hay chua (chuc nang 32).
+    ///
+    /// Co tinh dat tren ho so chu khong chi tren <c>ket_qua_xet_duyet</c>: khong phai ho so nao
+    /// cung co ban ghi ket qua hoi dong (vi du ho so ket luan o cap lanh dao), nen neu chi dua vao
+    /// bang do thi trang thai cong bo se bi mat.
+    /// </summary>
+    public bool DaCongBoKetQua { get; set; }
+
+    public DateTimeOffset? NgayCongBoKetQua { get; set; }
+
     public DateOnly? NgayCongNhan { get; set; }
 
     // --- Thoi gian va khoa ---

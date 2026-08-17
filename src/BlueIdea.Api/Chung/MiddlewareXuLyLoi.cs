@@ -109,18 +109,39 @@ public sealed class MiddlewareXuLyLoi
     /// <summary>Anh xa ma loi nghiep vu sang ma HTTP phu hop.</summary>
     private static int MaHttpTheoMaLoi(string maLoi) => maLoi switch
     {
-        MaLoiHeThong.ChuaXacThuc => (int)HttpStatusCode.Unauthorized,
+        // 401 - chua/khong xac thuc duoc. Loi dang nhap KHONG duoc phan biet giua "sai tai khoan"
+        // va "sai mat khau" nen deu tra ve cung mot ma, tranh do tai khoan ton tai.
+        MaLoiHeThong.ChuaXacThuc or MaLoiHeThong.SaiTaiKhoanMatKhau
+            or MaLoiHeThong.TaiKhoanBiKhoa or MaLoiHeThong.TaiKhoanChuaKichHoat
+            or MaLoiHeThong.TokenKhongHopLe or MaLoiHeThong.TokenHetHan
+            or MaLoiHeThong.CanXacThucMfa
+            => (int)HttpStatusCode.Unauthorized,
+
         MaLoiHeThong.KhongCoQuyen or MaLoiHeThong.KhongCoQuyenXuLyBuoc
             => (int)HttpStatusCode.Forbidden,
+
         MaLoiHeThong.KhongTimThay => (int)HttpStatusCode.NotFound,
+
+        // 409 - yeu cau hop le nhung XUNG DOT voi trang thai hien tai cua tai nguyen.
         MaLoiHeThong.DangDuocThamChieu or MaLoiHeThong.TrungMa
             or MaLoiHeThong.QuyTrinhDangSuDung or MaLoiHeThong.XungDotDuLieu
+            or MaLoiHeThong.YeuCauTrungLap
+            or MaLoiHeThong.TrangThaiKhongChoPhepSua or MaLoiHeThong.TrangThaiKhongChoPhepXoa
+            or MaLoiHeThong.DotDeNghiDaDong or MaLoiHeThong.DotDeNghiDaKhoa
+            or MaLoiHeThong.QuaHanNopHoSo or MaLoiHeThong.HoSoDangKhoa
+            or MaLoiHeThong.PhieuDaGuiKhongSuaDuoc or MaLoiHeThong.QuyTrinhChuaKichHoat
             => (int)HttpStatusCode.Conflict,
+
+        // 422 - du lieu gui len khong thoa man rang buoc nghiep vu.
         MaLoiHeThong.DuLieuKhongHopLe or MaLoiHeThong.TyLeDongGopKhongHopLe
             or MaLoiHeThong.ThieuThanhPhanBatBuoc or MaLoiHeThong.TrongSoKhongDu100
-            or MaLoiHeThong.KhoangDiemChongLan
+            or MaLoiHeThong.KhoangDiemChongLan or MaLoiHeThong.VuotSoTacGiaToiDa
+            or MaLoiHeThong.TepKhongHopLe or MaLoiHeThong.VuotDungLuongToiDa
+            or MaLoiHeThong.DiemVuotToiDa or MaLoiHeThong.XungDotLoiIch
+            or MaLoiHeThong.MatKhauKhongDatChinhSach or MaLoiHeThong.MatKhauDaSuDung
+            or MaLoiHeThong.BoTieuChiKhongHopLe or MaLoiHeThong.QuyTrinhKhongHopLe
             => (int)HttpStatusCode.UnprocessableEntity,
-        MaLoiHeThong.YeuCauTrungLap => (int)HttpStatusCode.Conflict,
+
         _ => (int)HttpStatusCode.BadRequest
     };
 

@@ -266,6 +266,59 @@ public interface IDichVuNhatKy
         string ketQua = "THANH_CONG", CancellationToken ct = default);
 }
 
+/// <summary>
+/// Day cong viec sang tien trinh nen.
+///
+/// Tang Application chi biet "viec gi can chay nen", khong biet Hangfire. Nho vay handler
+/// van unit-test duoc bang mot cai dat gia, va co the doi bo dieu phoi ma khong sua nghiep vu.
+/// </summary>
+public interface IHangDoiCongViecNen
+{
+    /// <summary>Trich xuat van ban (text-layer hoac OCR) cho mot tep vua tai len.</summary>
+    void XepLichTrichXuatVanBan(Guid tepTinId);
+
+    /// <summary>Chay kiem tra trung lap cho mot ho so vua nop.</summary>
+    void XepLichKiemTraTrungLap(Guid sangKienId);
+
+    /// <summary>Gui ngay cac tin dang cho trong hang doi (khong doi den luot dinh ky).</summary>
+    void XepLichGuiHangDoi();
+}
+
+/// <summary>
+/// Trich xuat van ban tu tep. Cai dat goi dich vu OCR NOI BO (Tesseract) qua mang rieng
+/// cua container - tuyet doi khong goi API AI ben thu ba (rang buoc Muc 1 dac ta).
+/// </summary>
+public interface IDichVuOcr
+{
+    Task<KetQuaTrichXuatVanBan> TrichXuatAsync(Stream noiDung, string tenTep, string? mimeType,
+        CancellationToken ct = default);
+
+    /// <summary>Dinh dang co the trich xuat duoc van ban hay khong (bo qua anh chup man hinh, zip...).</summary>
+    bool HoTro(string? phanMoRong);
+}
+
+public sealed class KetQuaTrichXuatVanBan
+{
+    public bool ThanhCong { get; init; }
+
+    public string VanBan { get; init; } = string.Empty;
+
+    public int SoTrang { get; init; }
+
+    /// <summary>TEXT_LAYER | OCR | ANH</summary>
+    public string PhuongPhap { get; init; } = "TEXT_LAYER";
+
+    public string? ThongBaoLoi { get; init; }
+}
+
+/// <summary>Gui email / SMS that su. Tach khoi hang doi de test duoc phan dieu phoi.</summary>
+public interface IDichVuGuiTin
+{
+    Task GuiEmailAsync(string nguoiNhan, string? tieuDe, string noiDung, CancellationToken ct = default);
+
+    Task GuiSmsAsync(string soDienThoai, string noiDung, CancellationToken ct = default);
+}
+
 /// <summary>Doc cau hinh he thong co cache.</summary>
 public interface IDichVuCauHinh
 {

@@ -6,7 +6,10 @@ using BlueIdea.Api.Hubs;
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Infrastructure;
+using BlueIdea.Infrastructure.CongViecNen;
 using BlueIdea.Infrastructure.DichVu;
+using Hangfire;
+using Hangfire.Dashboard;
 using BlueIdea.Infrastructure.Persistence;
 using BlueIdea.Infrastructure.Seed;
 using BlueIdea.Reporting;
@@ -153,28 +156,31 @@ builder.Services.AddCors(o => o.AddPolicy("MacDinh", chinhSach =>
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("csdl", tags: new[] { "ready" });
 
+// Nguong doc tu cau hinh de van hanh dieu chinh duoc theo tai thuc te, va de kiem thu tu dong
+// (hang tram request tu cung mot IP) khong bi chan. Mac dinh dung dung Muc 6 dac ta.
+var gioiHanChung = builder.Configuration.GetValue("GioiHanTruyCap:SoRequestMoiPhut", 100);
+var gioiHanDangNhap = builder.Configuration.GetValue("GioiHanTruyCap:SoLanDangNhapMoiPhut", 5);
+
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Mac dinh 100 request/phut/IP (Muc 6 dac ta).
     o.AddPolicy("MacDinh", ngCanh =>
         System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             ngCanh.Connection.RemoteIpAddress?.ToString() ?? "khong-xac-dinh",
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
+                PermitLimit = gioiHanChung,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
 
-    // Dang nhap: 5 lan/phut/IP.
     o.AddPolicy("DangNhap", ngCanh =>
         System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             ngCanh.Connection.RemoteIpAddress?.ToString() ?? "khong-xac-dinh",
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = gioiHanDangNhap,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
@@ -217,6 +223,22 @@ app.MapHub<ThongBaoHub>("/hubs/thong-bao");
 
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+
+// ---------------------------------------------------------------------------------------
+// Cong viec nen (Hangfire)
+// ---------------------------------------------------------------------------------------
+if (app.Configuration.GetValue("CongViecNen:BatHangfire", true))
+{
+    // Dashboard chi danh cho quan tri vien - filter tu viet doc quyen tu JWT.
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new ChiQuanTriVaoHangfire() },
+        DashboardTitle = "BlueIdea — Công việc nền",
+        IsReadOnlyFunc = _ => false
+    });
+
+    DangKyCongViecDinhKy(app);
+}
 
 // ---------------------------------------------------------------------------------------
 // Migration + seed du lieu mau khi khoi dong
@@ -302,12 +324,70 @@ static bool LaLoiKetNoiTamThoi(Exception ex)
     return false;
 }
 
+/// <summary>
+/// Dang ky cac cong viec chay dinh ky. Bieu thuc cron doc tu cau hinh de van hanh doi duoc
+/// tan suat ma khong phai build lai (Muc 13 dac ta).
+/// </summary>
+static void DangKyCongViecDinhKy(WebApplication app)
+{
+    var muiGio = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+    var quanLy = app.Services.GetRequiredService<IRecurringJobManager>();
+
+    string Lich(string khoa, string macDinh)
+        => app.Configuration[$"CongViecNen:Lich:{khoa}"] ?? macDinh;
+
+    // Nhac han xu ly / han cham diem - 7h sang moi ngay.
+    quanLy.AddOrUpdate<CongViecNhacHan>(
+        "nhac-han-xu-ly",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("NhacHan", "0 7 * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
+
+    // Dong dot de nghi qua han - moi gio.
+    quanLy.AddOrUpdate<CongViecDongDotHetHan>(
+        "dong-dot-het-han",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("DongDot", "0 * * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
+
+    // Rut hang doi email/SMS - moi 5 phut.
+    quanLy.AddOrUpdate<CongViecGuiHangDoi>(
+        "gui-hang-doi",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("GuiHangDoi", "*/5 * * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
+
+    // Quet bu kiem tra trung lap - moi 15 phut.
+    quanLy.AddOrUpdate<CongViecQuetTrungLapConThieu>(
+        "quet-trung-lap-con-thieu",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("QuetTrungLap", "*/15 * * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
+}
+
 static IEnumerable<string> LayTatCaMaQuyen()
     => typeof(MaQuyen)
         .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
         .Where(f => f.IsLiteral && f.FieldType == typeof(string))
         .Select(f => (string)f.GetRawConstantValue()!)
         .Distinct();
+
+/// <summary>
+/// Chi cho phep vai tro quan tri he thong mo dashboard Hangfire.
+///
+/// Dashboard hien noi dung tham so cua job (co the chua Id ho so, dia chi email) nen phai
+/// dong quyen chat, khong duoc de mo nhu trang tinh.
+/// </summary>
+public sealed class ChiQuanTriVaoHangfire : IDashboardAuthorizationFilter
+{
+    public bool Authorize(DashboardContext context)
+    {
+        var nguoiDung = context.GetHttpContext().User;
+
+        return nguoiDung.Identity?.IsAuthenticated == true
+               && nguoiDung.HasClaim(NguoiDungHienTai.ClaimVaiTro, MaVaiTro.QuanTriHeThong);
+    }
+}
 
 /// <summary>Lop moc de WebApplicationFactory trong integration test tham chieu duoc.</summary>
 public partial class Program

@@ -283,11 +283,14 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
     private readonly IBoMayQuyTrinh _boMay;
     private readonly IBoChuyenDoiSnapshotQuyTrinh _snapshot;
     private readonly IDichVuThongBao _thongBao;
+    private readonly IDichVuCauHinh _cauHinh;
+    private readonly IHangDoiCongViecNen _hangDoi;
 
     public NopHoSoCommandHandler(
         IAppDbContext db, INguoiDungHienTai nguoiDung, IDongHoHeThong dongHo,
         DichVuDotDeNghi dichVuDot, IBoMayQuyTrinh boMay,
-        IBoChuyenDoiSnapshotQuyTrinh snapshot, IDichVuThongBao thongBao)
+        IBoChuyenDoiSnapshotQuyTrinh snapshot, IDichVuThongBao thongBao,
+        IDichVuCauHinh cauHinh, IHangDoiCongViecNen hangDoi)
     {
         _db = db;
         _nguoiDung = nguoiDung;
@@ -296,6 +299,8 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
         _boMay = boMay;
         _snapshot = snapshot;
         _thongBao = thongBao;
+        _cauHinh = cauHinh;
+        _hangDoi = hangDoi;
     }
 
     public async Task<KetQuaNopHoSo> Handle(NopHoSoCommand request, CancellationToken ct)
@@ -405,6 +410,29 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
                     ["tenBuoc"] = ketQua.TenBuocMoi
                 },
                 ct).ConfigureAwait(false);
+        }
+
+        // Kiem tra trung lap chay NEN: mot lan chay quet toan bo kho ho so mat vai tram ms den
+        // vai giay, khong duoc chan phan hoi cua thao tac nop.
+        var tuDongKiemTra = await _cauHinh
+            .LayAsync(KhoaCauHinh.TuDongKiemTraTrungLap, true, ct)
+            .ConfigureAwait(false);
+
+        if (tuDongKiemTra)
+        {
+            // Neu con tep dang cho OCR thi CHUA chay: chay bay gio se bo sot noi dung file scan.
+            // Job OCR se tu day sang kiem tra trung lap khi tep cuoi cung xong (va con mot vong
+            // quet dinh ky lam luoi an toan neu OCR that bai han).
+            var conChoOcr = await _db.SangKienTepDinhKem.AsNoTracking()
+                .Where(x => x.SangKienId == hoSo.Id)
+                .Join(_db.TepTin.AsNoTracking(), x => x.TepTinId, t => t.Id, (_, t) => t.TrangThaiOcr)
+                .AnyAsync(tt => tt == TrangThaiOcrTep.ChuaXuLy || tt == TrangThaiOcrTep.DangXuLy, ct)
+                .ConfigureAwait(false);
+
+            if (!conChoOcr)
+            {
+                _hangDoi.XepLichKiemTraTrungLap(hoSo.Id);
+            }
         }
 
         return new KetQuaNopHoSo(hoSo.Id, hoSo.MaHoSo, hoSo.TrangThaiTong, ketQua.TenBuocMoi);

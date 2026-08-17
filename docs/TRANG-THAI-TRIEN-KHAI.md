@@ -21,12 +21,12 @@ thiện, đều được ghi rõ.
 |---|---|---|---|
 | 1 | Lĩnh vực | ✅ | CRUD, cây phân cấp, tìm không dấu, chặn xóa khi đang tham chiếu, xuất Excel |
 | 2 | Đối tượng | ✅ | CRUD đầy đủ |
-| 3 | Đợt đề nghị | ✅ | CRUD + Mở/Đóng/Khóa đợt + Sao chép đợt; chặn nộp khi hết hạn hoặc đã đóng |
+| 3 | Đợt đề nghị | ✅ | CRUD + Mở/Đóng/Khóa đợt + Sao chép đợt; tự động đóng đợt quá hạn nộp mỗi giờ |
 | 4 | Loại tác giả | ✅ | Kèm ràng buộc số tác giả tối đa, áp dụng khi nộp hồ sơ |
 | 5 | Đơn vị phê duyệt | ✅ | Cây tổ chức, đường dẫn cây phục vụ phạm vi dữ liệu |
 | 6 | Biểu mẫu xuất | 🟡 | Mô hình + seed 5 mẫu + API danh mục. Chưa có màn hình quét placeholder từ `.docx` |
 | 7 | Biểu mẫu thống kê | 🟠 | Mô hình dữ liệu và API danh mục; báo cáo tùy biến chưa sinh động từ cấu hình |
-| 8 | Quyết định | 🟡 | Mô hình + quan hệ N-N với sáng kiến; chưa có màn hình ban hành quyết định |
+| 8 | Quyết định | ✅ | CRUD + chọn sáng kiến đủ điều kiện + xuất PDF; chặn gán trùng và chặn sửa khi đã ký số |
 
 ## Nhóm II — Quy trình động
 
@@ -64,7 +64,7 @@ thiện, đều được ghi rõ.
 | 23 | Quản lý hồ sơ sáng kiến | ✅ | Danh sách, sửa, rút, tab lịch sử chỉnh sửa có diff trước/sau |
 | 24 | Thành phần hồ sơ | ✅ | Checklist trực quan ✓/✗/⚠, chặn nộp và nêu rõ mục còn thiếu |
 | 25 | Tệp tin đính kèm | ✅ | Kiểm tra magic number, chặn tệp thực thi, SHA-256. Quét ClamAV: ⬜ |
-| 26 | Kiểm tra trùng lặp | ✅ | Pipeline đầy đủ, giao diện đối chiếu 2 cột highlight. OCR: dịch vụ đã đóng gói, chưa nối vào luồng nộp |
+| 26 | Kiểm tra trùng lặp | ✅ | Pipeline đầy đủ, giao diện đối chiếu 2 cột highlight. OCR đã nối vào luồng nộp: tệp PDF/ảnh tự trích xuất văn bản rồi mới chạy so khớp |
 
 ## Nhóm VI — Tiếp nhận và xử lý
 
@@ -73,9 +73,9 @@ thiện, đều được ghi rõ.
 | 27 | Tiếp nhận hồ sơ | ✅ | Nút hành động sinh động theo quy trình |
 | 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, chọn nhiều, xuất Excel |
 | 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, thu hồi, Idempotency-Key |
-| 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động: ⬜ |
-| 31/36 | Đính kèm quyết định | 🟠 | Mô hình dữ liệu xong; chưa có luồng tạo và gắn quyết định trên giao diện |
-| 32 | Kết quả sáng kiến | 🟡 | Tổng hợp và lưu kết quả xét duyệt xong; công bố công khai hàng loạt chưa có |
+| 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
+| 31/36 | Đính kèm quyết định | ✅ | Màn hình ban hành quyết định, chọn sáng kiến đủ điều kiện, xuất PDF theo mẫu hành chính |
+| 32 | Kết quả sáng kiến | ✅ | Công bố kết quả hàng loạt theo quyết định, mở hiển thị công khai và gửi thông báo tới tác giả |
 
 ## Nhóm VII — Đánh giá
 
@@ -101,14 +101,14 @@ thiện, đều được ghi rõ.
 |---|---|---|---|
 | 41 | Tích hợp SSO/IOC/TĐKT | 🟠 | Mô hình `he_thong_tich_hop`, `nhat_ky_dong_bo` và điểm cắm adapter; chưa nối hệ thống thật |
 | 42 | Ứng dụng di động | ⬜ | Chưa triển khai. Web đã responsive từ 320px nên dùng được trên điện thoại |
-| 43 | Quản lý người dùng | 🟡 | Danh sách, tìm kiếm, khóa/mở khóa. Thêm/sửa và import Excel: ⬜ |
-| 44 | Quản lý đơn vị | 🟡 | API CRUD đầy đủ + cây tổ chức; giao diện hiện ở mức xem cây |
-| 45 | Quản lý vai trò | 🟡 | Ma trận phân quyền hiển thị đầy đủ ở chế độ chỉ đọc |
+| 43 | Quản lý người dùng | ✅ | Thêm/sửa/gán vai trò, đặt lại mật khẩu (thu hồi phiên cũ), khóa/mở khóa. Import Excel: ⬜ |
+| 44 | Quản lý đơn vị | ✅ | Cây tổ chức + panel chi tiết, thêm đơn vị con, sửa, xoá ngay trên giao diện |
+| 45 | Quản lý vai trò | ✅ | Ma trận phân quyền sửa trực tiếp trên bảng, chọn cả cột, thêm/sửa/xoá vai trò |
 | 46 | Cấu hình hệ thống | ✅ | Đọc/ghi theo nhóm, có kiểu dữ liệu, màu chủ đạo áp dụng ngay lên giao diện |
-| 47 | Cấu hình đơn vị | 🟡 | Trường dữ liệu (logo, tiêu đề văn bản, người ký mặc định) đã có; giao diện chưa có |
+| 47 | Cấu hình đơn vị | ✅ | Sửa được tiêu đề văn bản, người ký mặc định và chức vụ ngay trong form đơn vị |
 | 48 | Cấu hình menu | ✅ | Menu render động từ CSDL và lọc theo quyền; sửa menu bằng API |
 | 49 | Cấu hình chữ ký số | 🟠 | Mô hình `cau_hinh_chu_ky_so`, `nhat_ky_ky_so`; chưa tích hợp CA thật |
-| 50 | Cấu hình email & SMS | 🟡 | Mô hình + mẫu thông báo + hàng đợi gửi; worker gửi thật: ⬜ |
+| 50 | Cấu hình email & SMS | 🟡 | Worker gửi thật đã có (SMTP qua MailKit, SMS qua API nhà cung cấp), rút hàng đợi mỗi 5 phút. Màn hình cấu hình máy chủ: ⬜ |
 | 51 | Cấu hình thông tin sáng kiến | ✅ | Ngưỡng trùng lặp, hệ số tính điểm, giới hạn tệp — sửa được trên giao diện |
 
 ---
@@ -117,18 +117,48 @@ thiện, đều được ghi rõ.
 
 | Mức | Số chức năng |
 |---|---|
-| ✅ Hoàn chỉnh | 31 |
-| 🟡 API xong, giao diện cơ bản | 12 |
-| 🟠 Có khung, nghiệp vụ chưa đầy đủ | 6 |
+| ✅ Hoàn chỉnh | 39 |
+| 🟡 API xong, giao diện cơ bản | 5 |
+| 🟠 Có khung, nghiệp vụ chưa đầy đủ | 5 |
 | ⬜ Chưa triển khai | 2 |
+
+## Công việc nền (Hangfire)
+
+Chạy trong chính tiến trình API, lưu hàng đợi trong PostgreSQL. Dashboard tại `/hangfire`,
+chỉ vai trò Quản trị hệ thống mở được. Tắt hoàn toàn bằng `CongViecNen:BatHangfire=false`.
+
+| Công việc | Lịch mặc định | Nhiệm vụ |
+|---|---|---|
+| `nhac-han-xu-ly` | 7h hằng ngày | Nhắc hạn xử lý bước và hạn chấm điểm, đánh dấu quá hạn |
+| `dong-dot-het-han` | mỗi giờ | Tự đóng đợt đề nghị đã qua hạn nộp (chỉ đợt bật `tự động khoá`) |
+| `gui-hang-doi` | mỗi 5 phút | Rút hàng đợi email/SMS và gửi thật |
+| `quet-trung-lap-con-thieu` | mỗi 15 phút | Quét bù hồ sơ đã nộp nhưng chưa kiểm tra trùng lặp |
+
+Ngoài ra hai công việc chạy theo sự kiện: trích xuất văn bản (OCR) khi tải tệp lên, và kiểm tra
+trùng lặp khi nộp hồ sơ.
+
+Biểu thức cron đọc từ cấu hình `CongViecNen:Lich:*` nên vận hành đổi được tần suất mà không
+phải build lại.
+
+## Thứ tự chạy OCR → kiểm tra trùng lặp
+
+Kiểm tra trùng lặp phải đọc được nội dung tệp đính kèm, nên không được chạy trước khi OCR xong:
+
+1. Tải tệp lên → xếp lịch trích xuất văn bản (nếu định dạng rút được văn bản).
+2. Nộp hồ sơ → chỉ xếp lịch kiểm tra trùng lặp **nếu không còn tệp nào đang chờ OCR**.
+3. Tệp OCR xong → nếu đó là tệp cuối cùng của một hồ sơ đã nộp thì tự đẩy sang kiểm tra trùng lặp.
+4. Vòng quét định kỳ 15 phút dọn nốt hồ sơ mắc kẹt (OCR thất bại hẳn, dịch vụ AI chết lúc nộp…).
+
+Bước 4 là lưới an toàn có chủ đích: không có nó, một lần OCR hỏng sẽ khiến hồ sơ vĩnh viễn không
+được kiểm tra trùng lặp mà không ai biết.
 
 ## Việc còn lại theo thứ tự ưu tiên
 
-1. **Hangfire job nền** — nhắc hạn xử lý, tự động đóng đợt hết hạn, chạy kiểm tra trùng lặp
-   sau khi nộp, gửi email/SMS từ hàng đợi. Hạ tầng (bảng hàng đợi, mẫu thông báo) đã sẵn sàng.
-2. **Luồng quyết định công nhận** (chức năng 31/36) và công bố kết quả hàng loạt (32).
-3. **Nối OCR vào luồng nộp hồ sơ** — dịch vụ đã đóng gói, cần gọi khi có tệp PDF scan.
-4. **Hoàn thiện giao diện quản trị**: thêm/sửa người dùng, sửa cây đơn vị, sửa ma trận phân quyền.
-5. **Tích hợp thật**: SSO OIDC, đẩy dữ liệu sang Thi đua khen thưởng và IOC.
-6. **Chữ ký số** với nhà cung cấp CA cụ thể của đơn vị.
-7. **Ứng dụng di động** React Native dùng chung hợp đồng API hiện có.
+1. **Màn hình cấu hình máy chủ email/SMS** (chức năng 50) — worker gửi đã chạy, còn thiếu giao
+   diện nhập host/port/tài khoản thay vì sửa thẳng trong cơ sở dữ liệu.
+2. **Import người dùng từ Excel** và **xuất PDF phiếu chấm hàng loạt** (chức năng 35).
+3. **Báo cáo tuỳ biến sinh động từ cấu hình** (chức năng 7) và màn hình quét placeholder `.docx`
+   cho biểu mẫu xuất (chức năng 6).
+4. **Tích hợp thật**: SSO OIDC, đẩy dữ liệu sang Thi đua khen thưởng và IOC.
+5. **Chữ ký số** với nhà cung cấp CA cụ thể của đơn vị.
+6. **Ứng dụng di động** React Native dùng chung hợp đồng API hiện có.

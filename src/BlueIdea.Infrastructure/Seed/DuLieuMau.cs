@@ -368,14 +368,26 @@ public sealed partial class DuLieuMau
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Nap cau hinh menu.
+    ///
+    /// Bo sung THEO TUNG MA thay vi bo qua ca bang khi da co du lieu: khi nang cap len phien ban
+    /// co them man hinh moi, he thong dang chay phai nhan duoc muc menu moi ma khong lam mat cac
+    /// muc quan tri vien da tu sua.
+    /// </summary>
     private async Task SeedMenuAsync(CancellationToken ct)
     {
-        if (await _db.CauHinhMenu.AnyAsync(ct).ConfigureAwait(false))
-        {
-            return;
-        }
+        var maDaCo = await _db.CauHinhMenu.AsNoTracking()
+            .Select(x => x.Ma)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var daCo = maDaCo.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var menu = new List<CauHinhMenu>();
+
+        // Ma tuong ung voi TUNG Id sinh ra - ke ca muc khong duoc them, de con tra nguoc ve cha.
+        var maTheoId = new Dictionary<Guid, string>();
         var thuTu = 1;
 
         CauHinhMenu Them(string ma, string ten, string? duongDan, string? icon,
@@ -393,7 +405,15 @@ public sealed partial class DuLieuMau
                 ThuTu = thuTu++,
                 Loai = "WEB"
             };
-            menu.Add(m);
+
+            maTheoId[m.Id] = ma;
+
+            // Muc da ton tai thi giu nguyen ban ghi cua quan tri vien, chi bo qua o buoc them.
+            if (!daCo.Contains(ma))
+            {
+                menu.Add(m);
+            }
+
             return m;
         }
 
@@ -404,6 +424,8 @@ public sealed partial class DuLieuMau
         Them("XU_LY", "Việc cần xử lý", "/xu-ly", "AuditOutlined", MaQuyen.XuLyXem);
         Them("DANH_GIA", "Hồ sơ đánh giá", "/danh-gia", "StarOutlined", MaQuyen.DanhGiaXem);
         Them("HOI_DONG", "Hội đồng sáng kiến", "/hoi-dong", "TeamOutlined", MaQuyen.HoiDongXem);
+        Them("QUYET_DINH", "Quyết định công nhận", "/quyet-dinh", "SafetyCertificateOutlined",
+            MaQuyen.QuyetDinhXem);
         Them("TRA_CUU", "Tra cứu", "/tra-cuu", "SearchOutlined", MaQuyen.SangKienXem);
 
         var baoCao = Them("BAO_CAO", "Báo cáo thống kê", null, "BarChartOutlined", MaQuyen.BaoCaoXem);
@@ -455,7 +477,35 @@ public sealed partial class DuLieuMau
         Them("NK_DONG_BO", "Nhật ký đồng bộ", "/quan-tri/nhat-ky/dong-bo", null,
             MaQuyen.NhatKyXem, nhatKy.Id);
 
+        if (menu.Count == 0)
+        {
+            return;
+        }
+
+        // Muc cha co the da co san trong CSDL (chi muc con la moi). Khi do Id sinh ra o tren chi la
+        // Id tam, phai tro lai Id THAT trong CSDL, neu khong cay menu se co nhanh mo coi.
+        var idTheoMa = await _db.CauHinhMenu.AsNoTracking()
+            .ToDictionaryAsync(x => x.Ma, x => x.Id, StringComparer.OrdinalIgnoreCase, ct)
+            .ConfigureAwait(false);
+
+        var idSeThem = menu.Select(x => x.Id).ToHashSet();
+
+        foreach (var m in menu.Where(x => x.MenuChaId.HasValue))
+        {
+            if (idSeThem.Contains(m.MenuChaId!.Value))
+            {
+                continue;
+            }
+
+            m.MenuChaId = maTheoId.TryGetValue(m.MenuChaId.Value, out var maCha)
+                          && idTheoMa.TryGetValue(maCha, out var idThat)
+                ? idThat
+                : null;
+        }
+
         _db.CauHinhMenu.AddRange(menu);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Đã bổ sung {SoMuc} mục menu mới.", menu.Count);
     }
 }

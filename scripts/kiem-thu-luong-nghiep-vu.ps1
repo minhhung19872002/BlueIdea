@@ -254,6 +254,61 @@ KiemTra 'Ho so o trang thai DA_PHE_DUYET' ($ct.trangThaiTong -eq 'DA_PHE_DUYET')
 KiemTra 'Ket qua = DAT' ($ct.ketQua -eq 'DAT')
 KiemTra 'Co diem tong hop' ($null -ne $ct.tongDiem) "$($ct.tongDiem) diem"
 
+# --- 6b. Ban hanh quyet dinh cong nhan va cong bo ket qua --------------------
+Ghi "`n[6b] BAN HANH QUYET DINH VA CONG BO KET QUA" 'Yellow'
+
+$admin = DangNhap 'admin'
+
+$duDieuKien = (Invoke-RestMethod -Uri "$Goc/api/v1/quyet-dinh/ho-so-du-dieu-kien" -Headers $admin).duLieu
+KiemTra 'Ho so vua duyet nam trong danh sach du dieu kien' `
+    (($duDieuKien | Where-Object { $_.id -eq $hoSoId }).Count -eq 1) `
+    "$($duDieuKien.Count) ho so du dieu kien"
+
+$soQuyetDinh = "KT-$((Get-Date).ToString('yyyyMMddHHmmss'))"
+$than = @{
+    soQuyetDinh    = $soQuyetDinh
+    ngayBanHanh    = (Get-Date).ToString('yyyy-MM-dd')
+    loai           = 'CO_SO'
+    trichYeu       = 'Ve viec cong nhan sang kien cap co so'
+    nguoiKy        = 'Nguyen Van Lanh Dao'
+    chucVuNguoiKy  = 'Chu tich UBND'
+    sangKienIds    = @($hoSoId)
+} | ConvertTo-Json
+
+$qd = Invoke-RestMethod -Uri "$Goc/api/v1/quyet-dinh" -Method Post -Body $than `
+    -ContentType 'application/json' -Headers $admin
+$quyetDinhId = $qd.duLieu
+KiemTra 'Ban hanh quyet dinh cong nhan' ($null -ne $quyetDinhId) "so $soQuyetDinh"
+
+# Gan lai chinh ho so do vao mot quyet dinh khac phai bi chan.
+$thanTrung = @{
+    soQuyetDinh = "$soQuyetDinh-B"; ngayBanHanh = (Get-Date).ToString('yyyy-MM-dd')
+    loai = 'CO_SO'; sangKienIds = @($hoSoId)
+} | ConvertTo-Json
+$loiTrung = LoiNghiepVu {
+    Invoke-RestMethod -Uri "$Goc/api/v1/quyet-dinh" -Method Post -Body $thanTrung `
+        -ContentType 'application/json' -Headers $admin
+}
+KiemTra 'Chan gan mot sang kien vao hai quyet dinh' `
+    ($null -ne $loiTrung -and $loiTrung.maLoi -eq 'DU_LIEU_KHONG_HOP_LE') "$($loiTrung.thongBao)"
+
+$congBo = Invoke-RestMethod -Uri "$Goc/api/v1/quyet-dinh/$quyetDinhId/cong-bo?congKhai=true" `
+    -Method Post -Headers $admin
+KiemTra 'Cong bo ket qua hang loat' $congBo.thanhCong "$($congBo.thongBao)"
+
+$qdChiTiet = (Invoke-RestMethod -Uri "$Goc/api/v1/quyet-dinh/$quyetDinhId" -Headers $admin).duLieu
+KiemTra 'Quyet dinh ghi nhan da cong bo' `
+    ($qdChiTiet.thongTin.soDaCongBo -eq $qdChiTiet.thongTin.soSangKien) `
+    "$($qdChiTiet.thongTin.soDaCongBo)/$($qdChiTiet.thongTin.soSangKien)"
+
+$ctSau = (Invoke-RestMethod -Uri "$Goc/api/v1/sang-kien/$hoSoId" -Headers $admin).duLieu
+KiemTra 'Ho so duoc gan ngay cong nhan va mo cong khai' `
+    ($null -ne $ctSau.ngayCongNhan -and $ctSau.congKhai) "ngay $($ctSau.ngayCongNhan)"
+
+$pdf = Invoke-WebRequest -Uri "$Goc/api/v1/quyet-dinh/$quyetDinhId/xuat-pdf" -Headers $admin
+KiemTra 'Xuat quyet dinh ra PDF' `
+    ($pdf.StatusCode -eq 200 -and $pdf.Content[0] -eq 0x25) "$($pdf.Content.Length) byte"
+
 # --- 7. Tien do va bao cao ---------------------------------------------------
 Ghi "`n[7] TIEN DO VA BAO CAO" 'Yellow'
 
