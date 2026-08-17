@@ -48,10 +48,28 @@ export default function TrangDangNhap() {
     <div className="trang-dang-nhap">
       <div className="the-dang-nhap">
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Typography.Title level={4} style={{ marginBottom: 4 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 10,
+              background: '#1677ff',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: 16,
+            }}
+          >
+            BI
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginTop: 12, lineHeight: 1.4 }}>
             {tenHeThong}
-          </Typography.Title>
-          {tenDonVi && <Typography.Text type="secondary">{tenDonVi}</Typography.Text>}
+          </div>
+          {tenDonVi && (
+            <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)', marginTop: 2 }}>{tenDonVi}</div>
+          )}
         </div>
 
         <Form<FormDangNhap> layout="vertical" onFinish={xuLyGui} requiredMark={false} size="large">
@@ -82,11 +100,24 @@ export default function TrangDangNhap() {
           </Button>
         </Form>
 
-        {(emailHoTro || dienThoaiHoTro) && (
-          <div style={{ marginTop: 20, textAlign: 'center', fontSize: 12, color: '#888' }}>
-            Hỗ trợ: {emailHoTro} {dienThoaiHoTro && `• ${dienThoaiHoTro}`}
-          </div>
-        )}
+        <div
+          style={{
+            marginTop: 20,
+            paddingTop: 14,
+            borderTop: '1px solid #f0f0f0',
+            fontSize: 12,
+            color: 'rgba(0,0,0,0.45)',
+            textAlign: 'center',
+            lineHeight: 1.6,
+          }}
+        >
+          Khóa tài khoản sau 5 lần sai · Nhật ký truy cập theo quy định ATTT cấp độ 2
+          {(emailHoTro || dienThoaiHoTro) && (
+            <div style={{ marginTop: 4 }}>
+              Hỗ trợ: {emailHoTro} {dienThoaiHoTro && `• ${dienThoaiHoTro}`}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

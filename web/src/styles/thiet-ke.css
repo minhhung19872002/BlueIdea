@@ -1,0 +1,538 @@
+/* =============================================================================
+   Lớp giao diện bám theo bản thiết kế "BlueIdea v2".
+
+   Mọi số đo dưới đây lấy nguyên từ bản thiết kế. Đặt ở tầng CSS thay vì sửa từng
+   màn hình: 25 màn hình hiện có tự nhận đúng kiểu dáng, và lần sau đổi thiết kế
+   chỉ phải sửa một tệp.
+   ============================================================================= */
+
+:root {
+  --tk-nen: #f0f2f5;
+  --tk-vien: #f0f0f0;
+  --tk-vien-dam: #d9d9d9;
+  --tk-chinh: #1677ff;
+  --tk-chinh-nhat: #e6f4ff;
+  --tk-chinh-vien: #91caff;
+  --tk-chu: rgba(0, 0, 0, 0.88);
+  --tk-chu-phu: rgba(0, 0, 0, 0.65);
+  --tk-chu-mo: rgba(0, 0, 0, 0.45);
+  --tk-chu-nhat: rgba(0, 0, 0, 0.35);
+  --tk-thanh-cong: #52c41a;
+  --tk-canh-bao: #faad14;
+  --tk-loi: #ff4d4f;
+}
+
+/* --- Thẻ ------------------------------------------------------------------
+   Thiết kế dùng thẻ PHẲNG: nền trắng, bo 8px, không viền, không đổ bóng.
+   Các khối tách nhau bằng khoảng trắng chứ không bằng đường kẻ. */
+.noi-dung-trang .ant-card {
+  border: none;
+  box-shadow: none;
+  border-radius: 8px;
+}
+
+.noi-dung-trang .ant-card-head {
+  min-height: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--tk-vien);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.noi-dung-trang .ant-card-head-title {
+  padding: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.noi-dung-trang .ant-card-extra {
+  padding: 0;
+}
+
+.noi-dung-trang .ant-card-body {
+  padding: 16px;
+}
+
+/* Thẻ lồng bên trong (các ô biểu đồ ở bảng điều khiển) dùng tiêu đề nhỏ hơn. */
+.noi-dung-trang .ant-card .ant-card .ant-card-head,
+.noi-dung-trang .the-nho > .ant-card-head,
+.noi-dung-trang .ant-card-small > .ant-card-head {
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.noi-dung-trang .ant-card .ant-card .ant-card-head-title,
+.noi-dung-trang .the-nho > .ant-card-head .ant-card-head-title,
+.noi-dung-trang .ant-card-small > .ant-card-head .ant-card-head-title {
+  font-size: 14px;
+}
+
+/* Khoảng cách đều giữa các khối trong một trang. */
+.noi-dung-trang > .ant-card + .ant-card,
+.noi-dung-trang > .ant-row + .ant-card,
+.noi-dung-trang > .ant-card + .ant-row,
+.noi-dung-trang > .ant-row + .ant-row {
+  margin-top: 12px;
+}
+
+/* --- Bảng -----------------------------------------------------------------
+   Thiết kế bọc bảng trong khung viền mảnh bo 8px, tiêu đề nền xám nhạt. */
+.noi-dung-trang .ant-table {
+  border: 1px solid var(--tk-vien);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.noi-dung-trang .ant-table-thead > tr > th {
+  background: #fafafa;
+  border-bottom: 1px solid var(--tk-vien);
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tk-chu);
+}
+
+/* Bỏ vạch ngăn dọc giữa các ô tiêu đề — thiết kế không có. */
+.noi-dung-trang .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.noi-dung-trang .ant-table-tbody > tr > td {
+  padding: 10px 12px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--tk-vien);
+}
+
+.noi-dung-trang .ant-table-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+.noi-dung-trang .ant-table-pagination.ant-pagination {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+/* --- Nhãn trạng thái ------------------------------------------------------
+   12px, bo 4px, đệm 1px 7px — nhỏ hơn mặc định của Ant Design. */
+.noi-dung-trang .ant-tag {
+  margin-inline-end: 4px;
+  padding: 1px 7px;
+  font-size: 12px;
+  line-height: 1.6;
+  border-radius: 4px;
+}
+
+/* --- Nút ------------------------------------------------------------------ */
+.noi-dung-trang .ant-btn {
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: none;
+}
+
+.noi-dung-trang .ant-btn:not(.ant-btn-sm):not(.ant-btn-lg):not(.ant-btn-icon-only) {
+  height: auto;
+  padding: 6px 18px;
+}
+
+.noi-dung-trang .ant-btn-sm:not(.ant-btn-icon-only) {
+  height: auto;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.noi-dung-trang .ant-btn-default {
+  border-color: var(--tk-vien-dam);
+  color: var(--tk-chu-phu);
+}
+
+/* --- Ô nhập --------------------------------------------------------------- */
+.noi-dung-trang .ant-input,
+.noi-dung-trang .ant-input-affix-wrapper,
+.noi-dung-trang .ant-input-number,
+.noi-dung-trang .ant-picker,
+.noi-dung-trang .ant-select-selector {
+  border-radius: 6px !important;
+  border-color: var(--tk-vien-dam);
+  font-size: 14px;
+}
+
+.noi-dung-trang .ant-select-single:not(.ant-select-sm) .ant-select-selector,
+.noi-dung-trang .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-sm),
+.noi-dung-trang .ant-picker:not(.ant-picker-small) {
+  padding-block: 5px;
+}
+
+.noi-dung-trang .ant-input::placeholder,
+.noi-dung-trang .ant-select-selection-placeholder {
+  color: var(--tk-chu-nhat);
+}
+
+/* --- Khối cảnh báo -------------------------------------------------------- */
+.noi-dung-trang .ant-alert {
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.noi-dung-trang .ant-alert-info {
+  background: var(--tk-chinh-nhat);
+  border-color: var(--tk-chinh-vien);
+}
+
+.noi-dung-trang .ant-alert-warning {
+  background: #fffbe6;
+  border-color: #ffe58f;
+}
+
+/* --- Mô tả / thống kê ----------------------------------------------------- */
+.noi-dung-trang .ant-statistic-title {
+  font-size: 14px;
+  color: var(--tk-chu-mo);
+  margin-bottom: 4px;
+}
+
+.noi-dung-trang .ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.noi-dung-trang .ant-descriptions-item-label {
+  background: #fafafa;
+  font-size: 13.5px;
+}
+
+.noi-dung-trang .ant-descriptions-item-content {
+  font-size: 14px;
+}
+
+/* --- Khối tự vẽ dùng chung ------------------------------------------------
+   Dùng cho các phần bố cục thiết kế không ánh xạ 1-1 sang component Ant Design. */
+.tk-the {
+  background: #fff;
+  border-radius: 8px;
+}
+
+.tk-the-dau {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--tk-vien);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tk-the-dau-lon {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--tk-vien);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.tk-the-than {
+  padding: 16px;
+}
+
+/* Lưới các khối, khoảng cách 12px như thiết kế. */
+.tk-luoi {
+  display: grid;
+  gap: 12px;
+}
+
+.tk-luoi-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.tk-luoi-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.tk-luoi-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 1200px) {
+  .tk-luoi-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tk-luoi-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .tk-luoi-4,
+  .tk-luoi-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tk-cot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Ô chỉ số trên bảng điều khiển. */
+.tk-kpi {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.tk-kpi-nhan {
+  font-size: 14px;
+  color: var(--tk-chu-mo);
+}
+
+.tk-kpi-so {
+  font-size: 24px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tk-kpi-so b {
+  font-weight: 600;
+}
+
+.tk-kpi-phu {
+  font-size: 14px;
+  color: var(--tk-chu-mo);
+}
+
+/* Nhãn trạng thái tự vẽ (khi không dùng Tag của Ant Design). */
+.tk-nhan {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 12px;
+  line-height: 1.6;
+  border-radius: 4px;
+  border: 1px solid var(--tk-vien-dam);
+  background: #fafafa;
+  color: var(--tk-chu-phu);
+  white-space: nowrap;
+}
+
+/* Dòng danh sách có đường kẻ dưới, dùng cho bảng xếp hạng. */
+.tk-dong-ds {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--tk-vien);
+  font-size: 13.5px;
+}
+
+.tk-dong-ds:last-child {
+  border-bottom: none;
+}
+
+/* Thanh ngang cho biểu đồ cột nằm. */
+.tk-thanh-nen {
+  height: 18px;
+  background: #f5f5f5;
+  border-radius: 0 4px 4px 0;
+  overflow: hidden;
+}
+
+.tk-thanh {
+  height: 100%;
+  background: var(--tk-chinh);
+  border-radius: 0 4px 4px 0;
+}
+
+/* =============================================================================
+   Responsive
+
+   Đặc tả yêu cầu dùng được từ 320px. Ba ngưỡng:
+     ≥1200px  bố cục đầy đủ
+     768–1199 gộp lưới 4 cột thành 2, 3 cột thành 1
+     <768     một cột, thu đệm, bảng cuộn ngang
+   ============================================================================= */
+
+/* --- Máy tính bảng ngang -------------------------------------------------- */
+@media (max-width: 1199px) {
+  .tk-luoi-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tk-luoi-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Máy tính bảng dọc ---------------------------------------------------- */
+@media (max-width: 991px) {
+  .noi-dung-trang .ant-card-head {
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  .noi-dung-trang .ant-card-head-title {
+    font-size: 15px;
+  }
+
+  .noi-dung-trang .ant-card-body {
+    padding: 12px;
+  }
+
+  .tk-the-dau,
+  .tk-the-dau-lon {
+    padding: 10px 12px;
+  }
+
+  .tk-the-than {
+    padding: 12px;
+  }
+
+  .tk-kpi {
+    padding: 16px 18px;
+  }
+}
+
+/* --- Điện thoại ----------------------------------------------------------- */
+@media (max-width: 767px) {
+  .tk-luoi-4,
+  .tk-luoi-3,
+  .tk-luoi-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .tk-luoi,
+  .tk-cot {
+    gap: 8px;
+  }
+
+  .noi-dung-trang > .ant-card + .ant-card,
+  .noi-dung-trang > .ant-row + .ant-card,
+  .noi-dung-trang > .ant-card + .ant-row,
+  .noi-dung-trang > .ant-row + .ant-row {
+    margin-top: 8px;
+  }
+
+  .noi-dung-trang .ant-card-body {
+    padding: 12px 10px;
+  }
+
+  /* Tiêu đề thẻ và nút hành động xuống dòng thay vì tràn ra ngoài. */
+  .noi-dung-trang .ant-card-head-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .noi-dung-trang .ant-card-extra {
+    margin-inline-start: 0;
+  }
+
+  /* Ô tìm kiếm / bộ lọc trong phần extra chiếm trọn bề ngang cho dễ bấm. */
+  .noi-dung-trang .ant-card-extra .ant-input-search,
+  .noi-dung-trang .ant-card-extra .ant-select,
+  .noi-dung-trang .ant-card-extra .ant-input-affix-wrapper {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  /* Hàng công cụ phải XUỐNG DÒNG được: Space của Ant Design mặc định nowrap nên
+     ô tìm kiếm + nút hành động sẽ đẩy nhau tràn ra ngoài thẻ trên màn hẹp. */
+  .noi-dung-trang .ant-card-extra .ant-space {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .noi-dung-trang .ant-card-extra .ant-space-item {
+    flex: 1 1 160px;
+    min-width: 0;
+  }
+
+  /* Nút chiếm trọn dòng của nó thay vì bị cắt cụt chữ. */
+  .noi-dung-trang .ant-card-extra .ant-space-item > .ant-btn {
+    width: 100%;
+  }
+
+  /* Ô tìm kiếm dạng nhóm (input + nút kính lúp) cũng phải co lại được. */
+  .noi-dung-trang .ant-input-search,
+  .noi-dung-trang .ant-input-group-wrapper {
+    max-width: 100%;
+  }
+
+  /* Bảng: chữ nhỏ hơn và đệm hẹp lại để lọt được nhiều cột hơn trước khi phải cuộn. */
+  .noi-dung-trang .ant-table-thead > tr > th,
+  .noi-dung-trang .ant-table-tbody > tr > td {
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  /* Vùng thao tác ghim bên phải chiếm quá nhiều chỗ trên màn hẹp. */
+  .noi-dung-trang .ant-table-cell-fix-right {
+    position: static !important;
+  }
+
+  .tk-kpi {
+    padding: 14px 16px;
+  }
+
+  .tk-kpi-so {
+    font-size: 22px;
+  }
+
+  /* Hộp thoại chiếm gần trọn màn hình, không để lọt thỏm giữa nền. */
+  .ant-modal {
+    max-width: calc(100vw - 16px);
+    margin: 8px auto;
+  }
+
+  .ant-modal-body {
+    max-height: calc(100vh - 180px);
+    overflow: auto;
+  }
+
+  /* Nút trong chân hộp thoại giãn đều, đủ rộng để bấm bằng ngón tay. */
+  .ant-modal-footer .ant-btn {
+    flex: 1 1 auto;
+  }
+
+  .ant-modal-footer {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+/* --- Điện thoại nhỏ (320px) ----------------------------------------------- */
+@media (max-width: 380px) {
+  .noi-dung-trang {
+    padding: 8px !important;
+  }
+
+  .tk-kpi {
+    padding: 12px 14px;
+  }
+
+  .noi-dung-trang .ant-card-head,
+  .tk-the-dau,
+  .tk-the-dau-lon {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .noi-dung-trang .ant-btn:not(.ant-btn-sm):not(.ant-btn-lg):not(.ant-btn-icon-only) {
+    padding: 6px 12px;
+  }
+
+  /* Bảng xếp hạng: cho phép xuống dòng thay vì cắt cụt tên đơn vị. */
+  .tk-dong-ds {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+/* --- Thiết bị cảm ứng ----------------------------------------------------- */
+@media (hover: none) {
+  /* Nút biểu tượng trong bảng cần vùng chạm tối thiểu 32px. */
+  .noi-dung-trang .ant-table .ant-btn-icon-only.ant-btn-sm {
+    width: 32px;
+    height: 32px;
+  }
+}

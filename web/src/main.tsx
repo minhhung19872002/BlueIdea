@@ -14,6 +14,7 @@ import { taoChuDe } from '@/app/giaoDien';
 import { router } from '@/app/router';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
 import './styles/global.css';
+import './styles/thiet-ke.css';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
