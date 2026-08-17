@@ -4,6 +4,7 @@ import { Result, Spin } from 'antd';
 
 import { BoCucChinh } from '@/app/layout/BoCucChinh';
 import { CanDangNhap } from '@/app/layout/CanDangNhap';
+import { TrangLoiRoute } from '@/app/layout/TrangLoiRoute';
 
 /** Bọc lazy route bằng skeleton để tránh nháy màn hình trắng. */
 function ChoTai({ children }: { children: React.ReactNode }) {
@@ -66,6 +67,8 @@ export const router = createBrowserRouter([
         <BoCucChinh />
       </CanDangNhap>
     ),
+    // Lỗi hiển thị ở bất kỳ trang con nào cũng được bắt tại đây, không để lộ stack trace.
+    errorElement: <TrangLoiRoute />,
     children: [
       { index: true, element: <ChoTai><TrangDashboard /></ChoTai> },
       { path: 'doi-mat-khau', element: <ChoTai><TrangDoiMatKhau /></ChoTai> },

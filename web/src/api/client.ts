@@ -171,7 +171,7 @@ export async function layDuLieu<T>(duongDan: string, cauHinh?: AxiosRequestConfi
 
 export async function layPhanTrang<T>(
   duongDan: string,
-  thamSo?: Record<string, unknown>,
+  thamSo?: object,
 ): Promise<PhanHoiPhanTrang<T>> {
   const { data } = await http.get<PhanHoiPhanTrang<T>>(duongDan, { params: locThamSo(thamSo) });
   return data;
@@ -196,7 +196,7 @@ export async function xoaDuLieu(duongDan: string): Promise<void> {
 }
 
 /** Bỏ các tham số rỗng để URL gọn và cache của TanStack Query ổn định. */
-export function locThamSo(thamSo?: Record<string, unknown>): Record<string, unknown> {
+export function locThamSo(thamSo?: object): Record<string, unknown> {
   if (!thamSo) return {};
 
   return Object.fromEntries(
@@ -207,7 +207,7 @@ export function locThamSo(thamSo?: Record<string, unknown>): Record<string, unkn
 }
 
 /** Tải tệp nhị phân (xuất Excel/PDF) và kích hoạt lưu về máy. */
-export async function taiTep(duongDan: string, tenTep: string, thamSo?: Record<string, unknown>) {
+export async function taiTep(duongDan: string, tenTep: string, thamSo?: object) {
   const phanHoi = await http.get(duongDan, {
     params: locThamSo(thamSo),
     responseType: 'blob',

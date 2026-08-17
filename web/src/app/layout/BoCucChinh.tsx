@@ -133,15 +133,18 @@ export function BoCucChinh() {
             />
           )}
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Typography.Text strong ellipsis style={{ fontSize: 16 }}>
+          {/* Tiêu đề phải nằm gọn trên một dòng, cắt bớt khi hẹp — tránh đè lên breadcrumb. */}
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <Typography.Text
+              strong
+              ellipsis={{ tooltip: `${tenHeThong}${tenDonVi ? ` — ${tenDonVi}` : ''}` }}
+              style={{ fontSize: 16, display: 'block', whiteSpace: 'nowrap' }}
+            >
               {tenHeThong}
+              {tenDonVi && !laDiDong && (
+                <span style={{ color: 'rgba(0,0,0,0.45)', fontWeight: 400 }}> — {tenDonVi}</span>
+              )}
             </Typography.Text>
-            {tenDonVi && !laDiDong && (
-              <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
-                — {tenDonVi}
-              </Typography.Text>
-            )}
           </div>
 
           <Badge count={thongBao?.tongSo ?? 0} size="small" overflowCount={99}>
@@ -220,13 +223,25 @@ function chuyenDoiMenu(danhSach: MucMenu[]): NonNullable<Parameters<typeof Menu>
   });
 }
 
+/**
+ * Kiểm tra đường dẫn hiện tại có thuộc một mục menu hay không.
+ * Phải so theo đoạn đường dẫn — nếu dùng startsWith thuần thì menu "/" khớp mọi trang.
+ */
+function khopDuongDan(duongDanMenu: string, duongDanHienTai: string): boolean {
+  if (duongDanMenu === '/') {
+    return duongDanHienTai === '/';
+  }
+
+  return duongDanHienTai === duongDanMenu || duongDanHienTai.startsWith(`${duongDanMenu}/`);
+}
+
 /** Tìm mục menu khớp đường dẫn hiện tại (ưu tiên khớp dài nhất). */
 function timKhoaKhop(danhSach: MucMenu[], duongDan: string): string | undefined {
   let khop: string | undefined;
 
   const duyet = (cac: MucMenu[]) => {
     for (const m of cac) {
-      if (m.duongDan && duongDan.startsWith(m.duongDan)) {
+      if (m.duongDan && khopDuongDan(m.duongDan, duongDan)) {
         if (!khop || m.duongDan.length > khop.length) {
           khop = m.duongDan;
         }
@@ -240,13 +255,18 @@ function timKhoaKhop(danhSach: MucMenu[], duongDan: string): string | undefined 
 }
 
 function taoBreadcrumb(danhSach: MucMenu[], duongDan: string): MucMenu[] {
+  // Ở trang chủ không cần breadcrumb (header đã có sẵn liên kết "Trang chủ").
+  if (duongDan === '/') {
+    return [];
+  }
+
   const ketQua: MucMenu[] = [];
 
   const duyet = (cac: MucMenu[], toTien: MucMenu[]): boolean => {
     for (const m of cac) {
       const duongDi = [...toTien, m];
 
-      if (m.duongDan && duongDan.startsWith(m.duongDan)) {
+      if (m.duongDan && khopDuongDan(m.duongDan, duongDan)) {
         ketQua.push(...duongDi);
         return true;
       }
