@@ -1,0 +1,220 @@
+# =============================================================================
+# BlueIdea - Nen tang so dung chung phuc vu hoat dong sang kien
+# Moi truong SAN XUAT (production).
+#
+#   docker compose -f deploy/docker-compose.prod.yml --env-file ~/deploy/blueidea.env up -d
+#
+# Khac biet so voi docker-compose.yml (moi truong phat trien):
+#
+#   1. KHONG build tai cho - chi `pull` anh da dung san tren GHCR. VM san xuat
+#      chi co 1 vCPU / 2GB RAM, `vite build` (antd + echarts + reactflow) va
+#      `dotnet publish` 9 project se bi OOM killer giet giua duong. Anh duoc
+#      dung tren runner cua GitHub Actions (4 vCPU / 16GB) roi day len registry.
+#
+#   2. KHONG co `seq` va `minio`. Ca hai khong he duoc ma nguon su dung:
+#      Serilog trong Program.cs chi ghi Console + tep xoay vong (khong co sink Seq),
+#      con LuuTru:Loai la DIA_CUC_BO nen tep nam tren dia qua LuuTruTepCucBo.
+#      Giu lai hai container nay chi de tieu ~600-900MB RAM ma khong doi lai gi.
+#
+#   3. MOI cong deu bind vao 127.0.0.1. Duong vao duy nhat tu Internet la Nginx
+#      cua may chu (xem deploy/nginx/blueidea.conf), noi da co TLS va rate limit.
+#
+#   4. Moi service co `mem_limit`. VM nay dang chay san StayHost; khong dat tran
+#      thi mot service ro ri bo nho se keo OOM killer den giet ca dich vu khac.
+# =============================================================================
+
+name: blueidea
+
+# Anh va tag do CD truyen vao. TAG mac dinh `latest` de `docker compose up` thu cong
+# van chay duoc, con CD luon truyen sha cu the nen co the roll back chinh xac.
+x-anh: &anh-tag ${TAG:-latest}
+
+services:
+  # ---------------------------------------------------------------------------
+  # CSDL PostgreSQL 16 + pgvector
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: blueidea-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: blueidea
+      POSTGRES_USER: blueidea
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?can POSTGRES_PASSWORD trong tep env}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --locale-provider=icu --icu-locale=vi-VN"
+      TZ: Asia/Ho_Chi_Minh
+    # Tham so ha bo nho cho VM 2GB: mac dinh cua Postgres gia dinh may chu roi rai.
+    # shared_buffers 96MB + work_mem 4MB giu tong bo nho thuong tru duoi ~300MB.
+    command: >
+      postgres
+      -c shared_buffers=96MB
+      -c effective_cache_size=256MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=48MB
+      -c max_connections=50
+      -c wal_compression=on
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/khoi-tao:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blueidea -d blueidea"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 384m
+    networks: [blueidea-net]
+
+  # ---------------------------------------------------------------------------
+  # Redis - cache cau hinh, distributed lock cho Hangfire, rate limit
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: blueidea-redis
+    restart: unless-stopped
+    # maxmemory + allkeys-lru: het han muc thi Redis tu don khoa cu, thay vi
+    # tra loi OOM cho ung dung roi lam Hangfire that bai khi giu lock.
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?can REDIS_PASSWORD trong tep env}
+      --maxmemory 48mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    # `redis-cli ping` khong kem mat khau se bi tu choi va healthcheck luon do,
+    # nen phai truyen -a. Bien moi truong tranh lo mat khau trong `docker inspect`.
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 96m
+    networks: [blueidea-net]
+
+  # ---------------------------------------------------------------------------
+  # Dich vu OCR noi bo (Tesseract vie+eng) - KHONG goi API AI ben thu ba
+  # ---------------------------------------------------------------------------
+  ai-service:
+    image: ghcr.io/minhhung19872002/blueidea-ai:${TAG:-latest}
+    container_name: blueidea-ai
+    restart: unless-stopped
+    # 1 worker thay vi 2 nhu trong Dockerfile: may chi co 1 vCPU nen worker thu hai
+    # khong tang thong luong, chi nhan doi bo nho vi moi worker nap rieng Tesseract.
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "127.0.0.1:${AI_PORT:-8088}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    mem_limit: 320m
+    networks: [blueidea-net]
+
+  # ---------------------------------------------------------------------------
+  # API .NET 8
+  # ---------------------------------------------------------------------------
+  api:
+    image: ghcr.io/minhhung19872002/blueidea-api:${TAG:-latest}
+    container_name: blueidea-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      TZ: Asia/Ho_Chi_Minh
+
+      # GC workstation thay vi server: server GC mo mot heap moi loi logic CPU va
+      # giu lai bo nho rat lau truoc khi tra ve HDH - phan hoa tren may 1 vCPU/2GB.
+      DOTNET_gcServer: "0"
+      DOTNET_GCConserveMemory: "5"
+
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=blueidea;Username=blueidea;Password=${POSTGRES_PASSWORD};Maximum Pool Size=20"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD}"
+
+      Jwt__KhoaKy: ${JWT_KHOA_KY:?can JWT_KHOA_KY (openssl rand -base64 48)}
+      MaHoa__KhoaBase64: ${MA_HOA_KHOA:?can MA_HOA_KHOA (openssl rand -base64 32)}
+
+      LuuTru__Loai: DIA_CUC_BO
+      LuuTru__ThuMucGoc: /app/du-lieu/tep-tin
+
+      # Web va API dung chung mot goc (https://TEN_MIEN) qua Nginx, nen trinh duyet
+      # khong gui request cross-origin. Van khai bao ten mien that de phong truong hop
+      # goi tu cong cu khac; KHONG de localhost nhu moi truong phat trien.
+      Cors__NguonChoPhep__0: https://${TEN_MIEN:?can TEN_MIEN, vi du blueidea.bluestar.com.vn}
+
+      KhoiTao__TuDongMigrate: "true"
+      # Nap du lieu mau tao san danh muc va tai khoan quan tri dau tien. Sau khi ban giao
+      # xong nen doi thanh "false" de lan khoi dong lai khong ghi de cau hinh that.
+      KhoiTao__NapDuLieuMau: "${NAP_DU_LIEU_MAU:-true}"
+
+      # 2 worker thay vi 4: Hangfire tren 1 vCPU chay 4 worker chi lam cac job
+      # tranh CPU voi luong phuc vu request.
+      CongViecNen__BatHangfire: "true"
+      CongViecNen__SoWorker: "${SO_WORKER_NEN:-2}"
+      CongViecNen__DiaChiDichVuOcr: http://ai-service:8000
+
+      # Nginx la diem cuoi TLS. Bao ASP.NET tin X-Forwarded-* tu mang Docker, neu khong
+      # rate limiter se gop MOI nguoi dung vao chung mot xo theo IP cua Nginx.
+      ForwardedHeaders__BatTin: "true"
+    ports:
+      # Nginx chay trong HDH cua may chu (khong trong mang Docker) nen bat buoc phai
+      # publish cong ra 127.0.0.1, neu khong `proxy_pass http://127.0.0.1:8080` se bao
+      # 502 Bad Gateway du container api hoan toan khoe manh.
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    volumes:
+      - api-data:/app/du-lieu
+      - api-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      # Lan khoi dong dau tien phai chay EF migration roi nap du lieu mau moi phuc vu.
+      start_period: 120s
+    mem_limit: 448m
+    networks: [blueidea-net]
+
+  # ---------------------------------------------------------------------------
+  # Web React + Nginx (chi phuc vu tep tinh; TLS do Nginx may chu dam nhan)
+  # ---------------------------------------------------------------------------
+  web:
+    image: ghcr.io/minhhung19872002/blueidea-web:${TAG:-latest}
+    container_name: blueidea-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 48m
+    networks: [blueidea-net]
+
+volumes:
+  postgres-data:
+  redis-data:
+  api-data:
+  api-logs:
+
+networks:
+  blueidea-net:
+    driver: bridge

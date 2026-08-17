@@ -1,0 +1,165 @@
+# =============================================================================
+# CD — Dựng ảnh Docker trên runner của GitHub rồi triển khai lên VM qua SSH.
+#
+# Vì sao dựng ảnh trên cloud chứ không dựng ngay trên VM:
+# VM sản xuất chỉ có 1 vCPU / 1.9GB RAM. `vite build` (antd + echarts + reactflow) cùng
+# `dotnet publish` 9 project cần khoảng 1–2GB RAM mỗi bước, nên dựng tại chỗ sẽ bị OOM
+# killer giết giữa đường — và tệ hơn, nó sẽ kéo cả dịch vụ khác đang chạy trên máy xuống.
+# Runner của GitHub có 4 vCPU / 16GB và miễn phí cho repo công khai, nên VM chỉ cần `pull`.
+#
+# Luồng: dựng 3 ảnh song song → đẩy lên GHCR → SSH vào VM để pull + up -d + chờ healthy.
+# =============================================================================
+name: CD
+
+on:
+  push:
+    branches: [main]
+  # Cho phép bấm chạy tay để triển khai lại hoặc lùi về một commit cũ.
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit SHA đầy đủ (40 ký tự hex) muốn triển khai. Bỏ trống = commit hiện tại.'
+        required: false
+        type: string
+
+# Hai lần đẩy liên tiếp không được deploy chồng lên nhau: `docker compose up -d` chạy song
+# song trên cùng một máy sẽ tranh nhau container và để lại trạng thái nửa vời.
+# Không dùng cancel-in-progress: cắt ngang một lần deploy đang thay container còn tệ hơn là chờ.
+concurrency:
+  group: cd-blueidea
+  cancel-in-progress: false
+
+env:
+  DANG_KY: ghcr.io
+  CHU: minhhung19872002
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Dựng và đẩy 3 ảnh. Chạy song song để tổng thời gian bằng ảnh chậm nhất.
+  # ---------------------------------------------------------------------------
+  dung-anh:
+    name: Dựng ảnh ${{ matrix.ten }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - ten: api
+            ngu-canh: .
+            dockerfile: deploy/Dockerfile.api
+          - ten: web
+            ngu-canh: .
+            dockerfile: deploy/Dockerfile.web
+          - ten: ai
+            ngu-canh: ./ai-service
+            dockerfile: ./ai-service/Dockerfile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chuẩn bị Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Đăng nhập GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DANG_KY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dựng và đẩy
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.ngu-canh }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          # Gắn cả sha và latest: sha để triển khai/lùi phiên bản chính xác,
+          # latest để `docker compose up` thủ công trên VM vẫn chạy được.
+          tags: |
+            ${{ env.DANG_KY }}/${{ env.CHU }}/blueidea-${{ matrix.ten }}:sha-${{ github.sha }}
+            ${{ env.DANG_KY }}/${{ env.CHU }}/blueidea-${{ matrix.ten }}:latest
+          # Để trống VITE_API_URL là có chủ đích: web/src/api/client.ts đặt
+          # `baseURL: import.meta.env.VITE_API_URL ?? ''`, nên rỗng đồng nghĩa gọi
+          # /api/v1/... cùng gốc. Nginx của máy chủ định tuyến sang API, nhờ vậy
+          # trình duyệt không phát sinh request cross-origin và CORS không thể sai.
+          build-args: |
+            VITE_API_URL=
+          cache-from: type=gha,scope=blueidea-${{ matrix.ten }}
+          cache-to: type=gha,mode=max,scope=blueidea-${{ matrix.ten }}
+
+  # ---------------------------------------------------------------------------
+  # Triển khai lên VM
+  # ---------------------------------------------------------------------------
+  trien-khai:
+    name: Triển khai lên VM
+    runs-on: ubuntu-latest
+    needs: [dung-anh]
+    permissions:
+      contents: read
+      packages: read
+    environment: production
+
+    steps:
+      - name: Xác định commit cần triển khai
+        id: chon
+        run: |
+          YEU_CAU='${{ inputs.commit }}'
+          SHA="${YEU_CAU:-${{ github.sha }}}"
+
+          # Script trên VM chỉ nhận đúng 40 ký tự hex; chặn sớm tại đây để lỗi
+          # hiện ra ở bước có tên rõ ràng thay vì thành mã thoát 64 khó hiểu.
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Commit SHA không hợp lệ: '$SHA' (cần 40 ký tự hex)"
+            exit 1
+          fi
+
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Sẽ triển khai commit $SHA"
+
+      - name: Nạp khoá SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' '${{ secrets.SSH_KEY }}' > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+
+          # Ghim host key thay vì StrictHostKeyChecking=no. Nếu không ghim, runner sẽ nhận
+          # bất kỳ host key nào, nên một máy chen giữa có thể nhận chuỗi deploy và lấy
+          # token GHCR mà workflow vẫn báo thành công.
+          printf '%s\n' '${{ secrets.SSH_KNOWN_HOSTS }}' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Chạy deploy trên VM
+        run: |
+          # Thông tin đăng nhập GHCR đi qua STDIN (dòng 1 user, dòng 2 token), không qua
+          # tham số dòng lệnh: tham số hiện trong `ps aux` cho mọi user trên VM đọc được.
+          printf '%s\n%s\n' '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}' | ssh \
+            -i ~/.ssh/deploy \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            '${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}' \
+            "deploy ${{ steps.chon.outputs.sha }}"
+
+      - name: Xoá khoá SSH
+        if: always()
+        run: rm -f ~/.ssh/deploy ~/.ssh/known_hosts
+
+      - name: Tóm tắt
+        if: success()
+        run: |
+          {
+            echo "### Đã triển khai BlueIdea"
+            echo ""
+            echo "| Mục | Giá trị |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ steps.chon.outputs.sha }}\` |"
+            echo "| Tag ảnh | \`sha-${{ steps.chon.outputs.sha }}\` |"
+            echo "| Máy | \`${{ secrets.SSH_HOST }}\` |"
+            echo ""
+            echo "Muốn lùi phiên bản: chạy tay workflow này và nhập SHA của commit tốt trước đó."
+          } >> "$GITHUB_STEP_SUMMARY"

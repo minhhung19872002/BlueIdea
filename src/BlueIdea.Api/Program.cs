@@ -15,6 +15,7 @@ using BlueIdea.Infrastructure.Seed;
 using BlueIdea.Reporting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -188,11 +189,48 @@ builder.Services.AddRateLimiter(o =>
 
 builder.Services.AddResponseCompression(o => o.EnableForHttps = true);
 
+// ---------------------------------------------------------------------------------------
+// Chay sau proxy nguoc (Nginx cua may chu dam nhan TLS).
+//
+// Khong co buoc nay thi Connection.RemoteIpAddress luon la IP cua proxy, keo theo hai hau qua:
+//   - Rate limiter phan vung theo IP se gop TAT CA nguoi dung vao chung mot xo. Ca he thong
+//     dung o 100 request/phut, va gioi han 5 lan dang nhap/phut tro thanh gioi han toan cuc:
+//     mot nguoi go sai mat khau 5 lan la nhung nguoi con lai het dang nhap duoc.
+//   - Log kiem toan ghi IP cua proxy nen mat dau vet nguoi dung that.
+//
+// Chi bat khi ForwardedHeaders:BatTin = true, tuc chi o moi truong that su co proxy dat truoc.
+// Bat vo dieu kien la mot lo hong: khi API mo truc tiep ra Internet, bat ky ai cung co the
+// tu dat X-Forwarded-For de mao danh IP khac va vuot rate limit.
+// ---------------------------------------------------------------------------------------
+var tinProxy = builder.Configuration.GetValue("ForwardedHeaders:BatTin", false);
+if (tinProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+        // Mac dinh middleware chi tin loopback, nen trong Docker (proxy den tu gateway
+        // 172.x.x.x cua mang bridge) header se bi bo qua ma khong bao loi gi.
+        // Dia chi gateway doi moi lan tao lai mang nen khong the ghi cung; thay vao do
+        // xoa danh sach tin cay va gioi han so tang proxy dung 1 - chinh la Nginx.
+        o.KnownNetworks.Clear();
+        o.KnownProxies.Clear();
+        o.ForwardLimit = 1;
+    });
+}
+
 var app = builder.Build();
 
 // ---------------------------------------------------------------------------------------
 // Pipeline
 // ---------------------------------------------------------------------------------------
+// Phai dung dau tien: moi middleware phia sau (rate limiter, log, HSTS, sinh URL tuyet doi)
+// deu doc IP va scheme, nen neu dat sau chung thi cac gia tri do da bi chot sai.
+if (tinProxy)
+{
+    app.UseForwardedHeaders();
+}
+
 app.UseMiddleware<MiddlewareXuLyLoi>();
 app.UseMiddleware<MiddlewareHeaderBaoMat>();
 app.UseResponseCompression();
