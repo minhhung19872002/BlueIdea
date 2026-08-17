@@ -88,3 +88,10 @@ end-to-end 29 bước chạy qua API thật với 8 tài khoản thuộc 6 vai t
   khiến integration test nối nhầm sang cơ sở dữ liệu cục bộ → chuyển sang biến môi trường.
 - Giao diện chỉ kiểm tra `=== null` trong khi API bỏ hẳn trường `null` khỏi JSON → sửa sang
   optional chaining và bổ sung error boundary cho toàn bộ route.
+- Thiếu `.dockerignore` khiến thư mục `obj/` của máy host bị copy vào image, ghi đè kết quả
+  `dotnet restore` và làm hỏng bước publish.
+- API thoát ngay khi lần kết nối cơ sở dữ liệu đầu tiên thất bại, dẫn tới vòng lặp khởi động lại
+  trong docker-compose khi DNS nội bộ chưa sẵn sàng → thêm cơ chế thử lại có backoff, vẫn giữ
+  fail-fast cho lỗi migration thật.
+- Cổng máy chủ trong docker-compose bị cố định → tham số hóa toàn bộ qua biến `*_PORT` để triển
+  khai được trên máy đã dùng sẵn các cổng mặc định.

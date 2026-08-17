@@ -16,18 +16,24 @@ Quy trình xử lý, tiêu chí chấm điểm, thành phần hồ sơ, biểu m
 
 ```bash
 cp .env.example .env          # rồi đổi các khoá bảo mật bên trong
-docker compose -f deploy/docker-compose.yml up -d
+docker compose --env-file .env -f deploy/docker-compose.yml up -d
 ```
+
+> Cần `--env-file .env` vì Docker Compose mặc định tìm tệp `.env` trong thư mục chứa
+> tệp compose (`deploy/`), không phải thư mục gốc repo. Nếu cổng mặc định đã bị chiếm trên máy,
+> đổi các biến `*_PORT` trong `.env`.
 
 | Thành phần | Địa chỉ | Ghi chú |
 |---|---|---|
 | Web | http://localhost:3000 | Giao diện người dùng |
 | API + Swagger | http://localhost:8080/swagger | Tài liệu API tiếng Việt |
 | Health check | http://localhost:8080/health | `/health/ready` kiểm tra CSDL |
+| Dịch vụ OCR nội bộ | http://localhost:8088/health | Tesseract 5 với `vie` + `eng` |
 | MinIO Console | http://localhost:9001 | Lưu trữ tệp |
 | Seq | http://localhost:5341 | Log tập trung |
 
 Lần khởi động đầu tiên hệ thống tự chạy migration và nạp dữ liệu mẫu (Mục 10 đặc tả).
+API tự thử lại kết nối cơ sở dữ liệu có backoff, nên không phụ thuộc thứ tự khởi động container.
 
 ### Tài khoản demo
 

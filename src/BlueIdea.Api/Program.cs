@@ -223,29 +223,84 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c
 // ---------------------------------------------------------------------------------------
 if (app.Configuration.GetValue("KhoiTao:TuDongMigrate", true))
 {
-    using var pham = app.Services.CreateScope();
-    var db = pham.ServiceProvider.GetRequiredService<AppDbContext>();
-    var logger = pham.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-    try
-    {
-        await db.Database.MigrateAsync();
-        logger.LogInformation("Đã áp dụng migration cơ sở dữ liệu.");
-
-        if (app.Configuration.GetValue("KhoiTao:NapDuLieuMau", true))
-        {
-            var seed = pham.ServiceProvider.GetRequiredService<DuLieuMau>();
-            await seed.ChayAsync();
-        }
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Không thể khởi tạo cơ sở dữ liệu.");
-        throw;
-    }
+    await KhoiTaoCoSoDuLieuAsync(app);
 }
 
 await app.RunAsync();
+
+/// <summary>
+/// Chạy migration và nạp dữ liệu mẫu, có thử lại với thời gian chờ tăng dần.
+///
+/// Khi chạy bằng docker-compose, cơ sở dữ liệu có thể đã "healthy" nhưng DNS nội bộ của
+/// container hoặc mạng overlay chưa sẵn sàng, khiến lần kết nối đầu tiên thất bại tạm thời.
+/// Nếu thoát ngay, container rơi vào vòng lặp khởi động lại. Vì vậy phải thử lại vài lần
+/// trước khi kết luận là lỗi thật.
+/// </summary>
+static async Task KhoiTaoCoSoDuLieuAsync(WebApplication app)
+{
+    const int soLanThuToiDa = 10;
+
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+
+    for (var lan = 1; lan <= soLanThuToiDa; lan++)
+    {
+        using var pham = app.Services.CreateScope();
+        var db = pham.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        try
+        {
+            await db.Database.MigrateAsync();
+            logger.LogInformation("Đã áp dụng migration cơ sở dữ liệu.");
+
+            if (app.Configuration.GetValue("KhoiTao:NapDuLieuMau", true))
+            {
+                var seed = pham.ServiceProvider.GetRequiredService<DuLieuMau>();
+                await seed.ChayAsync();
+            }
+
+            return;
+        }
+        catch (Exception ex) when (LaLoiKetNoiTamThoi(ex) && lan < soLanThuToiDa)
+        {
+            var choGiay = Math.Min(lan * 2, 15);
+
+            logger.LogWarning(
+                "Chưa kết nối được cơ sở dữ liệu (lần {Lan}/{Tong}): {ThongBao}. Thử lại sau {Giay}s.",
+                lan, soLanThuToiDa, ex.Message, choGiay);
+
+            await Task.Delay(TimeSpan.FromSeconds(choGiay));
+        }
+        catch (Exception ex)
+        {
+            // Lỗi không phải do kết nối (ví dụ migration sai) thì phải dừng hẳn,
+            // tuyệt đối không để ứng dụng chạy trên schema không đúng.
+            logger.LogError(ex, "Không thể khởi tạo cơ sở dữ liệu.");
+            throw;
+        }
+    }
+}
+
+/// <summary>Nhận diện lỗi mạng/kết nối tạm thời để quyết định có thử lại hay không.</summary>
+static bool LaLoiKetNoiTamThoi(Exception ex)
+{
+    for (var hienTai = ex; hienTai is not null; hienTai = hienTai.InnerException!)
+    {
+        if (hienTai is System.Net.Sockets.SocketException
+            or TimeoutException
+            or Npgsql.NpgsqlException { IsTransient: true })
+        {
+            return true;
+        }
+
+        if (hienTai is Npgsql.PostgresException pg)
+        {
+            // 57P03 the_database_system_is_starting_up
+            return pg.SqlState == "57P03";
+        }
+    }
+
+    return false;
+}
 
 static IEnumerable<string> LayTatCaMaQuyen()
     => typeof(MaQuyen)

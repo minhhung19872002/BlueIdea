@@ -1,0 +1,38 @@
+# Kết quả build của máy host tuyệt đối không được đưa vào image:
+# thư mục obj/ chứa đường dẫn NuGet tuyệt đối của máy host, khi copy vào
+# container sẽ ghi đè kết quả `dotnet restore` và làm hỏng bước publish.
+**/bin/
+**/obj/
+**/out/
+**/TestResults/
+
+# Frontend
+**/node_modules/
+**/dist/
+**/.vite/
+**/*.tsbuildinfo
+
+# Dữ liệu chạy cục bộ
+**/logs/
+**/du-lieu/
+*.log
+
+# Bí mật
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.Production.json
+**/secrets.json
+**/*.pfx
+**/*.key
+
+# Công cụ và tài liệu không cần cho build
+.git/
+.github/
+.vs/
+.idea/
+docs/
+scripts/
+**/.DS_Store
+**/Thumbs.db
