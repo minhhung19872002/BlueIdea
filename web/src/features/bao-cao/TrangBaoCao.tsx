@@ -14,6 +14,7 @@ import {
   type DongBaoCaoSangKien,
 } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
+import { DaiTabTrang } from '@/components/DaiTabTrang';
 
 const CAU_HINH_BAO_CAO: Record<
   string,
@@ -41,6 +42,15 @@ const CAU_HINH_BAO_CAO: Record<
     tenTep: 'ket-qua-sang-kien.xlsx',
   },
 };
+
+/** Các nhánh con của trang — thiết kế gộp thành một mục ở thanh điều hướng. */
+const DS_TAB = [
+  { ma: 'sang-kien-dat', ten: 'Sáng kiến đạt', duongDan: '/bao-cao/sang-kien-dat' },
+  { ma: 'sang-kien-chua-dat', ten: 'Chưa đạt', duongDan: '/bao-cao/sang-kien-chua-dat' },
+  { ma: 'theo-don-vi', ten: 'Theo đơn vị', duongDan: '/bao-cao/theo-don-vi' },
+  { ma: 'ket-qua', ten: 'Kết quả sáng kiến', duongDan: '/bao-cao/ket-qua' },
+  { ma: 'tuy-bien', ten: 'Tuỳ biến', duongDan: '/bao-cao/tuy-bien' },
+];
 
 /** Chức năng 38–40 — Các báo cáo bắt buộc. */
 export default function TrangBaoCao() {
@@ -75,7 +85,7 @@ export default function TrangBaoCao() {
 
   return (
     <Card
-      title={cauHinh.tieuDe}
+      title="Thống kê tổng hợp"
       extra={
         <Space className="khong-in">
           <Button
@@ -98,6 +108,8 @@ export default function TrangBaoCao() {
         </Space>
       }
     >
+      <DaiTabTrang danhSach={DS_TAB} dangChon={loai} />
+
       <Row gutter={[8, 8]} style={{ marginBottom: 12 }} className="khong-in">
         <Col xs={24} md={8}>
           <Select

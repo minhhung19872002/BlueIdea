@@ -313,6 +313,17 @@
   white-space: nowrap;
 }
 
+/* Dải tab trong trang: cuộn ngang được trên màn hẹp nhưng KHÔNG hiện thanh cuộn —
+   thanh cuộn ngang nằm ngay dưới tab trông như một đường kẻ lỗi. */
+.tk-dai-tab {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tk-dai-tab::-webkit-scrollbar {
+  display: none;
+}
+
 /* Dòng danh sách có đường kẻ dưới, dùng cho bảng xếp hạng. */
 .tk-dong-ds {
   display: flex;

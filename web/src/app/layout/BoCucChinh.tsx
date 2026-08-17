@@ -28,12 +28,20 @@ interface DongMenu {
   laTieuDeNhom: boolean;
 }
 
-/** Lấy component icon của AntD theo tên chuỗi lưu trong cấu hình menu. */
+/**
+ * Icon của mục menu.
+ *
+ * Cấu hình menu chấp nhận cả hai dạng: emoji (bản thiết kế dùng emoji) hoặc tên component
+ * icon của Ant Design. Chuỗi nào không khớp tên component thì hiển thị nguyên văn — nhờ vậy
+ * quản trị viên đổi icon trên màn hình cấu hình mà không cần biết tên component.
+ */
 function LayIcon(ten?: string | null) {
   if (!ten) return null;
+
   const bang = Icons as unknown as Record<string, React.ComponentType>;
   const Icon = bang[ten];
-  return Icon ? <Icon /> : null;
+
+  return Icon ? <Icon /> : <span>{ten}</span>;
 }
 
 /** Chữ viết tắt hiển thị trong avatar khi người dùng chưa có ảnh. */

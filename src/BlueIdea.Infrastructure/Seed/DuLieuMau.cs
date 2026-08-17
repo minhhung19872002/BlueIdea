@@ -375,19 +375,64 @@ public sealed partial class DuLieuMau
     /// co them man hinh moi, he thong dang chay phai nhan duoc muc menu moi ma khong lam mat cac
     /// muc quan tri vien da tu sua.
     /// </summary>
+    private const string KhoaPhienBanMenu = "PHIEN_BAN_MENU";
+
+    /// <summary>Phien ban cau truc menu - tang len khi doi bo cuc de he thong dang chay nhan duoc.</summary>
+    private const string PhienBanMenu = "2";
+
+    /// <summary>Cac ma menu do seed tung sinh ra - dung de go bo cuc cu khi nang cap.</summary>
+    private static readonly string[] MaMenuSeedCu =
+    {
+        "DASHBOARD", "SK_CUA_TOI", "SK_NOP_MOI", "TIEP_NHAN", "XU_LY", "DANH_GIA", "HOI_DONG",
+        "QUYET_DINH", "TRA_CUU", "BAO_CAO", "BC_DAT", "BC_CHUA_DAT", "BC_DON_VI", "BC_KET_QUA",
+        "BC_TUY_BIEN", "QUAN_TRI", "DANH_MUC", "DM_LINH_VUC", "DM_DOI_TUONG", "DM_DOT",
+        "DM_LOAI_TG", "DM_BM_XUAT", "DM_BM_TK", "DM_QUYET_DINH", "QT_QUY_TRINH", "QT_TIEU_CHI",
+        "QT_NGUOI_DUNG", "QT_DON_VI", "QT_VAI_TRO", "QT_CAU_HINH", "CH_HE_THONG", "CH_MENU",
+        "CH_EMAIL_SMS", "CH_CHU_KY_SO", "CH_SANG_KIEN", "CH_TICH_HOP", "QT_NHAT_KY",
+        "NK_HE_THONG", "NK_DANG_NHAP", "NK_LOI", "NK_DONG_BO", "QT_GUI_TIN",
+        "NHOM_TONG_QUAN", "NHOM_SANG_KIEN", "NHOM_XU_LY"
+    };
+
+    /// <summary>
+    /// Nap cau hinh menu theo dung ban thiet ke: 5 nhom, MOT cap, icon emoji.
+    ///
+    /// Danh muc con (danh muc dung chung, cau hinh, nhat ky, bao cao) khong nam o thanh dieu huong
+    /// ma la TAB trong trang - thiet ke chon vay de thanh dieu huong khong dai qua man hinh.
+    /// </summary>
     private async Task SeedMenuAsync(CancellationToken ct)
     {
-        var maDaCo = await _db.CauHinhMenu.AsNoTracking()
-            .Select(x => x.Ma)
-            .ToListAsync(ct)
+        var phienBan = await _db.CauHinhHeThong.AsNoTracking()
+            .Where(x => x.Khoa == KhoaPhienBanMenu)
+            .Select(x => x.GiaTri)
+            .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        var daCo = maDaCo.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var daCoMenu = await _db.CauHinhMenu.AsNoTracking().AnyAsync(ct).ConfigureAwait(false);
+
+        if (daCoMenu && phienBan == PhienBanMenu)
+        {
+            return;
+        }
+
+        // Doi bo cuc menu -> go bo menu CU do chinh seed tao ra roi dung lai theo cau truc moi.
+        // Chi go muc co ma nam trong danh sach seed tung sinh; muc quan tri vien tu them van giu.
+        if (daCoMenu)
+        {
+            var cu = await _db.CauHinhMenu
+                .Where(x => MaMenuSeedCu.Contains(x.Ma))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            foreach (var m in cu)
+            {
+                m.DaXoa = true;
+            }
+
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("Da go {SoMuc} muc menu cua bo cuc cu.", cu.Count);
+        }
 
         var menu = new List<CauHinhMenu>();
-
-        // Ma tuong ung voi TUNG Id sinh ra - ke ca muc khong duoc them, de con tra nguoc ve cha.
-        var maTheoId = new Dictionary<Guid, string>();
         var thuTu = 1;
 
         CauHinhMenu Them(string ma, string ten, string? duongDan, string? icon,
@@ -406,180 +451,90 @@ public sealed partial class DuLieuMau
                 Loai = "WEB"
             };
 
-            maTheoId[m.Id] = ma;
-
-            // Muc da ton tai thi giu nguyen ban ghi cua quan tri vien, chi bo qua o buoc them.
-            if (!daCo.Contains(ma))
-            {
-                menu.Add(m);
-            }
-
+            menu.Add(m);
             return m;
         }
 
-        // Nhom chuc nang: muc cha KHONG co duong dan -> giao dien hien thanh tieu de nhom.
         var nhomTongQuan = Them("NHOM_TONG_QUAN", "Tổng quan", null, null, null);
-        Them("DASHBOARD", "Trang chủ", "/", "DashboardOutlined", null, nhomTongQuan.Id);
+        Them("DASHBOARD", "Bảng điều khiển", "/", "🏠", null, nhomTongQuan.Id);
+        Them("BAO_CAO", "Thống kê tổng hợp", "/bao-cao/sang-kien-dat", "📊",
+            MaQuyen.BaoCaoXem, nhomTongQuan.Id);
 
         var nhomSangKien = Them("NHOM_SANG_KIEN", "Sáng kiến", null, null, MaQuyen.SangKienXem);
-        Them("SK_CUA_TOI", "Hồ sơ của tôi", "/sang-kien/cua-toi", "FileTextOutlined",
+        Them("SK_CUA_TOI", "Hồ sơ của tôi", "/sang-kien/cua-toi", "📁",
             MaQuyen.SangKienXem, nhomSangKien.Id);
-        Them("SK_NOP_MOI", "Nộp sáng kiến", "/sang-kien/nop-moi", "PlusCircleOutlined",
+        Them("SK_NOP_MOI", "Nộp hồ sơ mới", "/sang-kien/nop-moi", "📝",
             MaQuyen.SangKienThem, nhomSangKien.Id);
-        Them("TRA_CUU", "Tra cứu", "/tra-cuu", "SearchOutlined", MaQuyen.SangKienXem, nhomSangKien.Id);
+        Them("TRA_CUU", "Tra cứu", "/tra-cuu", "🔍", MaQuyen.SangKienXem, nhomSangKien.Id);
 
         var nhomXuLy = Them("NHOM_XU_LY", "Xử lý & đánh giá", null, null, MaQuyen.XuLyXem);
-        Them("TIEP_NHAN", "Tiếp nhận hồ sơ", "/tiep-nhan", "InboxOutlined",
+        Them("TIEP_NHAN", "Chờ tiếp nhận", "/tiep-nhan", "📥",
             MaQuyen.TiepNhanXem, nhomXuLy.Id);
-        Them("XU_LY", "Việc cần xử lý", "/xu-ly", "AuditOutlined", MaQuyen.XuLyXem, nhomXuLy.Id);
-        Them("DANH_GIA", "Hồ sơ đánh giá", "/danh-gia", "StarOutlined",
+        Them("XU_LY", "Việc cần xử lý", "/xu-ly", "⚙️", MaQuyen.XuLyXem, nhomXuLy.Id);
+        Them("DANH_GIA", "Việc đánh giá", "/danh-gia", "✅",
             MaQuyen.DanhGiaXem, nhomXuLy.Id);
-        Them("HOI_DONG", "Hội đồng sáng kiến", "/hoi-dong", "TeamOutlined",
+        Them("HOI_DONG", "Hội đồng sáng kiến", "/hoi-dong", "🧮",
             MaQuyen.HoiDongXem, nhomXuLy.Id);
-        Them("QUYET_DINH", "Quyết định công nhận", "/quyet-dinh", "SafetyCertificateOutlined",
+        Them("QUYET_DINH", "Quyết định", "/quyet-dinh", "📜",
             MaQuyen.QuyetDinhXem, nhomXuLy.Id);
 
-        var baoCao = Them("BAO_CAO", "Báo cáo thống kê", null, "BarChartOutlined", MaQuyen.BaoCaoXem);
-        Them("BC_DAT", "Sáng kiến đạt", "/bao-cao/sang-kien-dat", null, MaQuyen.BaoCaoXem, baoCao.Id);
-        Them("BC_CHUA_DAT", "Sáng kiến chưa đạt", "/bao-cao/sang-kien-chua-dat", null,
-            MaQuyen.BaoCaoXem, baoCao.Id);
-        Them("BC_DON_VI", "Theo đơn vị", "/bao-cao/theo-don-vi", null, MaQuyen.BaoCaoXem, baoCao.Id);
-        Them("BC_KET_QUA", "Kết quả sáng kiến", "/bao-cao/ket-qua", null, MaQuyen.BaoCaoXem, baoCao.Id);
-        Them("BC_TUY_BIEN", "Báo cáo tuỳ biến", "/bao-cao/tuy-bien", null, MaQuyen.BaoCaoXem, baoCao.Id);
+        var nhomQuanTri = Them("NHOM_QUAN_TRI", "Quản trị", null, null, MaQuyen.CauHinhXem);
+        Them("QT_NGUOI_DUNG", "Người dùng", "/quan-tri/nguoi-dung", "👤",
+            MaQuyen.NguoiDungXem, nhomQuanTri.Id);
+        Them("QT_VAI_TRO", "Vai trò & phân quyền", "/quan-tri/vai-tro", "🛡️",
+            MaQuyen.VaiTroXem, nhomQuanTri.Id);
+        Them("QT_DON_VI", "Đơn vị, tổ chức", "/quan-tri/don-vi", "🏢",
+            MaQuyen.DonViXem, nhomQuanTri.Id);
+        Them("QT_DANH_MUC", "Danh mục", "/quan-tri/danh-muc/linh-vuc", "🗂️",
+            MaQuyen.DanhMucXem, nhomQuanTri.Id);
+        Them("QT_TIEU_CHI", "Bộ tiêu chí", "/quan-tri/tieu-chi", "📐",
+            MaQuyen.TieuChiXem, nhomQuanTri.Id);
+        Them("QT_QUY_TRINH", "Quy trình động", "/quan-tri/quy-trinh", "🔀",
+            MaQuyen.QuyTrinhXem, nhomQuanTri.Id);
+        Them("QT_CAU_HINH", "Cấu hình hệ thống", "/quan-tri/cau-hinh/he-thong", "🔧",
+            MaQuyen.CauHinhXem, nhomQuanTri.Id);
+        Them("QT_NHAT_KY", "Nhật ký hệ thống", "/quan-tri/nhat-ky/he-thong", "🕐",
+            MaQuyen.NhatKyXem, nhomQuanTri.Id);
 
-        var quanTri = Them("QUAN_TRI", "Quản trị hệ thống", null, "SettingOutlined", MaQuyen.CauHinhXem);
-        var danhMuc = Them("DANH_MUC", "Danh mục", null, "AppstoreOutlined", MaQuyen.DanhMucXem, quanTri.Id);
-        Them("DM_LINH_VUC", "Lĩnh vực", "/quan-tri/danh-muc/linh-vuc", null, MaQuyen.DanhMucXem, danhMuc.Id);
-        Them("DM_DOI_TUONG", "Đối tượng", "/quan-tri/danh-muc/doi-tuong", null, MaQuyen.DanhMucXem, danhMuc.Id);
-        Them("DM_DOT", "Đợt đề nghị", "/quan-tri/danh-muc/dot-de-nghi", null, MaQuyen.DanhMucXem, danhMuc.Id);
-        Them("DM_LOAI_TG", "Loại tác giả", "/quan-tri/danh-muc/loai-tac-gia", null,
-            MaQuyen.DanhMucXem, danhMuc.Id);
-        Them("DM_BM_XUAT", "Biểu mẫu xuất", "/quan-tri/danh-muc/bieu-mau-xuat", null,
-            MaQuyen.DanhMucXem, danhMuc.Id);
-        Them("DM_BM_TK", "Biểu mẫu thống kê", "/quan-tri/danh-muc/bieu-mau-thong-ke", null,
-            MaQuyen.BaoCaoCauHinh, danhMuc.Id);
-        Them("DM_QUYET_DINH", "Quyết định", "/quan-tri/danh-muc/quyet-dinh", null,
-            MaQuyen.QuyetDinhXem, danhMuc.Id);
-
-        Them("QT_QUY_TRINH", "Quy trình xử lý", "/quan-tri/quy-trinh", null,
-            MaQuyen.QuyTrinhXem, quanTri.Id);
-        Them("QT_TIEU_CHI", "Bộ tiêu chí", "/quan-tri/tieu-chi", null, MaQuyen.TieuChiXem, quanTri.Id);
-        Them("QT_NGUOI_DUNG", "Người dùng", "/quan-tri/nguoi-dung", null, MaQuyen.NguoiDungXem, quanTri.Id);
-        Them("QT_DON_VI", "Đơn vị", "/quan-tri/don-vi", null, MaQuyen.DonViXem, quanTri.Id);
-        Them("QT_VAI_TRO", "Vai trò & phân quyền", "/quan-tri/vai-tro", null, MaQuyen.VaiTroXem, quanTri.Id);
-
-        var cauHinh = Them("QT_CAU_HINH", "Cấu hình", null, null, MaQuyen.CauHinhXem, quanTri.Id);
-        Them("CH_HE_THONG", "Hệ thống", "/quan-tri/cau-hinh/he-thong", null, MaQuyen.CauHinhXem, cauHinh.Id);
-        Them("CH_MENU", "Menu", "/quan-tri/cau-hinh/menu", null, MaQuyen.CauHinhSua, cauHinh.Id);
-        Them("CH_EMAIL_SMS", "Email & SMS", "/quan-tri/cau-hinh/email-sms", null,
-            MaQuyen.CauHinhSua, cauHinh.Id);
-        Them("CH_CHU_KY_SO", "Chữ ký số", "/quan-tri/cau-hinh/chu-ky-so", null,
-            MaQuyen.CauHinhSua, cauHinh.Id);
-        Them("CH_SANG_KIEN", "Thông tin sáng kiến", "/quan-tri/cau-hinh/sang-kien", null,
-            MaQuyen.CauHinhSua, cauHinh.Id);
-        Them("CH_TICH_HOP", "Tích hợp hệ thống", "/quan-tri/cau-hinh/tich-hop", null,
-            MaQuyen.TichHopCauHinh, cauHinh.Id);
-
-        Them("QT_GUI_TIN", "Cấu hình gửi tin", "/quan-tri/gui-tin", null, MaQuyen.CauHinhXem, quanTri.Id);
-
-        var nhatKy = Them("QT_NHAT_KY", "Nhật ký", null, null, MaQuyen.NhatKyXem, quanTri.Id);
-        Them("NK_HE_THONG", "Nhật ký hệ thống", "/quan-tri/nhat-ky/he-thong", null,
-            MaQuyen.NhatKyXem, nhatKy.Id);
-        Them("NK_DANG_NHAP", "Nhật ký đăng nhập", "/quan-tri/nhat-ky/dang-nhap", null,
-            MaQuyen.NhatKyXem, nhatKy.Id);
-        Them("NK_LOI", "Nhật ký lỗi", "/quan-tri/nhat-ky/loi", null, MaQuyen.NhatKyXem, nhatKy.Id);
-        Them("NK_DONG_BO", "Nhật ký đồng bộ", "/quan-tri/nhat-ky/dong-bo", null,
-            MaQuyen.NhatKyXem, nhatKy.Id);
-
-        if (menu.Count == 0)
-        {
-            // Van phai chay buoc gom nhom: lan chay truoc co the da them nhom nhung chua chuyen muc.
-            await ChuyenMucCuVaoNhomAsync(ct).ConfigureAwait(false);
-            return;
-        }
-
-        // Muc cha co the da co san trong CSDL (chi muc con la moi). Khi do Id sinh ra o tren chi la
-        // Id tam, phai tro lai Id THAT trong CSDL, neu khong cay menu se co nhanh mo coi.
-        var idTheoMa = await _db.CauHinhMenu.AsNoTracking()
-            .ToDictionaryAsync(x => x.Ma, x => x.Id, StringComparer.OrdinalIgnoreCase, ct)
-            .ConfigureAwait(false);
-
-        var idSeThem = menu.Select(x => x.Id).ToHashSet();
-
-        foreach (var m in menu.Where(x => x.MenuChaId.HasValue))
-        {
-            if (idSeThem.Contains(m.MenuChaId!.Value))
-            {
-                continue;
-            }
-
-            m.MenuChaId = maTheoId.TryGetValue(m.MenuChaId.Value, out var maCha)
-                          && idTheoMa.TryGetValue(maCha, out var idThat)
-                ? idThat
-                : null;
-        }
+        var nhomKhac = Them("NHOM_KHAC", "Khác", null, null, null);
+        Them("CONG_KHAI", "Cổng tra cứu công khai", "/cong-khai/tra-cuu", "🌐",
+            null, nhomKhac.Id);
+        Them("DOI_MAT_KHAU", "Đổi mật khẩu", "/doi-mat-khau", "🔒", null, nhomKhac.Id);
 
         _db.CauHinhMenu.AddRange(menu);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        _logger.LogInformation("Đã bổ sung {SoMuc} mục menu mới.", menu.Count);
+        await GhiPhienBanMenuAsync(ct).ConfigureAwait(false);
 
-        // Phai chay SAU khi luu: truoc do cac nhom moi chi nam trong change tracker, chua co
-        // ban ghi that de tra Id.
-        await ChuyenMucCuVaoNhomAsync(ct).ConfigureAwait(false);
+        _logger.LogInformation("Da nap {SoMuc} muc menu theo bo cuc moi.", menu.Count);
     }
 
-    /// <summary>
-    /// Dua cac muc menu cu (ban 1.x, nam thang o cap goc) vao dung nhom chuc nang.
-    ///
-    /// CHI dong nhung muc con dang o cap goc (<c>menu_cha_id IS NULL</c>) — muc nao quan tri vien
-    /// da tu sap xep lai thi giu nguyen, khong ghi de tuy bien cua ho.
-    /// </summary>
-    private async Task ChuyenMucCuVaoNhomAsync(CancellationToken ct)
+    private async Task GhiPhienBanMenuAsync(CancellationToken ct)
     {
-        var thuocNhom = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["DASHBOARD"] = "NHOM_TONG_QUAN",
-            ["SK_CUA_TOI"] = "NHOM_SANG_KIEN",
-            ["SK_NOP_MOI"] = "NHOM_SANG_KIEN",
-            ["TRA_CUU"] = "NHOM_SANG_KIEN",
-            ["TIEP_NHAN"] = "NHOM_XU_LY",
-            ["XU_LY"] = "NHOM_XU_LY",
-            ["DANH_GIA"] = "NHOM_XU_LY",
-            ["HOI_DONG"] = "NHOM_XU_LY",
-            ["QUYET_DINH"] = "NHOM_XU_LY"
-        };
-
-        var idNhom = await _db.CauHinhMenu.AsNoTracking()
-            .Where(x => thuocNhom.Values.Contains(x.Ma))
-            .ToDictionaryAsync(x => x.Ma, x => x.Id, StringComparer.OrdinalIgnoreCase, ct)
+        var muc = await _db.CauHinhHeThong
+            .FirstOrDefaultAsync(x => x.Khoa == KhoaPhienBanMenu, ct)
             .ConfigureAwait(false);
 
-        if (idNhom.Count == 0)
+        if (muc is null)
         {
-            return;
-        }
-
-        var canChuyen = await _db.CauHinhMenu
-            .Where(x => x.MenuChaId == null && thuocNhom.Keys.Contains(x.Ma))
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-
-        var soChuyen = 0;
-
-        foreach (var muc in canChuyen)
-        {
-            if (idNhom.TryGetValue(thuocNhom[muc.Ma], out var chaId))
+            _db.CauHinhHeThong.Add(new CauHinhHeThong
             {
-                muc.MenuChaId = chaId;
-                soChuyen++;
-            }
+                Id = Guid.NewGuid(),
+                Nhom = "HE_THONG",
+                Khoa = KhoaPhienBanMenu,
+                GiaTri = PhienBanMenu,
+                KieuDuLieu = "TEXT",
+                TenHienThi = "Phiên bản bố cục menu",
+                MoTa = "Dùng nội bộ để biết có phải dựng lại menu khi nâng cấp hay không.",
+                ChoPhepSua = false
+            });
+        }
+        else
+        {
+            muc.GiaTri = PhienBanMenu;
         }
 
-        if (soChuyen > 0)
-        {
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            _logger.LogInformation("Đã chuyển {SoMuc} mục menu cũ vào nhóm chức năng.", soChuyen);
-        }
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
+
 }

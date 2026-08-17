@@ -25,8 +25,18 @@ import {
   type KetQuaBaoCaoTuyBien,
 } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
+import { DaiTabTrang } from '@/components/DaiTabTrang';
 
 const apiBieuMauThongKe = taoApiDanhMuc('/api/v1/danh-muc/bieu-mau-thong-ke');
+
+/** Các nhánh con của trang — thiết kế gộp thành một mục ở thanh điều hướng. */
+const DS_TAB = [
+  { ma: 'sang-kien-dat', ten: 'Sáng kiến đạt', duongDan: '/bao-cao/sang-kien-dat' },
+  { ma: 'sang-kien-chua-dat', ten: 'Chưa đạt', duongDan: '/bao-cao/sang-kien-chua-dat' },
+  { ma: 'theo-don-vi', ten: 'Theo đơn vị', duongDan: '/bao-cao/theo-don-vi' },
+  { ma: 'ket-qua', ten: 'Kết quả sáng kiến', duongDan: '/bao-cao/ket-qua' },
+  { ma: 'tuy-bien', ten: 'Tuỳ biến', duongDan: '/bao-cao/tuy-bien' },
+];
 
 /** Chức năng 7 — Báo cáo tuỳ biến sinh động từ cấu hình biểu mẫu thống kê. */
 export default function TrangBaoCaoTuyBien() {
@@ -78,7 +88,7 @@ export default function TrangBaoCaoTuyBien() {
 
   return (
     <Card
-      title="Báo cáo tuỳ biến"
+      title="Thống kê tổng hợp"
       extra={
         <Space>
           <Button
@@ -100,6 +110,8 @@ export default function TrangBaoCaoTuyBien() {
         </Space>
       }
     >
+      <DaiTabTrang danhSach={DS_TAB} dangChon={'tuy-bien'} />
+
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} md={8}>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
