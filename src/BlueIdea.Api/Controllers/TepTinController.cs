@@ -55,11 +55,12 @@ public sealed class TepTinController : ControllerBase
     private readonly IDongHoHeThong _dongHo;
     private readonly IDichVuOcr _ocr;
     private readonly IHangDoiCongViecNen _hangDoi;
+    private readonly IDichVuQuetVirus _quetVirus;
 
     public TepTinController(
         IAppDbContext db, ILuuTruTep luuTru, INguoiDungHienTai nguoiDung,
         IDichVuCauHinh cauHinh, IDongHoHeThong dongHo,
-        IDichVuOcr ocr, IHangDoiCongViecNen hangDoi)
+        IDichVuOcr ocr, IHangDoiCongViecNen hangDoi, IDichVuQuetVirus quetVirus)
     {
         _db = db;
         _luuTru = luuTru;
@@ -68,6 +69,7 @@ public sealed class TepTinController : ControllerBase
         _dongHo = dongHo;
         _ocr = ocr;
         _hangDoi = hangDoi;
+        _quetVirus = quetVirus;
     }
 
     /// <summary>Tải tệp lên và gắn vào một thành phần hồ sơ của sáng kiến.</summary>
@@ -114,6 +116,17 @@ public sealed class TepTinController : ControllerBase
                 $"Nội dung tệp không khớp với định dạng '{phanMoRong}'.");
         }
 
+        // Quét mã độc TRƯỚC khi ghi xuống kho lưu trữ — tệp nhiễm không được phép chạm vào
+        // nơi lưu trữ dù chỉ trong chốc lát (chức năng 25).
+        bo.Position = 0;
+        var ketQuaQuet = await _quetVirus.QuetAsync(bo, ct).ConfigureAwait(false);
+
+        if (ketQuaQuet.Nhiem)
+        {
+            throw new NghiepVuException(Shared.KetQua.MaLoiHeThong.TepChuaMaDoc,
+                $"Tệp '{tep.FileName}' chứa mã độc ({ketQuaQuet.TenMaDoc}) nên đã bị từ chối.");
+        }
+
         var hash = Convert.ToHexString(SHA256.HashData(duLieu)).ToLowerInvariant();
 
         // Trùng nội dung: dùng lại bản ghi đã có thay vì lưu thêm bản sao.
@@ -148,7 +161,8 @@ public sealed class TepTinController : ControllerBase
                 PhanMoRong = phanMoRong,
                 HashSha256 = hash,
                 NguoiTaiLenId = _nguoiDung.Id,
-                NgayTaiLen = _dongHo.BayGio
+                NgayTaiLen = _dongHo.BayGio,
+                DaQuetVirus = ketQuaQuet.Sach
             };
 
             _db.TepTin.Add(tepTin);

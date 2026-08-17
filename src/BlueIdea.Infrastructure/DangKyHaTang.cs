@@ -1,7 +1,10 @@
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.XacThuc;
+using BlueIdea.Infrastructure.BaoMat;
 using BlueIdea.Infrastructure.CongViecNen;
 using BlueIdea.Infrastructure.DichVu;
+using BlueIdea.Infrastructure.TichHop;
+using BlueIdea.Application.TichHop;
 using Hangfire;
 using Hangfire.PostgreSql;
 using BlueIdea.Infrastructure.Persistence;
@@ -65,8 +68,32 @@ public static class DangKyHaTang
         services.AddScoped<DuLieuMau>();
 
         ThemCongViecNen(services, cauHinh);
+        ThemQuetVirus(services, cauHinh);
+
+        // Lien thong: timeout ngan hon mac dinh vi he thong ngoai treo khong duoc keo dai
+        // thao tac dong bo cua nguoi dung.
+        services.AddHttpClient("lien-thong", http => http.Timeout = TimeSpan.FromSeconds(60));
+        services.AddScoped<IBoGuiLienThong, BoGuiLienThongHttp>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Dang ky bo quet ma doc cho tep tai len (chuc nang 25).
+    ///
+    /// Tat bang <c>QuetVirus:Bat=false</c> khi chay cuc bo / kiem thu tu dong de khong phai
+    /// dung them container ClamAV. Khi tat, he thong bao ro la CHUA QUET chu khong bao "sach".
+    /// </summary>
+    private static void ThemQuetVirus(IServiceCollection services, IConfiguration cauHinh)
+    {
+        if (cauHinh.GetValue("QuetVirus:Bat", false))
+        {
+            services.AddSingleton<IDichVuQuetVirus, DichVuQuetVirusClamAv>();
+        }
+        else
+        {
+            services.AddSingleton<IDichVuQuetVirus, DichVuQuetVirusTat>();
+        }
     }
 
     /// <summary>

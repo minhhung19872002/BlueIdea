@@ -311,6 +311,39 @@ public sealed class KetQuaTrichXuatVanBan
     public string? ThongBaoLoi { get; init; }
 }
 
+/// <summary>
+/// Quet ma doc cho tep tai len (chuc nang 25).
+///
+/// Quet TRUOC khi ghi xuong kho luu tru, khong phai sau: tep nhiem khong duoc phep cham vao
+/// noi luu tru du chi trong choc lat.
+/// </summary>
+public interface IDichVuQuetVirus
+{
+    Task<KetQuaQuetVirus> QuetAsync(Stream noiDung, CancellationToken ct = default);
+}
+
+public static class TrangThaiQuetVirus
+{
+    public const string Sach = "SACH";
+    public const string Nhiem = "NHIEM";
+
+    /// <summary>Bo quet khong san sang hoac tra ve loi — KHONG dong nghia voi sach.</summary>
+    public const string KhongQuetDuoc = "KHONG_QUET_DUOC";
+}
+
+public sealed class KetQuaQuetVirus
+{
+    public string TrangThai { get; init; } = TrangThaiQuetVirus.KhongQuetDuoc;
+
+    public string? TenMaDoc { get; init; }
+
+    public string? ThongBao { get; init; }
+
+    public bool Sach => TrangThai == TrangThaiQuetVirus.Sach;
+
+    public bool Nhiem => TrangThai == TrangThaiQuetVirus.Nhiem;
+}
+
 /// <summary>Gui email / SMS that su. Tach khoi hang doi de test duoc phan dieu phoi.</summary>
 public interface IDichVuGuiTin
 {

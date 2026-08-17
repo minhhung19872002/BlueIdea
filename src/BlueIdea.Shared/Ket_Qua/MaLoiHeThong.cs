@@ -38,6 +38,7 @@ public static class MaLoiHeThong
     public const string TrangThaiKhongChoPhepSua = "TRANG_THAI_KHONG_CHO_PHEP_SUA";
     public const string TrangThaiKhongChoPhepXoa = "TRANG_THAI_KHONG_CHO_PHEP_XOA";
     public const string TepKhongHopLe = "TEP_KHONG_HOP_LE";
+    public const string TepChuaMaDoc = "TEP_CHUA_MA_DOC";
     public const string VuotDungLuongToiDa = "VUOT_DUNG_LUONG_TOI_DA";
 
     // Tieu chi - Cham diem

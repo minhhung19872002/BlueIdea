@@ -117,6 +117,28 @@ services:
   # ---------------------------------------------------------------------------
   # API .NET 8
   # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # ClamAV - quet ma doc cho tep tai len (chuc nang 25)
+  # Chi lang nghe trong mang noi bo, khong expose ra ngoai.
+  # ---------------------------------------------------------------------------
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: blueidea-clamav
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      # Tu cap nhat mau virus. Lan dau khoi dong phai tai bo mau (~200MB) nen cham.
+      CLAMAV_NO_FRESHCLAMD: "false"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --ping 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+    networks: [blueidea-net]
+
   api:
     build:
       context: ..
@@ -129,6 +151,8 @@ services:
       redis:
         condition: service_healthy
       ai-service:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
@@ -157,6 +181,11 @@ services:
       CongViecNen__BatHangfire: "true"
       CongViecNen__SoWorker: "${SO_WORKER_NEN:-4}"
       CongViecNen__DiaChiDichVuOcr: http://ai-service:8000
+
+      # Quet ma doc tep tai len.
+      QuetVirus__Bat: "${QUET_VIRUS:-true}"
+      QuetVirus__Host: clamav
+      QuetVirus__Cong: "3310"
     ports:
       # Bat buoc co tien to 127.0.0.1 nhu postgres/redis o tren. Viet "8080:8080" tran
       # se khien Docker tu mo cong tren MOI giao dien mang va tu them rule iptables di
@@ -191,6 +220,7 @@ services:
     networks: [blueidea-net]
 
 volumes:
+  clamav-db:
   postgres-data:
   redis-data:
   minio-data:
