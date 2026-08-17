@@ -2,6 +2,7 @@ import {
   capNhatDuLieu,
   capNhatMotPhan,
   guiDuLieu,
+  http,
   layDuLieu,
   layPhanTrang,
   xoaDuLieu,
@@ -755,6 +756,139 @@ export const apiQuyetDinh = {
   congBo: (id: string, congKhai: boolean) =>
     guiDuLieu(`/api/v1/quyet-dinh/${id}/cong-bo?congKhai=${congKhai}`),
   duongDanPdf: (id: string) => `/api/v1/quyet-dinh/${id}/xuat-pdf`,
+};
+
+// --- Cấu hình gửi tin (chức năng 50) ---------------------------------------
+
+export interface CauHinhGuiTin {
+  id: string;
+  loai: string;
+  nhaCungCap?: string | null;
+  host?: string | null;
+  port?: number | null;
+  tenDangNhap?: string | null;
+  daDatMatKhau: boolean;
+  suDungSsl: boolean;
+  emailGuiDi?: string | null;
+  tenHienThi?: string | null;
+  apiEndpoint?: string | null;
+  daDatApiKey: boolean;
+  brandname?: string | null;
+  trangThai: number;
+  laMacDinh: boolean;
+}
+
+export interface LuuCauHinhGuiTin {
+  loai: string;
+  nhaCungCap?: string | null;
+  host?: string | null;
+  port?: number | null;
+  tenDangNhap?: string | null;
+  matKhau?: string | null;
+  suDungSsl: boolean;
+  emailGuiDi?: string | null;
+  tenHienThi?: string | null;
+  apiEndpoint?: string | null;
+  apiKey?: string | null;
+  brandname?: string | null;
+  trangThai: number;
+  laMacDinh: boolean;
+}
+
+export const apiCauHinhGuiTin = {
+  danhSach: () => layDuLieu<CauHinhGuiTin[]>('/api/v1/cau-hinh-gui-tin'),
+  thongKeHangDoi: () =>
+    layDuLieu<Record<string, number>>('/api/v1/cau-hinh-gui-tin/thong-ke-hang-doi'),
+  them: (duLieu: LuuCauHinhGuiTin) => guiDuLieu<string>('/api/v1/cau-hinh-gui-tin', duLieu),
+  sua: (id: string, duLieu: LuuCauHinhGuiTin) =>
+    capNhatDuLieu(`/api/v1/cau-hinh-gui-tin/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/cau-hinh-gui-tin/${id}`),
+  guiThu: (id: string, nguoiNhan: string) =>
+    guiDuLieu(`/api/v1/cau-hinh-gui-tin/${id}/gui-thu?nguoiNhan=${encodeURIComponent(nguoiNhan)}`),
+};
+
+// --- Nhập / xuất (chức năng 6, 7, 35, 43) -----------------------------------
+
+export interface KetQuaDongNhap {
+  soDong: number;
+  tenDangNhap?: string | null;
+  hoTen?: string | null;
+  hopLe: boolean;
+  loi?: string | null;
+  matKhauTam?: string | null;
+}
+
+export interface KetQuaNhapNguoiDung {
+  chayThu: boolean;
+  tongDong: number;
+  soHopLe: number;
+  soLoi: number;
+  chiTiet: KetQuaDongNhap[];
+}
+
+export interface KetQuaBaoCaoTuyBien {
+  tenBaoCao: string;
+  tieuDeCot: string[];
+  cacDong: string[][];
+  boLocDaApDung: Record<string, string>;
+  tongSo: number;
+}
+
+export interface NguonDuLieuBaoCao {
+  ma: string;
+  tieuDeGoiY: string;
+}
+
+export interface KetQuaQuetPlaceholder {
+  placeholder: string[];
+  soDoanVan: number;
+  soBang: number;
+  canhBao?: string | null;
+  nguonGoiY: NguonDuLieuBaoCao[];
+}
+
+export const apiNhapXuat = {
+  duongDanMauNhapNguoiDung: () => '/api/v1/nhap-xuat/nguoi-dung/mau-nhap',
+
+  nhapNguoiDung: async (tep: File, chayThu: boolean) => {
+    const form = new FormData();
+    form.append('tep', tep);
+
+    const { data } = await http.post<{ duLieu: KetQuaNhapNguoiDung; thongBao: string }>(
+      `/api/v1/nhap-xuat/nguoi-dung?chayThu=${chayThu}`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+
+    return data;
+  },
+
+  quetPlaceholder: async (tep: File) => {
+    const form = new FormData();
+    form.append('tep', tep);
+
+    const { data } = await http.post<{ duLieu: KetQuaQuetPlaceholder }>(
+      '/api/v1/nhap-xuat/bieu-mau/quet-placeholder',
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+
+    return data.duLieu;
+  },
+
+  duongDanPhieuChamHoSo: (sangKienId: string) =>
+    `/api/v1/nhap-xuat/phieu-cham/ho-so/${sangKienId}`,
+  duongDanPhieuChamHoiDong: (hoiDongId: string) =>
+    `/api/v1/nhap-xuat/phieu-cham/hoi-dong/${hoiDongId}`,
+
+  nguonDuLieuBaoCao: () =>
+    layDuLieu<NguonDuLieuBaoCao[]>('/api/v1/nhap-xuat/bao-cao-tuy-bien/nguon-du-lieu'),
+  chayBaoCaoTuyBien: (bieuMauId: string, thamSo?: Record<string, unknown>) =>
+    layDuLieu<KetQuaBaoCaoTuyBien>(`/api/v1/nhap-xuat/bao-cao-tuy-bien/${bieuMauId}`, {
+      params: thamSo,
+    }),
+  duongDanXuatBaoCaoTuyBien: (bieuMauId: string) =>
+    `/api/v1/nhap-xuat/bao-cao-tuy-bien/${bieuMauId}/xuat-excel`,
 };
 
 export type { PhanHoiPhanTrang };

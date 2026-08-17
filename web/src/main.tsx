@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { App as AntApp, ConfigProvider, theme } from 'antd';
+import { App as AntApp, ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
@@ -10,6 +10,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
+import { taoChuDe } from '@/app/giaoDien';
 import { router } from '@/app/router';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
 import './styles/global.css';
@@ -35,22 +36,7 @@ function Goc() {
   const mauChuDao = useCauHinhStore((s) => s.mauChuDao);
 
   return (
-    <ConfigProvider
-      locale={viVN}
-      theme={{
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          colorPrimary: mauChuDao,
-          fontFamily:
-            "'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif",
-          borderRadius: 6,
-        },
-        components: {
-          Layout: { headerBg: '#fff', siderBg: '#001529' },
-          Table: { headerBg: '#fafafa' },
-        },
-      }}
-    >
+    <ConfigProvider locale={viVN} theme={taoChuDe(mauChuDao)}>
       <AntApp>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />

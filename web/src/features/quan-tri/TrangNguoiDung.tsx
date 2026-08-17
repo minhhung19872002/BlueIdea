@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import {
   EditOutlined,
+  ImportOutlined,
   KeyOutlined,
   LockOutlined,
   PlusOutlined,
@@ -29,6 +30,7 @@ import dayjs from 'dayjs';
 import { LoiApi } from '@/api/client';
 import { apiDonVi, apiHeThong, type LuuNguoiDung } from '@/api/endpoints';
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
+import HopThoaiNhapNguoiDung from './HopThoaiNhapNguoiDung';
 
 interface DongNguoiDung {
   id: string;
@@ -65,6 +67,7 @@ export default function TrangNguoiDung() {
   const [donViId, setDonViId] = useState<string | undefined>();
   const [suaId, setSuaId] = useState<string | null>(null);
   const [moForm, setMoForm] = useState(false);
+  const [moNhap, setMoNhap] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['nguoi-dung', { trang, soDong, tuKhoa, donViId }],
@@ -143,6 +146,9 @@ export default function TrangNguoiDung() {
               options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
               onChange={setDonViId}
             />
+            <Button icon={<ImportOutlined />} onClick={() => setMoNhap(true)}>
+              Nhập Excel
+            </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -252,6 +258,13 @@ export default function TrangNguoiDung() {
           }}
         />
       </Card>
+
+      {moNhap && (
+        <HopThoaiNhapNguoiDung
+          onDong={() => setMoNhap(false)}
+          onXong={() => void queryClient.invalidateQueries({ queryKey: ['nguoi-dung'] })}
+        />
+      )}
 
       {moForm && (
         <FormNguoiDung

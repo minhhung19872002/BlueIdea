@@ -1,17 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Avatar,
-  Badge,
-  Breadcrumb,
-  Button,
-  Drawer,
-  Dropdown,
-  Grid,
-  Layout,
-  Menu,
-  Typography,
-} from 'antd';
+import { Avatar, Badge, Breadcrumb, Button, Drawer, Dropdown, Grid, Layout, Typography } from 'antd';
 import {
   BellOutlined,
   KeyOutlined,
@@ -24,17 +13,37 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore, type MucMenu } from '@/app/store/cauHinhStore';
+import { kichThuoc, mauSac } from '@/app/giaoDien';
 import { layPhanTrang } from '@/api/client';
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
 
+/** Một dòng trong thanh điều hướng: tiêu đề nhóm hoặc mục bấm được. */
+interface DongMenu {
+  ma: string;
+  ten: string;
+  icon?: string | null;
+  duongDan?: string | null;
+  laTieuDeNhom: boolean;
+}
+
 /** Lấy component icon của AntD theo tên chuỗi lưu trong cấu hình menu. */
 function LayIcon(ten?: string | null) {
-  if (!ten) return undefined;
+  if (!ten) return null;
   const bang = Icons as unknown as Record<string, React.ComponentType>;
   const Icon = bang[ten];
-  return Icon ? <Icon /> : undefined;
+  return Icon ? <Icon /> : null;
+}
+
+/** Chữ viết tắt hiển thị trong avatar khi người dùng chưa có ảnh. */
+function vietTat(hoTen?: string | null) {
+  if (!hoTen) return '';
+
+  const tu = hoTen.trim().split(/\s+/);
+  if (tu.length === 1) return tu[0].slice(0, 2).toUpperCase();
+
+  return `${tu[tu.length - 2][0]}${tu[tu.length - 1][0]}`.toUpperCase();
 }
 
 export function BoCucChinh() {
@@ -43,7 +52,6 @@ export function BoCucChinh() {
   const manHinh = useBreakpoint();
   const laDiDong = !manHinh.lg;
 
-  const [thuGon, setThuGon] = useState(false);
   const [moDrawer, setMoDrawer] = useState(false);
 
   const { nguoiDung, dangXuat } = useAuthStore();
@@ -55,50 +63,98 @@ export function BoCucChinh() {
     refetchInterval: 60_000,
   });
 
-  const mucMenu = useMemo(() => chuyenDoiMenu(menu), [menu]);
-
   const duongDanHienTai = viTri.pathname;
-  const khoaChon = useMemo(() => timKhoaKhop(menu, duongDanHienTai), [menu, duongDanHienTai]);
+
+  // Thiết kế dùng danh sách PHẲNG có tiêu đề nhóm thay vì submenu bung/gập:
+  // toàn bộ chức năng nhìn thấy ngay, không phải bấm hai lần mới tới nơi.
+  const dongMenu = useMemo(() => lamPhangMenu(menu), [menu]);
+
+  const maDangChon = useMemo(() => timMucKhop(dongMenu, duongDanHienTai), [dongMenu, duongDanHienTai]);
 
   const duongDanBreadcrumb = useMemo(
     () => taoBreadcrumb(menu, duongDanHienTai),
     [menu, duongDanHienTai],
   );
 
-  const noiDungMenu = (
-    <>
+  const thanhDieuHuong = (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>
       <div
         style={{
-          height: 56,
+          height: kichThuoc.caoHeader,
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '0 12px',
+          gap: 10,
         }}
       >
-        <Typography.Text strong style={{ color: '#fff', fontSize: thuGon ? 14 : 15 }}>
-          {thuGon ? 'SK' : 'SÁNG KIẾN'}
-        </Typography.Text>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 7,
+            background: mauSac.chinh,
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: 12,
+          }}
+        >
+          BI
+        </div>
+        <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '0.04em' }}>BLUEIDEA</span>
       </div>
-      <Menu
-        theme="dark"
-        mode="inline"
-        selectedKeys={khoaChon ? [khoaChon] : []}
-        defaultOpenKeys={duongDanBreadcrumb.map((b) => b.ma)}
-        items={mucMenu}
-        onClick={({ key }) => {
-          dieuHuong(key);
-          setMoDrawer(false);
-        }}
-      />
-    </>
+
+      <nav
+        aria-label="Điều hướng chính"
+        style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 8px 16px' }}
+      >
+        {dongMenu.map((m) =>
+          m.laTieuDeNhom ? (
+            <div
+              key={m.ma}
+              style={{
+                height: 26,
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 12px',
+                marginTop: 14,
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                color: mauSac.chuMo,
+                flexShrink: 0,
+              }}
+            >
+              {m.ten.toUpperCase()}
+            </div>
+          ) : (
+            <MucDieuHuong
+              key={m.ma}
+              muc={m}
+              dangChon={m.ma === maDangChon}
+              onChon={() => {
+                if (m.duongDan) dieuHuong(m.duongDan);
+                setMoDrawer(false);
+              }}
+            />
+          ),
+        )}
+      </nav>
+    </div>
   );
 
   return (
-    <Layout className="bo-cuc-chinh">
+    <Layout className="bo-cuc-chinh" style={{ height: '100vh', overflow: 'hidden' }}>
       {!laDiDong && (
-        <Sider collapsible collapsed={thuGon} onCollapse={setThuGon} width={250} theme="dark">
-          {noiDungMenu}
+        <Sider
+          width={kichThuoc.rongSider}
+          theme="light"
+          style={{ borderRight: `1px solid ${mauSac.vien}`, overflow: 'hidden' }}
+        >
+          {thanhDieuHuong}
         </Sider>
       )}
 
@@ -107,21 +163,21 @@ export function BoCucChinh() {
           placement="left"
           open={moDrawer}
           onClose={() => setMoDrawer(false)}
-          styles={{ body: { padding: 0, background: '#001529' }, header: { display: 'none' } }}
+          styles={{ body: { padding: 0 }, header: { display: 'none' } }}
           width={260}
         >
-          {noiDungMenu}
+          {thanhDieuHuong}
         </Drawer>
       )}
 
-      <Layout>
+      <Layout style={{ minWidth: 0 }}>
         <Header
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            padding: '0 16px',
-            borderBottom: '1px solid var(--mau-vien)',
+            borderBottom: `1px solid ${mauSac.vien}`,
+            flexShrink: 0,
           }}
         >
           {laDiDong && (
@@ -133,7 +189,7 @@ export function BoCucChinh() {
             />
           )}
 
-          {/* Tiêu đề phải nằm gọn trên một dòng, cắt bớt khi hẹp — tránh đè lên breadcrumb. */}
+          {/* Tiêu đề nằm gọn một dòng, cắt bớt khi hẹp — tránh đẩy các nút bên phải ra ngoài. */}
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <Typography.Text
               strong
@@ -142,7 +198,7 @@ export function BoCucChinh() {
             >
               {tenHeThong}
               {tenDonVi && !laDiDong && (
-                <span style={{ color: 'rgba(0,0,0,0.45)', fontWeight: 400 }}> — {tenDonVi}</span>
+                <span style={{ color: mauSac.chuMo, fontWeight: 400 }}> — {tenDonVi}</span>
               )}
             </Typography.Text>
           </div>
@@ -159,8 +215,8 @@ export function BoCucChinh() {
                   label: (
                     <div style={{ padding: '4px 0' }}>
                       <div style={{ fontWeight: 600 }}>{nguoiDung?.hoTen}</div>
-                      <div style={{ fontSize: 12, color: '#888' }}>{nguoiDung?.chucVu}</div>
-                      <div style={{ fontSize: 12, color: '#888' }}>{nguoiDung?.tenDonVi}</div>
+                      <div style={{ fontSize: 12, color: mauSac.chuMo }}>{nguoiDung?.chucVu}</div>
+                      <div style={{ fontSize: 12, color: mauSac.chuMo }}>{nguoiDung?.tenDonVi}</div>
                     </div>
                   ),
                   disabled: true,
@@ -185,22 +241,30 @@ export function BoCucChinh() {
             }}
           >
             <Button type="text" style={{ height: 'auto', padding: '4px 8px' }}>
-              <Avatar size="small" icon={<UserOutlined />} />
+              {nguoiDung?.hoTen ? (
+                <Avatar size={26} style={{ background: mauSac.chinh, fontSize: 11, fontWeight: 600 }}>
+                  {vietTat(nguoiDung.hoTen)}
+                </Avatar>
+              ) : (
+                <Avatar size={26} icon={<UserOutlined />} />
+              )}
               {!laDiDong && <span style={{ marginLeft: 8 }}>{nguoiDung?.hoTen}</span>}
             </Button>
           </Dropdown>
         </Header>
 
-        <Content className="noi-dung-trang">
-          {duongDanBreadcrumb.length > 0 && (
-            <Breadcrumb
-              style={{ marginBottom: 12 }}
-              items={[
-                { title: <Link to="/">Trang chủ</Link> },
-                ...duongDanBreadcrumb.map((b) => ({ title: b.ten })),
-              ]}
-            />
-          )}
+        <Content className="noi-dung-trang" style={{ overflow: 'auto', minHeight: 0 }}>
+          <Breadcrumb
+            style={{ marginBottom: kichThuoc.khoangKhoi }}
+            items={
+              duongDanBreadcrumb.length > 0
+                ? [
+                    { title: <Link to="/">Trang chủ</Link> },
+                    ...duongDanBreadcrumb.map((b) => ({ title: b.ten })),
+                  ]
+                : [{ title: <Link to="/">Trang chủ</Link> }, { title: 'Tổng quan' }]
+            }
+          />
           <Outlet />
         </Content>
       </Layout>
@@ -208,19 +272,86 @@ export function BoCucChinh() {
   );
 }
 
-function chuyenDoiMenu(danhSach: MucMenu[]): NonNullable<Parameters<typeof Menu>[0]['items']> {
-  return danhSach.map((m) => {
-    if (m.menuCon.length > 0) {
-      return {
-        key: m.duongDan ?? m.ma,
-        icon: LayIcon(m.icon),
-        label: m.ten,
-        children: chuyenDoiMenu(m.menuCon),
-      };
-    }
+/** Một mục điều hướng bấm được, có trạng thái hover riêng vì AntD Menu không còn dùng ở đây. */
+function MucDieuHuong({
+  muc,
+  dangChon,
+  onChon,
+}: {
+  muc: DongMenu;
+  dangChon: boolean;
+  onChon: () => void;
+}) {
+  const [hover, setHover] = useState(false);
 
-    return { key: m.duongDan ?? m.ma, icon: LayIcon(m.icon), label: m.ten };
-  });
+  const nen = dangChon ? mauSac.chinhNhat : hover ? 'rgba(0,0,0,0.04)' : 'transparent';
+
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      aria-current={dangChon ? 'page' : undefined}
+      onClick={onChon}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onChon();
+        }
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        height: 38,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '0 12px',
+        borderRadius: 8,
+        fontSize: 14,
+        fontWeight: dangChon ? 600 : 400,
+        background: nen,
+        color: dangChon ? mauSac.chinh : mauSac.chuPhu,
+        cursor: 'pointer',
+        flexShrink: 0,
+        transition: 'background 0.15s',
+      }}
+    >
+      <span style={{ fontSize: 15, width: 16, textAlign: 'center', flexShrink: 0 }}>
+        {LayIcon(muc.icon)}
+      </span>
+      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {muc.ten}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Trải cây menu thành danh sách phẳng.
+ *
+ * Mục cha CÓ đường dẫn vẫn giữ nguyên là mục bấm được; chỉ mục cha thuần gom nhóm
+ * (không có đường dẫn) mới trở thành tiêu đề nhóm.
+ */
+function lamPhangMenu(danhSach: MucMenu[]): DongMenu[] {
+  const ketQua: DongMenu[] = [];
+
+  for (const m of danhSach) {
+    const laNhom = m.menuCon.length > 0 && !m.duongDan;
+
+    ketQua.push({
+      ma: m.ma,
+      ten: m.ten,
+      icon: m.icon,
+      duongDan: m.duongDan,
+      laTieuDeNhom: laNhom,
+    });
+
+    if (m.menuCon.length > 0) {
+      ketQua.push(...lamPhangMenu(m.menuCon));
+    }
+  }
+
+  return ketQua;
 }
 
 /**
@@ -236,48 +367,36 @@ function khopDuongDan(duongDanMenu: string, duongDanHienTai: string): boolean {
 }
 
 /** Tìm mục menu khớp đường dẫn hiện tại (ưu tiên khớp dài nhất). */
-function timKhoaKhop(danhSach: MucMenu[], duongDan: string): string | undefined {
-  let khop: string | undefined;
+function timMucKhop(dongMenu: DongMenu[], duongDan: string): string | undefined {
+  let khop: DongMenu | undefined;
 
-  const duyet = (cac: MucMenu[]) => {
-    for (const m of cac) {
-      if (m.duongDan && khopDuongDan(m.duongDan, duongDan)) {
-        if (!khop || m.duongDan.length > khop.length) {
-          khop = m.duongDan;
-        }
+  for (const m of dongMenu) {
+    if (m.laTieuDeNhom || !m.duongDan) continue;
+
+    if (khopDuongDan(m.duongDan, duongDan)) {
+      if (!khop || m.duongDan.length > khop.duongDan!.length) {
+        khop = m;
       }
-      duyet(m.menuCon);
     }
-  };
-
-  duyet(danhSach);
-  return khop;
-}
-
-function taoBreadcrumb(danhSach: MucMenu[], duongDan: string): MucMenu[] {
-  // Ở trang chủ không cần breadcrumb (header đã có sẵn liên kết "Trang chủ").
-  if (duongDan === '/') {
-    return [];
   }
 
-  const ketQua: MucMenu[] = [];
+  return khop?.ma;
+}
 
-  const duyet = (cac: MucMenu[], toTien: MucMenu[]): boolean => {
-    for (const m of cac) {
-      const duongDi = [...toTien, m];
-
-      if (m.duongDan && khopDuongDan(m.duongDan, duongDan)) {
-        ketQua.push(...duongDi);
-        return true;
-      }
-
-      if (m.menuCon.length > 0 && duyet(m.menuCon, duongDi)) {
-        return true;
+/** Dựng đường dẫn breadcrumb theo cây menu. */
+function taoBreadcrumb(danhSach: MucMenu[], duongDan: string): MucMenu[] {
+  for (const m of danhSach) {
+    if (m.menuCon.length > 0) {
+      const duoi = taoBreadcrumb(m.menuCon, duongDan);
+      if (duoi.length > 0) {
+        return [m, ...duoi];
       }
     }
-    return false;
-  };
 
-  duyet(danhSach, []);
-  return ketQua;
+    if (m.duongDan && khopDuongDan(m.duongDan, duongDan) && m.duongDan !== '/') {
+      return [m];
+    }
+  }
+
+  return [];
 }

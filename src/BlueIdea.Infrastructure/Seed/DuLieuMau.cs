@@ -417,16 +417,27 @@ public sealed partial class DuLieuMau
             return m;
         }
 
-        Them("DASHBOARD", "Trang chủ", "/", "DashboardOutlined", null);
-        Them("SK_CUA_TOI", "Hồ sơ của tôi", "/sang-kien/cua-toi", "FileTextOutlined", MaQuyen.SangKienXem);
-        Them("SK_NOP_MOI", "Nộp sáng kiến", "/sang-kien/nop-moi", "PlusCircleOutlined", MaQuyen.SangKienThem);
-        Them("TIEP_NHAN", "Tiếp nhận hồ sơ", "/tiep-nhan", "InboxOutlined", MaQuyen.TiepNhanXem);
-        Them("XU_LY", "Việc cần xử lý", "/xu-ly", "AuditOutlined", MaQuyen.XuLyXem);
-        Them("DANH_GIA", "Hồ sơ đánh giá", "/danh-gia", "StarOutlined", MaQuyen.DanhGiaXem);
-        Them("HOI_DONG", "Hội đồng sáng kiến", "/hoi-dong", "TeamOutlined", MaQuyen.HoiDongXem);
+        // Nhom chuc nang: muc cha KHONG co duong dan -> giao dien hien thanh tieu de nhom.
+        var nhomTongQuan = Them("NHOM_TONG_QUAN", "Tổng quan", null, null, null);
+        Them("DASHBOARD", "Trang chủ", "/", "DashboardOutlined", null, nhomTongQuan.Id);
+
+        var nhomSangKien = Them("NHOM_SANG_KIEN", "Sáng kiến", null, null, MaQuyen.SangKienXem);
+        Them("SK_CUA_TOI", "Hồ sơ của tôi", "/sang-kien/cua-toi", "FileTextOutlined",
+            MaQuyen.SangKienXem, nhomSangKien.Id);
+        Them("SK_NOP_MOI", "Nộp sáng kiến", "/sang-kien/nop-moi", "PlusCircleOutlined",
+            MaQuyen.SangKienThem, nhomSangKien.Id);
+        Them("TRA_CUU", "Tra cứu", "/tra-cuu", "SearchOutlined", MaQuyen.SangKienXem, nhomSangKien.Id);
+
+        var nhomXuLy = Them("NHOM_XU_LY", "Xử lý & đánh giá", null, null, MaQuyen.XuLyXem);
+        Them("TIEP_NHAN", "Tiếp nhận hồ sơ", "/tiep-nhan", "InboxOutlined",
+            MaQuyen.TiepNhanXem, nhomXuLy.Id);
+        Them("XU_LY", "Việc cần xử lý", "/xu-ly", "AuditOutlined", MaQuyen.XuLyXem, nhomXuLy.Id);
+        Them("DANH_GIA", "Hồ sơ đánh giá", "/danh-gia", "StarOutlined",
+            MaQuyen.DanhGiaXem, nhomXuLy.Id);
+        Them("HOI_DONG", "Hội đồng sáng kiến", "/hoi-dong", "TeamOutlined",
+            MaQuyen.HoiDongXem, nhomXuLy.Id);
         Them("QUYET_DINH", "Quyết định công nhận", "/quyet-dinh", "SafetyCertificateOutlined",
-            MaQuyen.QuyetDinhXem);
-        Them("TRA_CUU", "Tra cứu", "/tra-cuu", "SearchOutlined", MaQuyen.SangKienXem);
+            MaQuyen.QuyetDinhXem, nhomXuLy.Id);
 
         var baoCao = Them("BAO_CAO", "Báo cáo thống kê", null, "BarChartOutlined", MaQuyen.BaoCaoXem);
         Them("BC_DAT", "Sáng kiến đạt", "/bao-cao/sang-kien-dat", null, MaQuyen.BaoCaoXem, baoCao.Id);
@@ -434,6 +445,7 @@ public sealed partial class DuLieuMau
             MaQuyen.BaoCaoXem, baoCao.Id);
         Them("BC_DON_VI", "Theo đơn vị", "/bao-cao/theo-don-vi", null, MaQuyen.BaoCaoXem, baoCao.Id);
         Them("BC_KET_QUA", "Kết quả sáng kiến", "/bao-cao/ket-qua", null, MaQuyen.BaoCaoXem, baoCao.Id);
+        Them("BC_TUY_BIEN", "Báo cáo tuỳ biến", "/bao-cao/tuy-bien", null, MaQuyen.BaoCaoXem, baoCao.Id);
 
         var quanTri = Them("QUAN_TRI", "Quản trị hệ thống", null, "SettingOutlined", MaQuyen.CauHinhXem);
         var danhMuc = Them("DANH_MUC", "Danh mục", null, "AppstoreOutlined", MaQuyen.DanhMucXem, quanTri.Id);
@@ -468,6 +480,8 @@ public sealed partial class DuLieuMau
         Them("CH_TICH_HOP", "Tích hợp hệ thống", "/quan-tri/cau-hinh/tich-hop", null,
             MaQuyen.TichHopCauHinh, cauHinh.Id);
 
+        Them("QT_GUI_TIN", "Cấu hình gửi tin", "/quan-tri/gui-tin", null, MaQuyen.CauHinhXem, quanTri.Id);
+
         var nhatKy = Them("QT_NHAT_KY", "Nhật ký", null, null, MaQuyen.NhatKyXem, quanTri.Id);
         Them("NK_HE_THONG", "Nhật ký hệ thống", "/quan-tri/nhat-ky/he-thong", null,
             MaQuyen.NhatKyXem, nhatKy.Id);
@@ -479,6 +493,8 @@ public sealed partial class DuLieuMau
 
         if (menu.Count == 0)
         {
+            // Van phai chay buoc gom nhom: lan chay truoc co the da them nhom nhung chua chuyen muc.
+            await ChuyenMucCuVaoNhomAsync(ct).ConfigureAwait(false);
             return;
         }
 
@@ -507,5 +523,63 @@ public sealed partial class DuLieuMau
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         _logger.LogInformation("Đã bổ sung {SoMuc} mục menu mới.", menu.Count);
+
+        // Phai chay SAU khi luu: truoc do cac nhom moi chi nam trong change tracker, chua co
+        // ban ghi that de tra Id.
+        await ChuyenMucCuVaoNhomAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Dua cac muc menu cu (ban 1.x, nam thang o cap goc) vao dung nhom chuc nang.
+    ///
+    /// CHI dong nhung muc con dang o cap goc (<c>menu_cha_id IS NULL</c>) — muc nao quan tri vien
+    /// da tu sap xep lai thi giu nguyen, khong ghi de tuy bien cua ho.
+    /// </summary>
+    private async Task ChuyenMucCuVaoNhomAsync(CancellationToken ct)
+    {
+        var thuocNhom = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["DASHBOARD"] = "NHOM_TONG_QUAN",
+            ["SK_CUA_TOI"] = "NHOM_SANG_KIEN",
+            ["SK_NOP_MOI"] = "NHOM_SANG_KIEN",
+            ["TRA_CUU"] = "NHOM_SANG_KIEN",
+            ["TIEP_NHAN"] = "NHOM_XU_LY",
+            ["XU_LY"] = "NHOM_XU_LY",
+            ["DANH_GIA"] = "NHOM_XU_LY",
+            ["HOI_DONG"] = "NHOM_XU_LY",
+            ["QUYET_DINH"] = "NHOM_XU_LY"
+        };
+
+        var idNhom = await _db.CauHinhMenu.AsNoTracking()
+            .Where(x => thuocNhom.Values.Contains(x.Ma))
+            .ToDictionaryAsync(x => x.Ma, x => x.Id, StringComparer.OrdinalIgnoreCase, ct)
+            .ConfigureAwait(false);
+
+        if (idNhom.Count == 0)
+        {
+            return;
+        }
+
+        var canChuyen = await _db.CauHinhMenu
+            .Where(x => x.MenuChaId == null && thuocNhom.Keys.Contains(x.Ma))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var soChuyen = 0;
+
+        foreach (var muc in canChuyen)
+        {
+            if (idNhom.TryGetValue(thuocNhom[muc.Ma], out var chaId))
+            {
+                muc.MenuChaId = chaId;
+                soChuyen++;
+            }
+        }
+
+        if (soChuyen > 0)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("Đã chuyển {SoMuc} mục menu cũ vào nhóm chức năng.", soChuyen);
+        }
     }
 }

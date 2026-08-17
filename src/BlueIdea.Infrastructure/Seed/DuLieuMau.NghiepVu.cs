@@ -207,7 +207,100 @@ public sealed partial class DuLieuMau
             }
         }
 
+        await SeedBieuMauThongKeAsync(ct).ConfigureAwait(false);
+
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Chuc nang 7 - Bo mau bao cao tuy bien de quan tri vien co san vi du chinh sua.
+    ///
+    /// Bo sung THEO TUNG MA (khong bo qua ca bang) de he thong dang chay nang cap len van nhan duoc
+    /// mau moi ma khong ghi de mau quan tri vien da tu sua.
+    /// </summary>
+    private async Task SeedBieuMauThongKeAsync(CancellationToken ct)
+    {
+        var daCo = (await _db.BieuMauThongKe.AsNoTracking()
+                .Select(x => x.Ma)
+                .ToListAsync(ct)
+                .ConfigureAwait(false))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var mau = new (string Ma, string Ten, string LoaiBaoCao, (string Ma, string TieuDe,
+            string Nguon, string? Ham)[] Cot)[]
+        {
+            ("BCTK_TONG_HOP", "Tổng hợp sáng kiến theo đợt", "TONG_HOP", new[]
+            {
+                ("maHoSo", "Mã hồ sơ", "maHoSo", (string?)null),
+                ("tenSangKien", "Tên sáng kiến", "tenSangKien", null),
+                ("tacGia", "Tác giả chính", "tacGiaChinh", null),
+                ("donVi", "Đơn vị", "tenDonVi", null),
+                ("linhVuc", "Lĩnh vực", "tenLinhVuc", null),
+                ("trangThai", "Trạng thái", "trangThaiTong", null),
+                ("diem", "Tổng điểm", "tongDiem", "TRUNG_BINH")
+            }),
+
+            ("BCTK_CONG_NHAN", "Danh sách sáng kiến được công nhận", "CONG_NHAN", new[]
+            {
+                ("maHoSo", "Mã hồ sơ", "maHoSo", (string?)null),
+                ("tenSangKien", "Tên sáng kiến", "tenSangKien", null),
+                ("tacGia", "Tác giả chính", "tacGiaChinh", null),
+                ("donVi", "Đơn vị", "tenDonVi", null),
+                ("mucCongNhan", "Mức công nhận", "tenMucCongNhan", null),
+                ("soQuyetDinh", "Số quyết định", "soQuyetDinh", null),
+                ("ngayCongNhan", "Ngày công nhận", "ngayCongNhan", null),
+                ("diem", "Tổng điểm", "tongDiem", "TRUNG_BINH")
+            }),
+
+            ("BCTK_LAM_LOI", "Giá trị làm lợi ước tính", "HIEU_QUA", new[]
+            {
+                ("maHoSo", "Mã hồ sơ", "maHoSo", (string?)null),
+                ("tenSangKien", "Tên sáng kiến", "tenSangKien", null),
+                ("donVi", "Đơn vị", "tenDonVi", null),
+                ("phamVi", "Phạm vi áp dụng", "phamViApDung", null),
+                ("lamLoi", "Giá trị làm lợi (đồng)", "giaTriLamLoi", "TONG")
+            }),
+
+            ("BCTK_TRUNG_LAP", "Cảnh báo trùng lặp", "TRUNG_LAP", new[]
+            {
+                ("maHoSo", "Mã hồ sơ", "maHoSo", (string?)null),
+                ("tenSangKien", "Tên sáng kiến", "tenSangKien", null),
+                ("donVi", "Đơn vị", "tenDonVi", null),
+                ("tyLe", "Tỷ lệ trùng lặp (%)", "tyLeTrungLap", "LON_NHAT")
+            })
+        };
+
+        var thuTu = 1;
+
+        foreach (var (ma, ten, loaiBaoCao, cot) in mau)
+        {
+            if (daCo.Contains(ma))
+            {
+                thuTu++;
+                continue;
+            }
+
+            _db.BieuMauThongKe.Add(new BieuMauThongKe
+            {
+                Id = Guid.NewGuid(),
+                Ma = ma,
+                Ten = ten,
+                TenKhongDau = VanBanTiengViet.TaoKhongDau(ten),
+                LoaiBaoCao = loaiBaoCao,
+                ThuTu = thuTu++,
+                DinhDangXuat = new List<string> { "XLSX", "PDF" },
+                CauHinhCot = cot
+                    .Select((c, i) => new CotBaoCao
+                    {
+                        Ma = c.Ma,
+                        TieuDe = c.TieuDe,
+                        Nguon = c.Nguon,
+                        HamTongHop = c.Ham,
+                        ThuTu = i + 1
+                    })
+                    .ToList()
+            });
+        }
     }
 
     // ------------------------------------------------------------------------------------

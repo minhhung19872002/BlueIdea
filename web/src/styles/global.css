@@ -1,6 +1,10 @@
 :root {
   --mau-nen: #f0f2f5;
   --mau-vien: #f0f0f0;
+  --mau-chinh: #1677ff;
+  --mau-chinh-nhat: #e6f4ff;
+  --chu-mo: rgba(0, 0, 0, 0.45);
+  --khoang-khoi: 12px;
 }
 
 * {
@@ -19,6 +23,30 @@ body {
   background: var(--mau-nen);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Thanh cuộn mảnh: thanh mặc định của Windows chiếm ~17px, đè lên nội dung
+   thanh điều hướng vốn chỉ rộng 250px. */
+.ant-layout-sider ::-webkit-scrollbar,
+.noi-dung-trang::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ant-layout-sider ::-webkit-scrollbar-thumb,
+.noi-dung-trang::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.16);
+  border-radius: 99px;
+}
+
+.ant-layout-sider ::-webkit-scrollbar-thumb:hover,
+.noi-dung-trang::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.ant-layout-sider ::-webkit-scrollbar-track,
+.noi-dung-trang::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Bố cục ------------------------------------------------------------------ */
@@ -40,6 +68,43 @@ body {
   background: #fff;
   border-radius: 8px;
   padding: 16px;
+}
+
+/* Thẻ phẳng theo thiết kế: không viền, không đổ bóng — các khối tách nhau bằng
+   khoảng trắng chứ không bằng đường kẻ, cho mặt bằng đỡ rối. */
+.noi-dung-trang .ant-card {
+  border: none;
+  box-shadow: none;
+}
+
+.noi-dung-trang .ant-card-head {
+  min-height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.noi-dung-trang .ant-card-head-title {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 0;
+}
+
+/* Nhiều thẻ liên tiếp trong một trang: giãn cách đều, không phải đặt margin
+   thủ công ở từng màn hình. */
+.noi-dung-trang > .ant-card + .ant-card,
+.noi-dung-trang > .ant-row + .ant-card,
+.noi-dung-trang > .ant-card + .ant-row {
+  margin-top: var(--khoang-khoi);
+}
+
+/* Bảng: viền ngoài mảnh, tiêu đề nền xám nhạt như thiết kế. */
+.noi-dung-trang .ant-table-wrapper .ant-table {
+  border-radius: 8px;
+}
+
+.noi-dung-trang .ant-table-thead > tr > th {
+  font-size: 13.5px;
+  font-weight: 600;
 }
 
 /* Trang đăng nhập --------------------------------------------------------- */

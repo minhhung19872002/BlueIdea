@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.QuanTri;
@@ -554,45 +553,13 @@ public sealed class DichVuQuanTriNguoiDung
         }
     }
 
-    /// <summary>
-    /// Sinh mat khau tam dat chinh sach hien hanh, dung nguon ngau nhien MAT MA
-    /// (<see cref="RandomNumberGenerator"/>) chu khong dung <c>Random</c> - day la thong tin
-    /// xac thuc that, khong phai du lieu hien thi.
-    /// </summary>
+    /// <summary>Sinh mat khau tam theo do dai toi thieu trong chinh sach dang cau hinh.</summary>
     private async Task<string> SinhMatKhauTamAsync(CancellationToken ct)
     {
-        const string chuHoa = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-        const string chuThuong = "abcdefghijkmnopqrstuvwxyz";
-        const string chuSo = "23456789";
-        const string kyTuDacBiet = "@#$%&*!?";
-        const string tatCa = chuHoa + chuThuong + chuSo + kyTuDacBiet;
-
         var doDaiToiThieu = await _cauHinh
             .LayAsync(KhoaCauHinh.ChinhSachMatKhauDoDaiToiThieu, 8, ct)
             .ConfigureAwait(false);
 
-        var doDai = Math.Max(12, doDaiToiThieu);
-
-        // Bao dam co du 4 nhom ky tu roi moi bu cho du do dai, sau do xao tron vi tri.
-        var kyTu = new List<char>
-        {
-            chuHoa[RandomNumberGenerator.GetInt32(chuHoa.Length)],
-            chuThuong[RandomNumberGenerator.GetInt32(chuThuong.Length)],
-            chuSo[RandomNumberGenerator.GetInt32(chuSo.Length)],
-            kyTuDacBiet[RandomNumberGenerator.GetInt32(kyTuDacBiet.Length)]
-        };
-
-        while (kyTu.Count < doDai)
-        {
-            kyTu.Add(tatCa[RandomNumberGenerator.GetInt32(tatCa.Length)]);
-        }
-
-        for (var i = kyTu.Count - 1; i > 0; i--)
-        {
-            var j = RandomNumberGenerator.GetInt32(i + 1);
-            (kyTu[i], kyTu[j]) = (kyTu[j], kyTu[i]);
-        }
-
-        return new string(kyTu.ToArray());
+        return BoSinhMatKhauTam.Sinh(Math.Max(12, doDaiToiThieu));
     }
 }

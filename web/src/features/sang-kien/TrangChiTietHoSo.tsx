@@ -25,13 +25,15 @@ import {
 import {
   DownloadOutlined,
   EditOutlined,
+  FilePdfOutlined,
   ReloadOutlined,
   RollbackOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { LoiApi } from '@/api/client';
+import { LoiApi, taiTep } from '@/api/client';
 import {
+  apiNhapXuat,
   apiSangKien,
   apiXuLy,
   type HanhDongKhaDung,
@@ -131,6 +133,26 @@ export default function TrangChiTietHoSo() {
         }
         extra={
           <Space wrap className="khong-in">
+            {/* Chỉ hiện khi hồ sơ đã qua chấm điểm — trước đó chưa có phiếu nào để xuất. */}
+            {hs.tongDiem != null && (
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={async () => {
+                  try {
+                    await taiTep(
+                      apiNhapXuat.duongDanPhieuChamHoSo(id!),
+                      `phieu-cham-${hs.maHoSo}.pdf`,
+                    );
+                  } catch (loi) {
+                    message.error(
+                      loi instanceof LoiApi ? loi.message : 'Không xuất được phiếu chấm.',
+                    );
+                  }
+                }}
+              >
+                Xuất phiếu chấm
+              </Button>
+            )}
             {hs.choPhepSua && (
               <Link to={`/sang-kien/${id}/sua`}>
                 <Button icon={<EditOutlined />}>Sửa hồ sơ</Button>

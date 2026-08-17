@@ -10,6 +10,7 @@
     <ProjectReference Include="..\..\src\BlueIdea.Ai\BlueIdea.Ai.csproj" />
     <ProjectReference Include="..\..\src\BlueIdea.Application\BlueIdea.Application.csproj" />
     <ProjectReference Include="..\..\src\BlueIdea.Infrastructure\BlueIdea.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\BlueIdea.Reporting\BlueIdea.Reporting.csproj" />
     <ProjectReference Include="..\..\src\BlueIdea.Domain\BlueIdea.Domain.csproj" />
     <ProjectReference Include="..\..\src\BlueIdea.Scoring\BlueIdea.Scoring.csproj" />
     <ProjectReference Include="..\..\src\BlueIdea.Shared\BlueIdea.Shared.csproj" />
@@ -25,6 +26,7 @@
     </PackageReference>
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="coverlet.collector">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

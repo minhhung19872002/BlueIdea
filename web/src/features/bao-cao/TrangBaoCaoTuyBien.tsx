@@ -1,0 +1,226 @@
+import { useState } from 'react';
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
+import { FileExcelOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+
+import { LoiApi, taiTep } from '@/api/client';
+import {
+  apiDonVi,
+  apiDotDeNghi,
+  apiLinhVuc,
+  apiNhapXuat,
+  taoApiDanhMuc,
+  type KetQuaBaoCaoTuyBien,
+} from '@/api/endpoints';
+import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
+
+const apiBieuMauThongKe = taoApiDanhMuc('/api/v1/danh-muc/bieu-mau-thong-ke');
+
+/** Chức năng 7 — Báo cáo tuỳ biến sinh động từ cấu hình biểu mẫu thống kê. */
+export default function TrangBaoCaoTuyBien() {
+  const { message } = App.useApp();
+
+  const [bieuMauId, setBieuMauId] = useState<string | undefined>();
+  const [dotDeNghiId, setDotDeNghiId] = useState<string | undefined>();
+  const [donViId, setDonViId] = useState<string | undefined>();
+  const [linhVucId, setLinhVucId] = useState<string | undefined>();
+  const [ketQua, setKetQua] = useState<string | undefined>();
+  const [daChay, setDaChay] = useState(false);
+
+  const { data: cacBieuMau, error: loiBieuMau, refetch } = useQuery({
+    queryKey: ['bieu-mau-thong-ke-chon'],
+    queryFn: apiBieuMauThongKe.chon,
+  });
+
+  const { data: cacDot } = useQuery({ queryKey: ['dot-chon'], queryFn: apiDotDeNghi.chon });
+  const { data: cacDonVi } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
+  const { data: cacLinhVuc } = useQuery({ queryKey: ['linh-vuc-chon'], queryFn: apiLinhVuc.chon });
+
+  const thamSo = { dotDeNghiId, donViId, linhVucId, ketQua };
+
+  const {
+    data: baoCao,
+    isFetching,
+    error: loiChay,
+  } = useQuery<KetQuaBaoCaoTuyBien>({
+    queryKey: ['bao-cao-tuy-bien', bieuMauId, thamSo],
+    queryFn: () => apiNhapXuat.chayBaoCaoTuyBien(bieuMauId!, thamSo),
+    enabled: !!bieuMauId && daChay,
+  });
+
+  if (loiBieuMau) return <KhoiLoi loi={loiBieuMau} thuLai={refetch} />;
+
+  async function xuatExcel() {
+    if (!bieuMauId) return;
+
+    try {
+      await taiTep(
+        apiNhapXuat.duongDanXuatBaoCaoTuyBien(bieuMauId),
+        `${baoCao?.tenBaoCao ?? 'bao-cao'}.xlsx`,
+        thamSo,
+      );
+    } catch (loi) {
+      message.error(loi instanceof LoiApi ? loi.message : 'Không xuất được tệp.');
+    }
+  }
+
+  return (
+    <Card
+      title="Báo cáo tuỳ biến"
+      extra={
+        <Space>
+          <Button
+            type="primary"
+            icon={<PlayCircleOutlined />}
+            disabled={!bieuMauId}
+            loading={isFetching}
+            onClick={() => setDaChay(true)}
+          >
+            Chạy báo cáo
+          </Button>
+          <Button
+            icon={<FileExcelOutlined />}
+            disabled={!baoCao || baoCao.cacDong.length === 0}
+            onClick={xuatExcel}
+          >
+            Xuất Excel
+          </Button>
+        </Space>
+      }
+    >
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={8}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Biểu mẫu thống kê
+          </Typography.Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Chọn biểu mẫu đã cấu hình"
+            showSearch
+            optionFilterProp="label"
+            value={bieuMauId}
+            options={(cacBieuMau ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+            onChange={(v: string) => {
+              setBieuMauId(v);
+              setDaChay(false);
+            }}
+          />
+        </Col>
+        <Col xs={24} md={4}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Đợt đề nghị
+          </Typography.Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Tất cả"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            value={dotDeNghiId}
+            options={(cacDot ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+            onChange={setDotDeNghiId}
+          />
+        </Col>
+        <Col xs={24} md={4}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Đơn vị
+          </Typography.Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Tất cả"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            value={donViId}
+            options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+            onChange={setDonViId}
+          />
+        </Col>
+        <Col xs={24} md={4}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Lĩnh vực
+          </Typography.Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Tất cả"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            value={linhVucId}
+            options={(cacLinhVuc ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+            onChange={setLinhVucId}
+          />
+        </Col>
+        <Col xs={24} md={4}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Kết quả
+          </Typography.Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Tất cả"
+            allowClear
+            value={ketQua}
+            options={[
+              { value: 'DAT', label: 'Đạt' },
+              { value: 'KHONG_DAT', label: 'Không đạt' },
+            ]}
+            onChange={setKetQua}
+          />
+        </Col>
+      </Row>
+
+      {loiChay && <KhoiLoi loi={loiChay} />}
+
+      {!daChay && !loiChay && (
+        <KhoiRong moTa="Chọn một biểu mẫu thống kê rồi bấm “Chạy báo cáo”. Cột và cách tổng hợp lấy từ cấu hình biểu mẫu, không cố định trong mã nguồn." />
+      )}
+
+      {daChay && baoCao && !loiChay && (
+        <>
+          <Space wrap style={{ marginBottom: 12 }}>
+            <Typography.Text strong>{baoCao.tenBaoCao}</Typography.Text>
+            <Tag color="blue">{baoCao.tongSo} bản ghi</Tag>
+            {Object.entries(baoCao.boLocDaApDung).map(([khoa, giaTri]) => (
+              <Tag key={khoa}>
+                {khoa}: {giaTri}
+              </Tag>
+            ))}
+          </Space>
+
+          <Table<string[]>
+            rowKey={(_dong, chiMuc) => String(chiMuc)}
+            size="small"
+            loading={isFetching}
+            dataSource={baoCao.cacDong}
+            scroll={{ x: Math.max(600, baoCao.tieuDeCot.length * 160) }}
+            pagination={{ pageSize: 25, showSizeChanger: true }}
+            locale={{ emptyText: <Empty description="Không có dữ liệu khớp bộ lọc" /> }}
+            columns={baoCao.tieuDeCot.map((tieuDe, chiMuc) => ({
+              title: tieuDe,
+              key: String(chiMuc),
+              // Dòng tổng cộng (dòng cuối) in đậm để phân biệt với dữ liệu.
+              render: (_v: unknown, dong: string[], viTri: number) =>
+                viTri === baoCao.cacDong.length - 1 && dong.includes('TỔNG CỘNG') ? (
+                  <strong>{dong[chiMuc]}</strong>
+                ) : (
+                  dong[chiMuc]
+                ),
+            }))}
+          />
+        </>
+      )}
+    </Card>
+  );
+}
