@@ -4,6 +4,9 @@ using BlueIdea.Infrastructure.BaoMat;
 using BlueIdea.Infrastructure.CongViecNen;
 using BlueIdea.Infrastructure.DichVu;
 using BlueIdea.Infrastructure.TichHop;
+using BlueIdea.Infrastructure.XacThuc;
+using BlueIdea.Infrastructure.KySo;
+using BlueIdea.Application.KySo;
 using BlueIdea.Application.TichHop;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -74,6 +77,11 @@ public static class DangKyHaTang
         // thao tac dong bo cua nguoi dung.
         services.AddHttpClient("lien-thong", http => http.Timeout = TimeSpan.FromSeconds(60));
         services.AddScoped<IBoGuiLienThong, BoGuiLienThongHttp>();
+        services.AddScoped<IBoKySo, BoKySoPkcs7>();
+
+        // SSO: doc discovery document cua nha cung cap nen can HttpClient rieng.
+        services.AddHttpClient<IBoXacThucOidc, BoXacThucOidc>(
+            http => http.Timeout = TimeSpan.FromSeconds(30));
 
         return services;
     }

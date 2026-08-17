@@ -128,6 +128,12 @@ public static class KhoaCauHinh
     public const string ChinhSachMatKhauSoLanKhongTrung = "MAT_KHAU_SO_LAN_KHONG_TRUNG";
     public const string SoLanDangNhapSaiToiDa = "SO_LAN_DANG_NHAP_SAI_TOI_DA";
     public const string ThoiGianKhoaTaiKhoanPhut = "THOI_GIAN_KHOA_TAI_KHOAN_PHUT";
+
+    /// <summary>
+    /// Cho phep tu tao tai khoan khi nguoi dung dang nhap SSO lan dau.
+    /// Mac dinh TAT: co quan nha nuoc thuong muon kiem soat ai duoc vao he thong.
+    /// </summary>
+    public const string SsoTuDongTaoTaiKhoan = "SSO_TU_DONG_TAO_TAI_KHOAN";
 }
 
 /// <summary>Trang thai tong cua ho so sang kien.</summary>

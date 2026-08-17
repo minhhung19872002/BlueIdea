@@ -1,5 +1,6 @@
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.SangKien;
+using BlueIdea.Application.TraCuu;
 using BlueIdea.Application.TrungLap;
 using BlueIdea.Application.XuLy;
 using BlueIdea.Domain.Chung;
@@ -21,13 +22,16 @@ public sealed class SangKienController : ControllerBase
     private readonly IMediator _mediator;
     private readonly DichVuTruyVanSangKien _truyVan;
     private readonly DichVuKiemTraTrungLap _trungLap;
+    private readonly DichVuTimNguNghia _timNguNghia;
 
     public SangKienController(
-        IMediator mediator, DichVuTruyVanSangKien truyVan, DichVuKiemTraTrungLap trungLap)
+        IMediator mediator, DichVuTruyVanSangKien truyVan, DichVuKiemTraTrungLap trungLap,
+        DichVuTimNguNghia timNguNghia)
     {
         _mediator = mediator;
         _truyVan = truyVan;
         _trungLap = trungLap;
+        _timNguNghia = timNguNghia;
     }
 
     /// <summary>Chức năng 28 — Danh sách hồ sơ với bộ lọc đa tiêu chí.</summary>
@@ -35,6 +39,23 @@ public sealed class SangKienController : ControllerBase
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocSangKien thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<SangKienTomTatDto>.Tu(await _truyVan.LayDanhSachAsync(thamSo, ct)));
+
+    /// <summary>
+    /// Chức năng 26, 37 — Tìm kiếm ngữ nghĩa.
+    ///
+    /// Khác tìm theo từ khoá: câu hỏi "giải pháp tiết kiệm điện ở trường học" vẫn tìm ra sáng kiến
+    /// đặt tên "Ứng dụng cảm biến ánh sáng giảm tiêu thụ năng lượng lớp học" dù không trùng từ nào.
+    /// Vector nhúng sinh hoàn toàn nội bộ, không gọi API AI bên thứ ba.
+    /// </summary>
+    [HttpGet("tim-ngu-nghia")]
+    public async Task<IActionResult> TimNguNghiaAsync(
+        [FromQuery] string cauHoi,
+        [FromQuery] int soKetQua = 20,
+        [FromQuery] Guid? linhVucId = null,
+        [FromQuery] int? nam = null,
+        CancellationToken ct = default)
+        => Ok(PhanHoiApi<IReadOnlyList<KetQuaTimNguNghia>>.Ok(
+            await _timNguNghia.TimAsync(cauHoi, soKetQua, linhVucId, nam, ct)));
 
     /// <summary>Chức năng 23 — Hồ sơ của tôi.</summary>
     [HttpGet("cua-toi")]

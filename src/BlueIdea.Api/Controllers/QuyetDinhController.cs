@@ -1,5 +1,6 @@
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.BanHanh;
+using BlueIdea.Application.KySo;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Reporting;
 using BlueIdea.Shared.KetQua;
@@ -16,8 +17,13 @@ namespace BlueIdea.Api.Controllers;
 public sealed class QuyetDinhController : ControllerBase
 {
     private readonly DichVuQuyetDinh _dichVu;
+    private readonly DichVuKySo _kySo;
 
-    public QuyetDinhController(DichVuQuyetDinh dichVu) => _dichVu = dichVu;
+    public QuyetDinhController(DichVuQuyetDinh dichVu, DichVuKySo kySo)
+    {
+        _dichVu = dichVu;
+        _kySo = kySo;
+    }
 
     /// <summary>Danh sách quyết định đã ban hành.</summary>
     [HttpGet]
@@ -80,6 +86,37 @@ public sealed class QuyetDinhController : ControllerBase
         var soLuong = await _dichVu.CongBoAsync(id, congKhai, ct);
         return Ok(PhanHoiApi.Ok($"Đã công bố kết quả cho {soLuong} sáng kiến"));
     }
+
+    // ------------------------------------------------------------ Chức năng 49 — Ký số
+
+    /// <summary>
+    /// Ký số một tệp đính kèm của quyết định.
+    ///
+    /// Bản gốc được GIỮ NGUYÊN, chữ ký lưu thành tệp riêng dạng PKCS#7 detached — tranh chấp
+    /// về sau đối chiếu được cả hai.
+    /// </summary>
+    [HttpPost("{id:guid}/ky-so")]
+    [Authorize(Policy = MaQuyen.QuyetDinhKySo)]
+    public async Task<IActionResult> KySoAsync(
+        Guid id, [FromQuery] Guid tepTinId, CancellationToken ct)
+    {
+        var tepDaKyId = await _kySo.KyTepAsync(tepTinId, "QUYET_DINH", id, ct);
+
+        return Ok(PhanHoiApi<Guid>.Ok(tepDaKyId, "Đã ký số quyết định"));
+    }
+
+    /// <summary>Lịch sử ký số của một quyết định.</summary>
+    [HttpGet("{id:guid}/lich-su-ky-so")]
+    [Authorize(Policy = MaQuyen.QuyetDinhXem)]
+    public async Task<IActionResult> LayLichSuKySoAsync(Guid id, CancellationToken ct)
+        => Ok(PhanHoiApi<IReadOnlyList<Domain.QuanTri.NhatKyKySo>>.Ok(
+            await _kySo.LichSuAsync("QUYET_DINH", id, ct)));
+
+    /// <summary>Xác minh chữ ký của một lần ký — đối chiếu bản gốc với tệp chữ ký.</summary>
+    [HttpGet("xac-minh-chu-ky/{nhatKyKySoId:guid}")]
+    [Authorize(Policy = MaQuyen.QuyetDinhXem)]
+    public async Task<IActionResult> XacMinhChuKyAsync(Guid nhatKyKySoId, CancellationToken ct)
+        => Ok(PhanHoiApi<KetQuaXacMinhChuKy>.Ok(await _kySo.XacMinhAsync(nhatKyKySoId, ct)));
 
     /// <summary>Xuất quyết định ra PDF theo mẫu văn bản hành chính.</summary>
     [HttpGet("{id:guid}/xuat-pdf")]

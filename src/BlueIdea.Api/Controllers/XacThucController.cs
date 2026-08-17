@@ -2,6 +2,7 @@ using BlueIdea.Api.Chung;
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.XacThuc;
 using BlueIdea.Domain.Chung;
+using BlueIdea.Shared.KetQua;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace BlueIdea.Api.Controllers;
+
+/// <summary>Dữ liệu client gửi lên để đổi authorization code lấy token.</summary>
+public sealed record DoiMaSsoDto(string Code, string CodeVerifier, string DuongDanTraVe);
 
 /// <summary>Chức năng 21 — Đăng nhập, làm mới phiên, đổi mật khẩu, thông tin người dùng.</summary>
 [ApiController]
@@ -19,12 +23,15 @@ public sealed class XacThucController : ControllerBase
     private readonly IMediator _mediator;
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IAppDbContext _db;
+    private readonly DichVuDangNhapSso _sso;
 
-    public XacThucController(IMediator mediator, INguoiDungHienTai nguoiDung, IAppDbContext db)
+    public XacThucController(
+        IMediator mediator, INguoiDungHienTai nguoiDung, IAppDbContext db, DichVuDangNhapSso sso)
     {
         _mediator = mediator;
         _nguoiDung = nguoiDung;
         _db = db;
+        _sso = sso;
     }
 
     /// <summary>Đăng nhập bằng tài khoản nội bộ. Giới hạn 5 lần/phút/IP.</summary>
@@ -41,6 +48,67 @@ public sealed class XacThucController : ControllerBase
     }
 
     /// <summary>Làm mới access token bằng refresh token (token cũ bị thu hồi).</summary>
+    // ------------------------------------------------------ Chức năng 21, 41 — SSO (OIDC)
+
+    /// <summary>Hệ thống có bật đăng nhập một lần hay không — trang đăng nhập dùng để ẩn/hiện nút.</summary>
+    [HttpGet("sso/trang-thai")]
+    [AllowAnonymous]
+    public IActionResult LayTrangThaiSso()
+        => Ok(PhanHoiApi<object>.Ok(new { daCauHinh = _sso.DaCauHinh }));
+
+    /// <summary>
+    /// Bắt đầu luồng SSO: sinh <c>state</c> và cặp PKCE, gửi về cho client rồi chuyển hướng
+    /// sang nhà cung cấp.
+    ///
+    /// <c>state</c> và <c>codeVerifier</c> do CLIENT giữ và gửi lại ở bước đổi mã — máy chủ không
+    /// lưu phiên tạm, nhờ vậy chạy được nhiều bản API song song sau cân bằng tải.
+    /// </summary>
+    [HttpGet("sso/bat-dau")]
+    [AllowAnonymous]
+    public IActionResult BatDauSso([FromQuery] string duongDanTraVe)
+    {
+        if (string.IsNullOrWhiteSpace(duongDanTraVe)
+            || !Uri.TryCreate(duongDanTraVe, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https"))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Đường dẫn trả về không hợp lệ.");
+        }
+
+        var state = TaoChuoiNgauNhien();
+        var codeVerifier = TaoChuoiNgauNhien();
+        var codeChallenge = TaoCodeChallenge(codeVerifier);
+
+        var diaChi = _sso.TaoDiaChiDangNhap(state, codeChallenge, duongDanTraVe);
+
+        return Ok(PhanHoiApi<object>.Ok(new { diaChi, state, codeVerifier }));
+    }
+
+    /// <summary>Đổi authorization code lấy token của hệ thống.</summary>
+    [HttpPost("sso/doi-ma")]
+    [AllowAnonymous]
+    [EnableRateLimiting("DangNhap")]
+    public async Task<IActionResult> DoiMaSsoAsync(
+        [FromBody] DoiMaSsoDto duLieu, CancellationToken ct)
+    {
+        var ketQua = await _sso.XuLyTraVeAsync(
+            duLieu.Code, duLieu.CodeVerifier, duLieu.DuongDanTraVe, ct);
+
+        return Ok(PhanHoiApi<KetQuaDangNhap>.Ok(ketQua, "Đăng nhập SSO thành công"));
+    }
+
+    /// <summary>Chuỗi ngẫu nhiên mật mã dùng cho state và code_verifier (RFC 7636).</summary>
+    private static string TaoChuoiNgauNhien()
+        => Base64Url(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+
+    private static string TaoCodeChallenge(string codeVerifier)
+        => Base64Url(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.ASCII.GetBytes(codeVerifier)));
+
+    /// <summary>Base64 URL-safe không đệm, đúng yêu cầu của PKCE.</summary>
+    private static string Base64Url(byte[] duLieu)
+        => Convert.ToBase64String(duLieu).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
     [HttpPost("lam-moi-token")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(PhanHoiApi<KetQuaDangNhap>), StatusCodes.Status200OK)]

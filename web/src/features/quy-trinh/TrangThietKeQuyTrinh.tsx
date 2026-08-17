@@ -66,6 +66,23 @@ const QUY_TAC = [
   { value: 'CHU_TICH_QUYET_DINH', label: 'Chủ tịch quyết định' },
 ];
 
+/**
+ * Chức năng 12 — các chức năng bổ sung có thể bật/tắt cho từng quy trình.
+ *
+ * Mã phải khớp với hằng số phía máy chủ; danh sách này chỉ là nhãn hiển thị và mô tả.
+ */
+const CHUC_NANG_BO_SUNG: { ma: string; ten: string; moTa: string }[] = [
+  { ma: 'KIEM_TRA_TRUNG_LAP', ten: 'Kiểm tra trùng lặp', moTa: 'Chạy đối chiếu AI nội bộ khi nộp hồ sơ' },
+  { ma: 'CHAM_DIEM_DOC_LAP', ten: 'Chấm điểm độc lập', moTa: 'Mỗi thành viên hội đồng chấm riêng, không thấy điểm người khác' },
+  { ma: 'BO_PHIEU_KIN', ten: 'Bỏ phiếu kín', moTa: 'Kết quả bỏ phiếu chỉ lộ sau khi chốt phiên họp' },
+  { ma: 'TAO_BIEN_BAN', ten: 'Tạo biên bản họp', moTa: 'Sinh biên bản họp hội đồng theo mẫu' },
+  { ma: 'KY_SO', ten: 'Ký số', moTa: 'Yêu cầu ký số biên bản và quyết định' },
+  { ma: 'GUI_EMAIL', ten: 'Gửi email', moTa: 'Thông báo qua email khi đổi trạng thái' },
+  { ma: 'GUI_SMS', ten: 'Gửi SMS', moTa: 'Thông báo qua SMS khi đổi trạng thái' },
+  { ma: 'XUAT_BIEU_MAU', ten: 'Xuất biểu mẫu', moTa: 'Cho phép xuất phiếu/biên bản từ hồ sơ' },
+  { ma: 'CONG_KHAI_KET_QUA', ten: 'Công khai kết quả', moTa: 'Hiển thị kết quả trên cổng tra cứu công khai' },
+];
+
 /** Chức năng 10–15 — Trình thiết kế quy trình trực quan trên ReactFlow. */
 export default function TrangThietKeQuyTrinh() {
   const { id = '' } = useParams<{ id: string }>();
@@ -246,6 +263,23 @@ export default function TrangThietKeQuyTrinh() {
     [soDo],
   );
 
+  /** Bật/tắt một chức năng bổ sung ở cấp quy trình (không gắn với bước cụ thể). */
+  const doiChucNangBoSung = useCallback(
+    (maChucNang: string, bat: boolean) => {
+      if (!soDo) return;
+
+      const conLai = soDo.chucNangBoSung.filter((c) => c.maChucNang !== maChucNang);
+
+      setSoDo({
+        ...soDo,
+        chucNangBoSung: bat
+          ? [...conLai, { id: crypto.randomUUID(), buocId: null, maChucNang, batBuoc: false }]
+          : conLai,
+      });
+    },
+    [soDo],
+  );
+
   if (truyVan.isLoading) return <KhoiDangTai />;
   if (truyVan.error) return <KhoiLoi loi={truyVan.error} thuLai={truyVan.refetch} />;
 
@@ -285,6 +319,36 @@ export default function TrangThietKeQuyTrinh() {
         banner
         message="Nhấp vào một bước để mở bảng cấu hình. Kéo thả để sắp xếp sơ đồ, sau đó bấm Lưu sơ đồ."
       />
+
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+          Chức năng bổ sung của quy trình
+        </div>
+        <Row gutter={[12, 8]}>
+          {CHUC_NANG_BO_SUNG.map((c) => {
+            const bat = soDo?.chucNangBoSung.some((x) => x.maChucNang === c.ma) ?? false;
+
+            return (
+              <Col key={c.ma} xs={24} sm={12} lg={8}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <Switch
+                    size="small"
+                    checked={bat}
+                    onChange={(v) => doiChucNangBoSung(c.ma, v)}
+                    style={{ marginTop: 3, flexShrink: 0 }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5 }}>{c.ten}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.4 }}>
+                      {c.moTa}
+                    </div>
+                  </div>
+                </div>
+              </Col>
+            );
+          })}
+        </Row>
+      </div>
 
       <div style={{ height: 'calc(100vh - 260px)', minHeight: 460 }}>
         <ReactFlow

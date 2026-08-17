@@ -182,6 +182,11 @@ services:
       CongViecNen__SoWorker: "${SO_WORKER_NEN:-4}"
       CongViecNen__DiaChiDichVuOcr: http://ai-service:8000
 
+      # Nguong chong lam dung. Mac dinh dung dung Muc 6 dac ta (100 req/phut, 5 lan dang nhap/phut).
+      # Chi nang len o moi truong demo/kiem thu — nhieu tai khoan dang nhap lien tiep tu cung mot IP.
+      GioiHanTruyCap__SoRequestMoiPhut: "${GIOI_HAN_REQUEST:-100}"
+      GioiHanTruyCap__SoLanDangNhapMoiPhut: "${GIOI_HAN_DANG_NHAP:-5}"
+
       # Quet ma doc tep tai len.
       QuetVirus__Bat: "${QUET_VIRUS:-true}"
       QuetVirus__Host: clamav
