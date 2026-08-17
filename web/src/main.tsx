@@ -15,6 +15,7 @@ import { router } from '@/app/router';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
 import './styles/global.css';
 import './styles/thiet-ke.css';
+import './styles/cong-khai.css';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);

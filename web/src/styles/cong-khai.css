@@ -1,0 +1,399 @@
+/*
+ * Cổng tra cứu công khai — số đo lấy nguyên từ khối `isCK` của bản thiết kế
+ * "BlueIdea v2.dc.html". Viết bằng CSS thuần thay vì component Ant Design vì bản thiết kế
+ * dùng lưới cố định và kiểu chữ riêng; bọc qua <Table> thì các số đo này bị theme ghi đè.
+ */
+
+.ck-goc {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f0f2f5;
+}
+
+/* ----------------------------------------------------------------- Thanh đầu trang */
+
+.ck-dau {
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 32px;
+  flex-shrink: 0;
+}
+
+.ck-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #1677ff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.ck-don-vi {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-nut-dang-nhap {
+  margin-left: auto;
+  border: 1px solid #1677ff;
+  background: transparent;
+  color: #1677ff;
+  border-radius: 6px;
+  padding: 5px 16px;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ck-nut-dang-nhap:hover {
+  border-color: #4096ff;
+  color: #4096ff;
+}
+
+/* ----------------------------------------------------------------- Dải banner */
+
+.ck-banner {
+  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+  padding: 52px 32px;
+  color: #fff;
+  text-align: center;
+}
+
+.ck-banner-tieu-de {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.ck-banner-mo-ta {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-top: 6px;
+}
+
+.ck-o-tim {
+  display: flex;
+  gap: 8px;
+  margin: 22px auto 0;
+  max-width: 640px;
+}
+
+.ck-input {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  color: rgba(0, 0, 0, 0.88);
+  text-align: left;
+}
+
+.ck-input::placeholder {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.ck-input:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.65);
+}
+
+.ck-nut-tim {
+  background: #003eb3;
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ck-nut-tim:hover {
+  background: #002c8c;
+}
+
+.ck-so-lieu {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  margin-top: 26px;
+  font-size: 13px;
+}
+
+.ck-so-lieu b {
+  font-size: 22px;
+  display: block;
+}
+
+/* ----------------------------------------------------------------- Thân trang */
+
+.ck-than {
+  flex: 1;
+  padding: 24px 32px;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.ck-chip-hang {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ck-nhan,
+.ck-dem {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.ck-dem {
+  margin-left: auto;
+}
+
+.ck-chip {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: rgba(0, 0, 0, 0.88);
+  border-radius: 99px;
+  padding: 4px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ck-chip:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.ck-chip-chon {
+  border-color: #1677ff;
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+/* ----------------------------------------------------------------- Bảng kết quả */
+
+.ck-bang {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+
+.ck-hang {
+  display: grid;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  align-items: center;
+}
+
+.ck-hang:last-child {
+  border-bottom: none;
+}
+
+.ck-hang-dau {
+  padding: 10px 14px;
+  background: #fafafa;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.ck-mo {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.ck-ma {
+  color: #1677ff;
+  font-weight: 500;
+}
+
+.ck-qd {
+  color: #1677ff;
+  font-size: 13px;
+}
+
+.ck-phu {
+  font-size: 12.5px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 2px;
+}
+
+.ck-trong {
+  padding: 40px 16px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 14px;
+}
+
+.ck-phan-trang {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.ck-phan-trang button {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ck-phan-trang button:disabled {
+  color: rgba(0, 0, 0, 0.25);
+  cursor: not-allowed;
+}
+
+.ck-chan {
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+  padding: 14px 32px;
+  font-size: 12.5px;
+  color: rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------- Responsive
+ *
+ * Dưới 768px lưới 5 cột không còn đọc được, nên mỗi hàng chuyển thành một thẻ xếp dọc và
+ * nhãn cột được in lại trước từng ô qua `data-nhan` — cuộn ngang một bảng 5 cột trên điện
+ * thoại khó dùng hơn nhiều so với đọc dọc.
+ */
+
+@media (max-width: 991px) {
+  .ck-than {
+    padding: 16px;
+  }
+
+  .ck-banner {
+    padding: 36px 16px;
+  }
+
+  .ck-banner-tieu-de {
+    font-size: 22px;
+  }
+
+  .ck-dau,
+  .ck-chan {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  .ck-hang {
+    display: block;
+    padding: 14px;
+  }
+
+  /*
+   * Phải đặt SAU quy tắc `.ck-hang` ở trên: hàng tiêu đề mang cả hai lớp, hai bộ chọn cùng
+   * độ đặc hiệu nên quy tắc đứng sau mới thắng. Viết trước thì `display:block` ghi đè và
+   * hàng tiêu đề hiện ra thành một khối chữ xếp dọc giữa danh sách.
+   */
+  .ck-hang-dau {
+    display: none;
+  }
+
+  .ck-hang > div {
+    display: flex;
+    gap: 10px;
+    padding: 2px 0;
+    align-items: baseline;
+  }
+
+  .ck-hang > div::before {
+    content: attr(data-nhan);
+    flex: 0 0 92px;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12.5px;
+  }
+
+  .ck-hang > div > div {
+    min-width: 0;
+  }
+
+  .ck-phu {
+    margin-top: 3px;
+  }
+}
+
+@media (max-width: 639px) {
+  .ck-o-tim {
+    flex-wrap: wrap;
+  }
+
+  .ck-input,
+  .ck-nut-tim {
+    flex: 1 1 100%;
+  }
+
+  .ck-so-lieu {
+    gap: 16px;
+  }
+
+  .ck-so-lieu b {
+    font-size: 19px;
+  }
+
+  .ck-banner-tieu-de {
+    font-size: 20px;
+  }
+
+  .ck-banner-mo-ta {
+    font-size: 13px;
+  }
+
+  .ck-dem {
+    /* Dưới màn hẹp hàng chip đã xuống dòng, đẩy sang phải làm số đếm lạc khỏi nhãn. */
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .ck-dau {
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .ck-don-vi {
+    display: none;
+  }
+
+  .ck-nut-dang-nhap {
+    padding: 5px 10px;
+    font-size: 12.5px;
+  }
+}
