@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Card, Col, Input, Layout, Row, Table, Tag, Typography } from 'antd';
+import { Button, Input, Layout, Table } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 
 import { layPhanTrang } from '@/api/client';
@@ -13,6 +14,7 @@ import { KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
  */
 export default function TrangCongKhai() {
   const [tuKhoa, setTuKhoa] = useState('');
+  const [dangGo, setDangGo] = useState('');
   const [trang, setTrang] = useState(1);
   const [soDong, setSoDong] = useState(20);
 
@@ -33,37 +35,120 @@ export default function TrangCongKhai() {
       }),
   });
 
+  function tim() {
+    setTuKhoa(dangGo);
+    setTrang(1);
+  }
+
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-      <Layout.Header style={{ background: '#fff', borderBottom: '1px solid #f0f0f0' }}>
-        <Typography.Text strong style={{ fontSize: 16 }}>
+      <Layout.Header
+        style={{
+          background: '#fff',
+          borderBottom: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 7,
+            background: '#1677ff',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: 12,
+            flexShrink: 0,
+          }}
+        >
+          BI
+        </div>
+        <div
+          style={{
+            fontSize: 16,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
           {tenHeThong}
-        </Typography.Text>
-        {tenDonVi && (
-          <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
-            — {tenDonVi}
-          </Typography.Text>
-        )}
+          {tenDonVi && (
+            <span style={{ color: 'rgba(0,0,0,0.45)', fontWeight: 400 }}> — {tenDonVi}</span>
+          )}
+        </div>
       </Layout.Header>
 
       <Layout.Content className="noi-dung-trang">
-        <Card title="Tra cứu sáng kiến đã được công nhận">
-          <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-            <Col xs={24} md={12}>
-              <Input.Search
-                size="large"
-                placeholder="Nhập tên sáng kiến, đơn vị hoặc tác giả"
-                allowClear
-                onSearch={(v) => {
-                  setTuKhoa(v);
-                  setTrang(1);
-                }}
-              />
-            </Col>
-          </Row>
+        {/* Banner tìm kiếm — điểm nhấn chính của cổng công khai. */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg,#1677ff 0%,#0958d9 100%)',
+            borderRadius: 8,
+            padding: '26px 28px',
+            color: '#fff',
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: 18, fontWeight: 700 }}>
+            Cổng tra cứu sáng kiến đã công nhận
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
+            Công khai cho người dân — không cần đăng nhập
+          </div>
 
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              marginTop: 14,
+              maxWidth: 640,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Input
+              size="large"
+              placeholder="Nhập tên sáng kiến, tác giả, số quyết định…"
+              allowClear
+              value={dangGo}
+              onChange={(e) => setDangGo(e.target.value)}
+              onPressEnter={tim}
+              style={{ flex: '1 1 260px', minWidth: 0, borderRadius: 6 }}
+            />
+            <Button
+              size="large"
+              icon={<SearchOutlined />}
+              onClick={tim}
+              style={{
+                // Nút dùng sắc xanh đậm hơn nền để nổi trên banner — nút primary mặc định
+                // của Ant Design cùng tông với gradient nên gần như biến mất.
+                background: '#003eb3',
+                borderColor: '#003eb3',
+                color: '#fff',
+                borderRadius: 6,
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              Tìm kiếm
+            </Button>
+          </div>
+        </div>
+
+        <div className="tk-the tk-the-than">
           {!isLoading && (data?.tongSo ?? 0) === 0 ? (
-            <KhoiRong moTa="Chưa có sáng kiến công khai nào khớp từ khóa tìm kiếm." />
+            <KhoiRong
+              moTa={
+                tuKhoa
+                  ? `Không tìm thấy sáng kiến công khai nào khớp “${tuKhoa}”.`
+                  : 'Chưa có sáng kiến nào được công bố công khai.'
+              }
+            />
           ) : (
             <Table<SangKienTomTat>
               rowKey="id"
@@ -72,21 +157,22 @@ export default function TrangCongKhai() {
               dataSource={data?.duLieu ?? []}
               scroll={{ x: 800 }}
               columns={[
-                { title: 'Mã hồ sơ', dataIndex: 'maHoSo', width: 150 },
+                { title: 'Mã hồ sơ', dataIndex: 'maHoSo', width: 140 },
                 { title: 'Tên sáng kiến', dataIndex: 'tenSangKien' },
-                { title: 'Tác giả', dataIndex: 'tacGiaChinh', width: 200 },
-                { title: 'Đơn vị', dataIndex: 'tenDonVi', width: 220, responsive: ['lg'] },
-                { title: 'Lĩnh vực', dataIndex: 'tenLinhVuc', width: 170, responsive: ['xl'] },
+                { title: 'Tác giả', dataIndex: 'tacGiaChinh', width: 180 },
+                { title: 'Đơn vị', dataIndex: 'tenDonVi', width: 200, responsive: ['lg'] },
+                { title: 'Lĩnh vực', dataIndex: 'tenLinhVuc', width: 160, responsive: ['xl'] },
                 {
-                  title: 'Kết quả',
-                  dataIndex: 'ketQua',
-                  width: 140,
-                  render: () => <Tag color="success">Được công nhận</Tag>,
+                  title: 'Năm',
+                  dataIndex: 'ngayNop',
+                  width: 90,
+                  render: (v: string | null) => (v ? new Date(v).getFullYear() : '—'),
                 },
                 {
                   title: 'Ngày nộp',
                   dataIndex: 'ngayNop',
                   width: 130,
+                  responsive: ['lg'],
                   render: (v: string | null) => ngayGio(v, false),
                 },
               ]}
@@ -103,11 +189,11 @@ export default function TrangCongKhai() {
               }}
             />
           )}
-        </Card>
+        </div>
       </Layout.Content>
 
-      <Layout.Footer style={{ textAlign: 'center', color: '#888' }}>
-        {tenDonVi} — Trang tra cứu công khai
+      <Layout.Footer style={{ textAlign: 'center', color: 'rgba(0,0,0,0.45)', fontSize: 13 }}>
+        {tenDonVi} — Cổng tra cứu công khai
       </Layout.Footer>
     </Layout>
   );
