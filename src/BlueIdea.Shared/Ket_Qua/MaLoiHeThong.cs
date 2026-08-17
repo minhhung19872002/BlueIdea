@@ -63,4 +63,7 @@ public static class MaLoiHeThong
     public const string TokenKhongHopLe = "TOKEN_KHONG_HOP_LE";
     public const string TokenHetHan = "TOKEN_HET_HAN";
     public const string CanXacThucMfa = "CAN_XAC_THUC_MFA";
+    public const string MaXacThucKhongDung = "MA_XAC_THUC_KHONG_DUNG";
+    public const string CanNhapCaptcha = "CAN_NHAP_CAPTCHA";
+    public const string CaptchaKhongDung = "CAPTCHA_KHONG_DUNG";
 }

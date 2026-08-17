@@ -30,6 +30,16 @@ public interface IBoXacThucOidc
     Task<ThongTinNguoiDungSso> DoiMaLayThongTinAsync(
         string code, string codeVerifier, string duongDanTraVe, CancellationToken ct = default);
 
+    /// <summary>
+    /// Dia chi ket thuc phien ben nha cung cap (single logout).
+    ///
+    /// Tra <c>null</c> khi nha cung cap KHONG cong bo <c>end_session_endpoint</c>: dac ta OIDC
+    /// coi day la tuy chon, khong phai nha cung cap nao cung ho tro. Tra null de ben goi biet
+    /// ma chi dang xuat cuc bo, thay vi dung mot dia chi doan mo va day nguoi dung sang trang 404.
+    /// </summary>
+    Task<string?> TaoDiaChiDangXuatAsync(
+        string? idToken, string duongDanTraVe, CancellationToken ct = default);
+
     bool DaCauHinh { get; }
 }
 
@@ -71,6 +81,18 @@ public sealed class DichVuDangNhapSso
         BatBuocDaCauHinh();
         return _oidc.TaoDiaChiDangNhap(state, codeChallenge, duongDanTraVe);
     }
+
+    /// <summary>
+    /// Chuc nang 41 — Dia chi ket thuc phien ben nha cung cap (single logout).
+    ///
+    /// KHONG goi <c>BatBuocDaCauHinh</c>: dang xuat phai chay duoc ke ca khi SSO da bi tat sau
+    /// khi nguoi dung dang nhap. Nem loi o day thi ho ket o trang dang xuat khong thoat ra duoc.
+    /// </summary>
+    public async Task<string?> TaoDiaChiDangXuatAsync(
+        string? idToken, string duongDanTraVe, CancellationToken ct = default)
+        => _oidc.DaCauHinh
+            ? await _oidc.TaoDiaChiDangXuatAsync(idToken, duongDanTraVe, ct).ConfigureAwait(false)
+            : null;
 
     /// <summary>Doi authorization code lay tai khoan noi bo va cap token cua he thong.</summary>
     public async Task<KetQuaDangNhap> XuLyTraVeAsync(

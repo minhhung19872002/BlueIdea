@@ -105,6 +105,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<PhamViDuLieu> PhamViDuLieu => Set<PhamViDuLieu>();
     public DbSet<RefreshToken> RefreshToken => Set<RefreshToken>();
     public DbSet<LichSuMatKhau> LichSuMatKhau => Set<LichSuMatKhau>();
+    public DbSet<BoLocYeuThich> BoLocYeuThich => Set<BoLocYeuThich>();
+    public DbSet<MaXacThucTam> MaXacThucTam => Set<MaXacThucTam>();
+    public DbSet<KhoaApiNgoai> KhoaApiNgoai => Set<KhoaApiNgoai>();
     public DbSet<CauHinhHeThong> CauHinhHeThong => Set<CauHinhHeThong>();
     public DbSet<CauHinhMenu> CauHinhMenu => Set<CauHinhMenu>();
     public DbSet<CauHinhEmailSms> CauHinhEmailSms => Set<CauHinhEmailSms>();
@@ -202,6 +205,9 @@ public class AppDbContext : DbContext, IAppDbContext
         b.Entity<PhamViDuLieu>().ToTable("pham_vi_du_lieu");
         b.Entity<RefreshToken>().ToTable("refresh_token");
         b.Entity<LichSuMatKhau>().ToTable("lich_su_mat_khau");
+        b.Entity<BoLocYeuThich>().ToTable("bo_loc_yeu_thich");
+        b.Entity<MaXacThucTam>().ToTable("ma_xac_thuc_tam");
+        b.Entity<KhoaApiNgoai>().ToTable("khoa_api_ngoai");
         b.Entity<CauHinhHeThong>().ToTable("cau_hinh_he_thong");
         b.Entity<CauHinhMenu>().ToTable("cau_hinh_menu");
         b.Entity<CauHinhEmailSms>().ToTable("cau_hinh_email_sms");
@@ -303,6 +309,7 @@ public class AppDbContext : DbContext, IAppDbContext
     private static void CauHinhJsonb(ModelBuilder b)
     {
         DatJsonb<DotDeNghi, List<Guid>>(b, x => x.DonViApDungIds);
+        DatJsonb<KhoaApiNgoai, List<string>>(b, x => x.DanhSachIp);
         DatJsonb<BieuMauXuat, List<CauHinhTruongBieuMau>>(b, x => x.CauHinhTruong);
         DatJsonb<BieuMauXuat, Dictionary<string, object>?>(b, x => x.PhamViApDung);
         DatJsonb<BieuMauThongKe, Dictionary<string, object>?>(b, x => x.CauHinhTieuChi);
@@ -368,6 +375,42 @@ public class AppDbContext : DbContext, IAppDbContext
 
     private static void CauHinhKhoaVaChiMuc(ModelBuilder b)
     {
+        b.Entity<KhoaApiNgoai>(e =>
+        {
+            e.Property(x => x.Ten).HasMaxLength(200).IsRequired();
+            e.Property(x => x.TienTo).HasMaxLength(20).IsRequired();
+            e.Property(x => x.KhoaBam).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => x.TienTo);
+        });
+
+        b.Entity<MaXacThucTam>(e =>
+        {
+            e.Property(x => x.Loai).HasMaxLength(40).IsRequired();
+            e.Property(x => x.Khoa).HasMaxLength(200).IsRequired();
+            e.Property(x => x.MaBam).HasMaxLength(100).IsRequired();
+
+            e.HasIndex(x => new { x.Loai, x.Khoa });
+            e.HasIndex(x => x.HetHan);
+        });
+
+        b.Entity<BoLocYeuThich>(e =>
+        {
+            e.Property(x => x.ManHinh).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Ten).HasMaxLength(200).IsRequired();
+
+            // ThamSo la chuoi JSON do man hinh tu dinh nghia nen giu nguyen kieu chuoi, chi
+            // khai bao cot jsonb de PostgreSQL van kiem tra tinh hop le va truy van duoc.
+            e.Property(x => x.ThamSo).HasColumnType("jsonb").IsRequired();
+
+            e.HasIndex(x => new { x.NguoiDungId, x.ManHinh });
+
+            // Moi nguoi dung chi duoc dat mot ten bo loc tren mot man hinh: trung ten thi ho
+            // khong phan biet duoc hai muc trong danh sach chon.
+            e.HasIndex(x => new { x.NguoiDungId, x.ManHinh, x.Ten })
+                .IsUnique()
+                .HasFilter("da_xoa = false");
+        });
+
         b.Entity<NguoiDung>(e =>
         {
             e.Property(x => x.TenDangNhap).HasMaxLength(100).IsRequired();

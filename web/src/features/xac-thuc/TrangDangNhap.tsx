@@ -1,15 +1,22 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { App, Button, Form, Input, Typography } from 'antd';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { App, Alert, Button, Form, Input, Typography } from 'antd';
+import { LockOutlined, ReloadOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons';
 
-import { LoiApi } from '@/api/client';
+import { layDuLieu, LoiApi } from '@/api/client';
 import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
 
 interface FormDangNhap {
   tenDangNhap: string;
   matKhau: string;
+  maMfa?: string;
+  captchaLoiGiai?: string;
+}
+
+interface ThuThachCaptcha {
+  id: string;
+  anhSvg: string;
 }
 
 export default function TrangDangNhap() {
@@ -22,6 +29,8 @@ export default function TrangDangNhap() {
     useCauHinhStore();
 
   const [soLanSai, setSoLanSai] = useState(0);
+  const [canMfa, setCanMfa] = useState(false);
+  const [captcha, setCaptcha] = useState<ThuThachCaptcha | null>(null);
 
   useEffect(() => {
     void napCauHinhCongKhai();
@@ -33,12 +42,45 @@ export default function TrangDangNhap() {
     }
   }, [nguoiDung, dieuHuong, thamSo]);
 
+  const napCaptcha = useCallback(async () => {
+    try {
+      setCaptcha(await layDuLieu<ThuThachCaptcha>('/api/v1/xac-thuc/captcha'));
+    } catch {
+      // Không chặn đăng nhập nếu không lấy được ảnh: máy chủ vẫn là bên quyết định
+      // có bắt buộc CAPTCHA hay không, người dùng bấm "Đổi ảnh" để thử lại.
+      setCaptcha(null);
+    }
+  }, []);
+
   async function xuLyGui(giaTri: FormDangNhap) {
     try {
-      await dangNhap(giaTri.tenDangNhap.trim(), giaTri.matKhau);
+      await dangNhap(giaTri.tenDangNhap.trim(), giaTri.matKhau, {
+        maMfa: giaTri.maMfa?.trim() || undefined,
+        captchaId: captcha?.id,
+        captchaLoiGiai: giaTri.captchaLoiGiai?.trim() || undefined,
+      });
+
       message.success('Đăng nhập thành công');
       dieuHuong(thamSo.get('tiepTuc') ?? '/', { replace: true });
     } catch (loi) {
+      const maLoi = loi instanceof LoiApi ? loi.maLoi : undefined;
+
+      if (maLoi === 'CAN_XAC_THUC_MFA') {
+        // Không tính là nhập sai: mật khẩu đã đúng, người dùng chỉ chưa nhập mã.
+        setCanMfa(true);
+        message.info('Vui lòng nhập mã từ ứng dụng xác thực.');
+        return;
+      }
+
+      if (maLoi === 'MA_XAC_THUC_KHONG_DUNG') {
+        setCanMfa(true);
+      }
+
+      if (maLoi === 'CAN_NHAP_CAPTCHA' || maLoi === 'CAPTCHA_KHONG_DUNG') {
+        // Mỗi thử thách chỉ dùng được một lần, kể cả khi đoán sai — phải lấy ảnh mới.
+        void napCaptcha();
+      }
+
       setSoLanSai((n) => n + 1);
       message.error(loi instanceof LoiApi ? loi.message : 'Không đăng nhập được.');
     }
@@ -89,7 +131,58 @@ export default function TrangDangNhap() {
             <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
 
-          {soLanSai >= 3 && (
+          {canMfa && (
+            <>
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message="Tài khoản đang bật xác thực hai lớp"
+                description="Nhập mã 6 chữ số từ ứng dụng xác thực, hoặc một mã khôi phục."
+              />
+              <Form.Item
+                name="maMfa"
+                label="Mã xác thực"
+                rules={[{ required: true, message: 'Vui lòng nhập mã xác thực' }]}
+              >
+                <Input
+                  prefix={<SafetyOutlined />}
+                  placeholder="123456 hoặc mã khôi phục"
+                  autoComplete="one-time-code"
+                  autoFocus
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {captcha && (
+            <Form.Item
+              name="captchaLoiGiai"
+              label="Mã xác nhận trong ảnh"
+              rules={[{ required: true, message: 'Vui lòng nhập mã trong ảnh' }]}
+            >
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Ảnh do máy chủ tự sinh, nhúng thẳng chứ không tải từ dịch vụ ngoài. */}
+                <span
+                  aria-hidden
+                  style={{ lineHeight: 0, flexShrink: 0 }}
+                  dangerouslySetInnerHTML={{ __html: captcha.anhSvg }}
+                />
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => void napCaptcha()}
+                  title="Đổi ảnh khác"
+                />
+                <Input
+                  placeholder="Nhập mã trong ảnh"
+                  style={{ flex: '1 1 140px', minWidth: 0 }}
+                  autoComplete="off"
+                />
+              </div>
+            </Form.Item>
+          )}
+
+          {soLanSai >= 3 && !canMfa && (
             <Typography.Paragraph type="warning" style={{ fontSize: 13 }}>
               Bạn đã nhập sai {soLanSai} lần. Tài khoản sẽ bị khóa tạm thời sau 5 lần sai.
             </Typography.Paragraph>
@@ -99,6 +192,12 @@ export default function TrangDangNhap() {
             Đăng nhập
           </Button>
         </Form>
+
+        <div style={{ textAlign: 'center', marginTop: 14 }}>
+          <Link to="/quen-mat-khau" style={{ fontSize: 13 }}>
+            Quên mật khẩu?
+          </Link>
+        </div>
 
         <div
           style={{

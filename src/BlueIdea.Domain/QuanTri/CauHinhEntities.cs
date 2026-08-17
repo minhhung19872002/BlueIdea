@@ -280,3 +280,42 @@ public class NhatKyDongBo : ThucThe
 
     public DateTimeOffset? ThoiGianKetThuc { get; set; }
 }
+
+/// <summary>
+/// Chuc nang 41 — Khoa API cap cho he thong ngoai GOI VAO BlueIdea.
+///
+/// Khac han <see cref="HeThongTichHop"/>: ban ghi do la thong tin de BlueIdea goi ra ngoai,
+/// ban ghi nay la thong tin de ben ngoai goi vao. Hai chieu co vong doi va rui ro khac nhau
+/// nen tach bang — gop lai thi mot lan sua cau hinh chieu ra co the vo tinh mo chieu vao.
+/// </summary>
+public class KhoaApiNgoai : ThucThe
+{
+    public string Ten { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tam ky tu dau cua khoa, luu RO de tra cuu duoc ban ghi ma khong phai bam thu tung dong.
+    /// </summary>
+    public string TienTo { get; set; } = string.Empty;
+
+    /// <summary>Bam SHA-256 cua khoa day du. Khoa goc chi hien duy nhat mot lan luc cap.</summary>
+    public string KhoaBam { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Danh sach IP hoac dai CIDR duoc phep goi. De rong nghia la KHONG chan theo IP —
+    /// phai la lua chon co y thuc cua quan tri vien chu khong phai mac dinh.
+    /// </summary>
+    public List<string> DanhSachIp { get; set; } = new();
+
+    public bool DangHoatDong { get; set; } = true;
+
+    public DateTimeOffset? NgayHetHan { get; set; }
+
+    public DateTimeOffset? LanGoiCuoi { get; set; }
+
+    public long SoLanGoi { get; set; }
+
+    public string? GhiChu { get; set; }
+
+    public bool ConHieuLuc(DateTimeOffset thoiDiem)
+        => DangHoatDong && (NgayHetHan is null || NgayHetHan > thoiDiem);
+}

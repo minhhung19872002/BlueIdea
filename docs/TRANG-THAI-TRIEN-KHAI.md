@@ -59,7 +59,7 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 21 | Đăng nhập | ✅ | Argon2id, JWT + refresh xoay vòng, khoá tài khoản, buộc đổi mật khẩu lần đầu, **SSO qua OIDC** (Authorization Code + PKCE) |
+| 21 | Đăng nhập | ✅ | Argon2id, JWT + refresh xoay vòng, khoá tài khoản, buộc đổi mật khẩu lần đầu, **SSO qua OIDC** (Authorization Code + PKCE), **MFA TOTP** (RFC 6238, chống dùng lại mã, 10 mã khôi phục), **CAPTCHA** ảnh SVG tự sinh sau 3 lần sai, **quên mật khẩu qua OTP email** |
 | 22 | Đăng ký nộp sáng kiến | ✅ | Wizard 6 bước, tự lưu nháp 30 giây, kiểm tra tỷ lệ đóng góp 100% |
 | 23 | Quản lý hồ sơ sáng kiến | ✅ | Danh sách, sửa, rút, tab lịch sử chỉnh sửa có diff trước/sau |
 | 24 | Thành phần hồ sơ | ✅ | Checklist trực quan ✓/✗/⚠, chặn nộp và nêu rõ mục còn thiếu |
@@ -71,7 +71,7 @@ thiện, đều được ghi rõ.
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
 | 27 | Tiếp nhận hồ sơ | ✅ | Nút hành động sinh động theo quy trình |
-| 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, chọn nhiều, xuất Excel |
+| 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích** (đặt mặc định theo màn hình), chọn nhiều, xuất Excel |
 | 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, thu hồi, Idempotency-Key |
 | 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
 | 31/36 | Đính kèm quyết định | ✅ | Màn hình ban hành quyết định, chọn sáng kiến đủ điều kiện, xuất PDF theo mẫu hành chính |
@@ -99,7 +99,7 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 41 | Tích hợp SSO/IOC/TĐKT | ✅ | SSO OIDC + đẩy danh sách sáng kiến đã công bố sang hệ thống ngoài qua REST, có nhật ký đồng bộ. Cần thông tin endpoint thật của thành phố để đấu nối |
+| 41 | Tích hợp SSO/IOC/TĐKT | ✅ | SSO OIDC + **single logout**, đẩy danh sách sáng kiến đã công bố sang hệ thống ngoài qua REST kèm nhật ký đồng bộ, **API `/api/public/v1` cho hệ thống ngoài gọi vào** (khoá API băm + danh sách IP/CIDR + giới hạn tần suất riêng). Cần thông tin endpoint thật của thành phố để đấu nối |
 | 42 | Ứng dụng di động | ⬜ | Chưa triển khai. Web đã responsive từ 320px nên dùng được trên điện thoại |
 | 43 | Quản lý người dùng | ✅ | Thêm/sửa/gán vai trò, đặt lại mật khẩu (thu hồi phiên cũ), khoá/mở khoá, **nhập từ Excel** (chạy thử trước, toàn bộ hoặc không) |
 | 44 | Quản lý đơn vị | ✅ | Cây tổ chức + panel chi tiết, thêm đơn vị con, sửa, xoá ngay trên giao diện |
@@ -124,6 +124,17 @@ thiện, đều được ghi rõ.
 riêng (React Native / Flutter) chứ không phải một màn hình bổ sung, và không kiểm chứng được
 nếu không có thiết bị/emulator. Giao diện web hiện đã responsive từ 320px nên dùng được trên
 trình duyệt điện thoại, nhưng đó **không phải** ứng dụng cài đặt từ store như yêu cầu.
+
+## Luồng nghiệp vụ đã kiểm chứng
+
+Luồng chính: nộp hồ sơ → tiếp nhận → thẩm định → phân công chấm → hội đồng chấm điểm →
+chủ tịch kết luận → ban hành quyết định → công bố kết quả → liên thông hệ thống ngoài.
+
+Luồng nhánh: yêu cầu bổ sung, từ chối, rút hồ sơ, sửa và nộp lại, xử lý hàng loạt,
+phân công tự động chia đều.
+
+Luồng xác thực: đăng nhập nội bộ, SSO OIDC, single logout, MFA TOTP (bật/tắt/mã khôi phục/
+quản trị viên gỡ hộ), CAPTCHA sau 3 lần sai, quên mật khẩu qua OTP email.
 
 ## Ghi chú giới hạn cần biết trước khi nghiệm thu
 

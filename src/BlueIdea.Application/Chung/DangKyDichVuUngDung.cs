@@ -70,12 +70,17 @@ public static class DangKyDichVuUngDung
         services.AddScoped<DichVuHoiDong>();
         services.AddScoped<BanHanh.DichVuQuyetDinh>();
         services.AddScoped<CongKhai.DichVuTraCuuCongKhai>();
+        services.AddScoped<XacThuc.DichVuMfa>();
+        services.AddScoped<XacThuc.DichVuCaptcha>();
+        services.AddScoped<XacThuc.DichVuQuenMatKhau>();
+        services.AddScoped<QuanTri.DichVuBoLocYeuThich>();
         services.AddScoped<QuanTri.DichVuQuanTriNguoiDung>();
         services.AddScoped<QuanTri.DichVuCauHinhGuiTin>();
         services.AddScoped<QuanTri.DichVuNhapNguoiDung>();
         services.AddScoped<BaoCao.DichVuBaoCaoTuyBien>();
         services.AddScoped<DanhGia.DichVuXuatPhieuCham>();
         services.AddScoped<TichHop.DichVuDongBoLienThong>();
+        services.AddScoped<TichHop.DichVuKhoaApiNgoai>();
         services.AddScoped<TraCuu.DichVuTimNguNghia>();
         services.AddScoped<XacThuc.DichVuDangNhapSso>();
         services.AddScoped<KySo.DichVuKySo>();

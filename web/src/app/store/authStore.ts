@@ -30,7 +30,11 @@ interface TrangThaiAuth {
   dangTai: boolean;
   daKhoiTao: boolean;
 
-  dangNhap: (tenDangNhap: string, matKhau: string) => Promise<void>;
+  dangNhap: (
+    tenDangNhap: string,
+    matKhau: string,
+    them?: { maMfa?: string; captchaId?: string; captchaLoiGiai?: string },
+  ) => Promise<void>;
   dangXuat: () => Promise<void>;
   napLaiThongTin: () => Promise<void>;
   coQuyen: (maQuyen: string | string[]) => boolean;
@@ -47,12 +51,13 @@ export const useAuthStore = create<TrangThaiAuth>()(
       dangTai: false,
       daKhoiTao: false,
 
-      async dangNhap(tenDangNhap, matKhau) {
+      async dangNhap(tenDangNhap, matKhau, them) {
         set({ dangTai: true });
         try {
           const ketQua = await guiDuLieu<KetQuaDangNhap>('/api/v1/xac-thuc/dang-nhap', {
             tenDangNhap,
             matKhau,
+            ...them,
           });
 
           boNhoToken.luu(ketQua.accessToken, ketQua.refreshToken);

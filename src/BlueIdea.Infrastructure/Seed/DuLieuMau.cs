@@ -378,7 +378,7 @@ public sealed partial class DuLieuMau
     private const string KhoaPhienBanMenu = "PHIEN_BAN_MENU";
 
     /// <summary>Phien ban cau truc menu - tang len khi doi bo cuc de he thong dang chay nhan duoc.</summary>
-    private const string PhienBanMenu = "2";
+    private const string PhienBanMenu = "4";
 
     /// <summary>Cac ma menu do seed tung sinh ra - dung de go bo cuc cu khi nang cap.</summary>
     private static readonly string[] MaMenuSeedCu =
@@ -390,7 +390,11 @@ public sealed partial class DuLieuMau
         "QT_NGUOI_DUNG", "QT_DON_VI", "QT_VAI_TRO", "QT_CAU_HINH", "CH_HE_THONG", "CH_MENU",
         "CH_EMAIL_SMS", "CH_CHU_KY_SO", "CH_SANG_KIEN", "CH_TICH_HOP", "QT_NHAT_KY",
         "NK_HE_THONG", "NK_DANG_NHAP", "NK_LOI", "NK_DONG_BO", "QT_GUI_TIN",
-        "NHOM_TONG_QUAN", "NHOM_SANG_KIEN", "NHOM_XU_LY"
+        "NHOM_TONG_QUAN", "NHOM_SANG_KIEN", "NHOM_XU_LY",
+
+        // Ma chi xuat hien tu phien ban menu 2. Thieu chung thi khi nang len phien ban 3,
+        // cac muc nay khong bi go va nguoi dung thay hai muc trung ten canh nhau.
+        "NHOM_QUAN_TRI", "NHOM_KHAC", "CONG_KHAI", "DOI_MAT_KHAU"
     };
 
     /// <summary>
@@ -412,24 +416,6 @@ public sealed partial class DuLieuMau
         if (daCoMenu && phienBan == PhienBanMenu)
         {
             return;
-        }
-
-        // Doi bo cuc menu -> go bo menu CU do chinh seed tao ra roi dung lai theo cau truc moi.
-        // Chi go muc co ma nam trong danh sach seed tung sinh; muc quan tri vien tu them van giu.
-        if (daCoMenu)
-        {
-            var cu = await _db.CauHinhMenu
-                .Where(x => MaMenuSeedCu.Contains(x.Ma))
-                .ToListAsync(ct)
-                .ConfigureAwait(false);
-
-            foreach (var m in cu)
-            {
-                m.DaXoa = true;
-            }
-
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            _logger.LogInformation("Da go {SoMuc} muc menu cua bo cuc cu.", cu.Count);
         }
 
         var menu = new List<CauHinhMenu>();
@@ -493,6 +479,8 @@ public sealed partial class DuLieuMau
             MaQuyen.QuyTrinhXem, nhomQuanTri.Id);
         Them("QT_CAU_HINH", "Cấu hình hệ thống", "/quan-tri/cau-hinh/he-thong", "🔧",
             MaQuyen.CauHinhXem, nhomQuanTri.Id);
+        Them("QT_KHOA_API", "Khoá API hệ thống ngoài", "/quan-tri/khoa-api", "🔑",
+            MaQuyen.TichHopCauHinh, nhomQuanTri.Id);
         Them("QT_NHAT_KY", "Nhật ký hệ thống", "/quan-tri/nhat-ky/he-thong", "🕐",
             MaQuyen.NhatKyXem, nhomQuanTri.Id);
 
@@ -500,6 +488,34 @@ public sealed partial class DuLieuMau
         Them("CONG_KHAI", "Cổng tra cứu công khai", "/cong-khai/tra-cuu", "🌐",
             null, nhomKhac.Id);
         Them("DOI_MAT_KHAU", "Đổi mật khẩu", "/doi-mat-khau", "🔒", null, nhomKhac.Id);
+        Them("BAO_MAT_TAI_KHOAN", "Bảo mật tài khoản", "/bao-mat-tai-khoan", "🔐",
+            null, nhomKhac.Id);
+
+        // Doi bo cuc menu -> go bo menu CU do chinh seed tao ra roi dung lai theo cau truc moi.
+        //
+        // Tap ma can go = danh sach cua cac bo cuc DA NGHI HUU (MaMenuSeedCu) HOP voi ma cua
+        // chinh bo cuc dang dung. Ve sau chi can them muc vao ham nay, khong phai nho cap nhat
+        // MaMenuSeedCu nua — quen cap nhat la nguoi dung thay hai muc trung ten canh nhau, va
+        // loi do chi lo ra tren he thong da chay chu khong lo ra khi cai moi.
+        //
+        // Muc quan tri vien tu them co ma khac nen khong bi dung toi.
+        if (daCoMenu)
+        {
+            var maCanGo = MaMenuSeedCu.Concat(menu.Select(x => x.Ma)).ToHashSet(StringComparer.Ordinal);
+
+            var cu = await _db.CauHinhMenu
+                .Where(x => maCanGo.Contains(x.Ma))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            foreach (var m in cu)
+            {
+                m.DaXoa = true;
+            }
+
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("Da go {SoMuc} muc menu cua bo cuc cu.", cu.Count);
+        }
 
         _db.CauHinhMenu.AddRange(menu);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);

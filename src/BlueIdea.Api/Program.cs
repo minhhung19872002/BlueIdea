@@ -162,6 +162,7 @@ builder.Services.AddHealthChecks()
 // (hang tram request tu cung mot IP) khong bi chan. Mac dinh dung dung Muc 6 dac ta.
 var gioiHanChung = builder.Configuration.GetValue("GioiHanTruyCap:SoRequestMoiPhut", 100);
 var gioiHanDangNhap = builder.Configuration.GetValue("GioiHanTruyCap:SoLanDangNhapMoiPhut", 5);
+var gioiHanApiNgoai = builder.Configuration.GetValue("GioiHanTruyCap:SoRequestApiNgoaiMoiPhut", 300);
 
 builder.Services.AddRateLimiter(o =>
 {
@@ -204,6 +205,21 @@ builder.Services.AddRateLimiter(o =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = gioiHanDangNhap,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // Chuc nang 41 - API cho he thong ngoai goi vao.
+    //
+    // Phan vung theo KHOA API chu khong theo IP: nhieu he thong doi tac cua thanh pho di
+    // chung mot dia chi ra Internet, phan vung theo IP thi mot he thong goi nhieu se lam
+    // cac he thong con lai bi tu choi lay.
+    o.AddPolicy("ApiNgoai", ngCanh =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ngCanh.Request.Headers["X-Api-Key"].FirstOrDefault() ?? KhoaPhanVungTheoIp(ngCanh),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = gioiHanApiNgoai,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));

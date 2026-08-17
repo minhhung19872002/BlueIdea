@@ -14,6 +14,15 @@ namespace BlueIdea.Api.Controllers;
 /// <summary>Dữ liệu client gửi lên để đổi authorization code lấy token.</summary>
 public sealed record DoiMaSsoDto(string Code, string CodeVerifier, string DuongDanTraVe);
 
+/// <summary>Yêu cầu gửi mã đặt lại mật khẩu — nhận tên đăng nhập hoặc email.</summary>
+public sealed record YeuCauQuenMatKhauDto(string DinhDanh);
+
+/// <summary>Đổi mã OTP lấy mật khẩu mới.</summary>
+public sealed record DatLaiMatKhauDto(string TenDangNhap, string Ma, string MatKhauMoi);
+
+/// <summary>Dữ liệu để dựng địa chỉ đăng xuất phía nhà cung cấp SSO.</summary>
+public sealed record DiaChiDangXuatSsoDto(string? IdToken, string DuongDanTraVe);
+
 /// <summary>Chức năng 21 — Đăng nhập, làm mới phiên, đổi mật khẩu, thông tin người dùng.</summary>
 [ApiController]
 [Route("api/v1/xac-thuc")]
@@ -24,14 +33,60 @@ public sealed class XacThucController : ControllerBase
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IAppDbContext _db;
     private readonly DichVuDangNhapSso _sso;
+    private readonly DichVuCaptcha _captcha;
+    private readonly DichVuQuenMatKhau _quenMatKhau;
 
     public XacThucController(
-        IMediator mediator, INguoiDungHienTai nguoiDung, IAppDbContext db, DichVuDangNhapSso sso)
+        IMediator mediator,
+        INguoiDungHienTai nguoiDung,
+        IAppDbContext db,
+        DichVuDangNhapSso sso,
+        DichVuCaptcha captcha,
+        DichVuQuenMatKhau quenMatKhau)
     {
         _mediator = mediator;
         _nguoiDung = nguoiDung;
         _db = db;
         _sso = sso;
+        _captcha = captcha;
+        _quenMatKhau = quenMatKhau;
+    }
+
+    /// <summary>Sinh ảnh CAPTCHA (SVG) cho trang đăng nhập.</summary>
+    [HttpGet("captcha")]
+    [AllowAnonymous]
+    [EnableRateLimiting("DangNhap")]
+    public async Task<IActionResult> TaoCaptchaAsync(CancellationToken ct)
+        => Ok(PhanHoiApi<ThuThachCaptchaDto>.Ok(await _captcha.TaoAsync(ct)));
+
+    /// <summary>
+    /// Bước 1 quên mật khẩu — gửi mã OTP qua email.
+    ///
+    /// LUÔN trả về thành công, kể cả khi tài khoản không tồn tại: phản hồi khác nhau sẽ biến
+    /// endpoint này thành công cụ dò danh sách tài khoản của cơ quan.
+    /// </summary>
+    [HttpPost("quen-mat-khau")]
+    [AllowAnonymous]
+    [EnableRateLimiting("DangNhap")]
+    public async Task<IActionResult> QuenMatKhauAsync(
+        [FromBody] YeuCauQuenMatKhauDto duLieu, CancellationToken ct)
+    {
+        await _quenMatKhau.YeuCauMaAsync(duLieu.DinhDanh, ct);
+
+        return Ok(PhanHoiApi.Ok(
+            "Nếu thông tin khớp với một tài khoản, mã đặt lại mật khẩu đã được gửi tới email đăng ký."));
+    }
+
+    /// <summary>Bước 2 quên mật khẩu — đổi mã OTP lấy mật khẩu mới.</summary>
+    [HttpPost("dat-lai-mat-khau")]
+    [AllowAnonymous]
+    [EnableRateLimiting("DangNhap")]
+    public async Task<IActionResult> DatLaiMatKhauAsync(
+        [FromBody] DatLaiMatKhauDto duLieu, CancellationToken ct)
+    {
+        await _quenMatKhau.DatLaiAsync(duLieu.TenDangNhap, duLieu.Ma, duLieu.MatKhauMoi, ct);
+
+        return Ok(PhanHoiApi.Ok("Đã đặt lại mật khẩu. Vui lòng đăng nhập lại."));
     }
 
     /// <summary>Đăng nhập bằng tài khoản nội bộ. Giới hạn 5 lần/phút/IP.</summary>
@@ -129,6 +184,22 @@ public sealed class XacThucController : ControllerBase
         await _mediator.Send(yeuCau, ct);
         return Ok(PhanHoiApi.Ok("Đã đăng xuất"));
     }
+
+    /// <summary>
+    /// Chức năng 41 — Single logout: địa chỉ để kết thúc luôn phiên bên nhà cung cấp SSO.
+    ///
+    /// Trả về <c>null</c> khi hệ thống không dùng SSO hoặc nhà cung cấp không công bố
+    /// <c>end_session_endpoint</c>. Khi đó client chỉ đăng xuất cục bộ — vẫn đúng, chỉ là
+    /// phiên bên nhà cung cấp còn sống.
+    /// </summary>
+    [HttpPost("sso/dia-chi-dang-xuat")]
+    [Authorize]
+    public async Task<IActionResult> LayDiaChiDangXuatSsoAsync(
+        [FromBody] DiaChiDangXuatSsoDto duLieu, CancellationToken ct)
+        => Ok(PhanHoiApi<object>.Ok(new
+        {
+            diaChi = await _sso.TaoDiaChiDangXuatAsync(duLieu.IdToken, duLieu.DuongDanTraVe, ct)
+        }));
 
     /// <summary>Đổi mật khẩu (áp dụng chính sách mật khẩu cấu hình được).</summary>
     [HttpPost("doi-mat-khau")]

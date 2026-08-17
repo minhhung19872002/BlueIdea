@@ -54,7 +54,26 @@ public class NguoiDung : ThucThe
 
     public bool MfaEnabled { get; set; }
 
+    /// <summary>Bi mat TOTP dang Base32, MA HOA o tang ung dung truoc khi luu.</summary>
     public string? MfaSecret { get; set; }
+
+    /// <summary>
+    /// Buoc thoi gian cua ma TOTP da dung gan nhat.
+    ///
+    /// Mot ma TOTP con hieu luc trong ca cua so 90 giay (buoc hien tai ±1). Neu khong ghi lai
+    /// buoc da dung thi ke nhin trom man hinh dien thoai van kip dung lai chinh ma do de dang
+    /// nhap phien thu hai. Ghi lai roi tu choi buoc <= gia tri nay chinh la chong dung lai ma.
+    /// </summary>
+    public long? MfaBuocDaDung { get; set; }
+
+    /// <summary>
+    /// Bam cua cac ma khoi phuc dung mot lan, luu dang JSON mang chuoi.
+    ///
+    /// Luu BAM chu khong luu ma goc: mat CSDL thi ma khoi phuc cung la chia khoa vuot qua MFA.
+    /// </summary>
+    public string? MfaMaKhoiPhuc { get; set; }
+
+    public DateTimeOffset? MfaNgayBat { get; set; }
 
     public List<NguoiDungVaiTro> VaiTro { get; set; } = new List<NguoiDungVaiTro>();
 
@@ -181,4 +200,64 @@ public class LichSuMatKhau : ThucThe
     public string? MatKhauSalt { get; set; }
 
     public DateTimeOffset ThoiGian { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// Chuc nang 28 — Bo loc nguoi dung tu luu lai tren mot man hinh danh sach.
+///
+/// Tham so luu dang JSON tu do chu khong tach thanh cot: moi man hinh co bo tieu chi loc rieng
+/// va danh sach do con thay doi theo cau hinh, tach cot thi them mot bo loc la phai di chuyen
+/// CSDL.
+/// </summary>
+public class BoLocYeuThich : ThucThe
+{
+    public Guid NguoiDungId { get; set; }
+
+    /// <summary>Ma man hinh ap dung, vi du SANG_KIEN, TIEP_NHAN, TRA_CUU.</summary>
+    public string ManHinh { get; set; } = string.Empty;
+
+    public string Ten { get; set; } = string.Empty;
+
+    /// <summary>Tham so loc dang JSON (jsonb).</summary>
+    public string ThamSo { get; set; } = "{}";
+
+    /// <summary>Bo loc tu dong ap dung khi mo man hinh.</summary>
+    public bool MacDinh { get; set; }
+}
+
+/// <summary>
+/// Chuc nang 21 — Ma xac thuc song ngan: OTP dat lai mat khau va loi giai CAPTCHA.
+///
+/// Luu trong CSDL chu KHONG luu trong bo nho tien trinh: he thong trien khai nhieu ban sau
+/// can bang tai, ma sinh o ban nay ma nguoi dung gui len ban kia se khong tim thay.
+///
+/// Hai loai dung chung mot bang vi vong doi giong het nhau (song ngan, dung mot lan, can don
+/// dep dinh ky) — tach hai bang chi de phai viet hai cong viec don dep y het nhau.
+/// </summary>
+public class MaXacThucTam : ThucThe
+{
+    /// <summary>OTP_DAT_LAI_MAT_KHAU | CAPTCHA</summary>
+    public string Loai { get; set; } = string.Empty;
+
+    /// <summary>Khoa tra cuu: ten dang nhap voi OTP, dinh danh phien voi CAPTCHA.</summary>
+    public string Khoa { get; set; } = string.Empty;
+
+    /// <summary>Bam SHA-256 cua ma — khong luu ma goc de dump CSDL khong doc duoc.</summary>
+    public string MaBam { get; set; } = string.Empty;
+
+    public DateTimeOffset HetHan { get; set; }
+
+    public int SoLanThuSai { get; set; }
+
+    public bool DaDung { get; set; }
+
+    public string? DiaChiIp { get; set; }
+
+    public bool ConHieuLuc(DateTimeOffset thoiDiem) => !DaDung && HetHan > thoiDiem;
+}
+
+public static class LoaiMaXacThucTam
+{
+    public const string OtpDatLaiMatKhau = "OTP_DAT_LAI_MAT_KHAU";
+    public const string Captcha = "CAPTCHA";
 }

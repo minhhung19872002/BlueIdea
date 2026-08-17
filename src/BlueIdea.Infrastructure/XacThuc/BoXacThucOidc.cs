@@ -78,6 +78,39 @@ public sealed class BoXacThucOidc : IBoXacThucOidc
         return $"{cauHinh.AuthorizationEndpoint}?{chuoi}";
     }
 
+    /// <summary>Chuc nang 41 — Single logout: ket thuc ca phien ben nha cung cap SSO.</summary>
+    public async Task<string?> TaoDiaChiDangXuatAsync(
+        string? idToken, string duongDanTraVe, CancellationToken ct = default)
+    {
+        if (!DaCauHinh)
+        {
+            return null;
+        }
+
+        var cauHinh = await LayCauHinhNhaCungCapAsync(ct).ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(cauHinh.EndSessionEndpoint))
+        {
+            return null;
+        }
+
+        var thamSo = new Dictionary<string, string?>
+        {
+            // id_token_hint cho nha cung cap biet ket thuc phien NAO. Thieu no thi phan lon
+            // nha cung cap se hien mot trang hoi "ban co chac muon dang xuat?" thay vi dang
+            // xuat thang, va mot so tu choi ca tham so post_logout_redirect_uri.
+            ["id_token_hint"] = idToken,
+            ["post_logout_redirect_uri"] = duongDanTraVe,
+            ["client_id"] = _clientId
+        };
+
+        var chuoi = string.Join('&', thamSo
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .Select(x => $"{Uri.EscapeDataString(x.Key)}={Uri.EscapeDataString(x.Value!)}"));
+
+        return $"{cauHinh.EndSessionEndpoint}?{chuoi}";
+    }
+
     public async Task<ThongTinNguoiDungSso> DoiMaLayThongTinAsync(
         string code, string codeVerifier, string duongDanTraVe, CancellationToken ct = default)
     {
@@ -170,7 +203,10 @@ public sealed class BoXacThucOidc : IBoXacThucOidc
             DocChuoi(tai, "token_endpoint")
                 ?? throw new InvalidOperationException("Thiếu token_endpoint."),
             DocChuoi(tai, "userinfo_endpoint")
-                ?? throw new InvalidOperationException("Thiếu userinfo_endpoint."));
+                ?? throw new InvalidOperationException("Thiếu userinfo_endpoint."),
+            // Khong bat buoc: dac ta OIDC RP-Initiated Logout la mot ban rieng, nhieu nha
+            // cung cap khong trien khai.
+            DocChuoi(tai, "end_session_endpoint"));
 
         _logger.LogInformation("Đã nạp cấu hình OIDC từ {Issuer}.", _issuer);
 
@@ -183,5 +219,8 @@ public sealed class BoXacThucOidc : IBoXacThucOidc
             : null;
 
     private sealed record CauHinhOidc(
-        string AuthorizationEndpoint, string TokenEndpoint, string UserInfoEndpoint);
+        string AuthorizationEndpoint,
+        string TokenEndpoint,
+        string UserInfoEndpoint,
+        string? EndSessionEndpoint);
 }

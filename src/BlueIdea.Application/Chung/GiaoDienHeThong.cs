@@ -81,6 +81,9 @@ public interface IAppDbContext
     DbSet<PhamViDuLieu> PhamViDuLieu { get; }
     DbSet<RefreshToken> RefreshToken { get; }
     DbSet<LichSuMatKhau> LichSuMatKhau { get; }
+    DbSet<BoLocYeuThich> BoLocYeuThich { get; }
+    DbSet<MaXacThucTam> MaXacThucTam { get; }
+    DbSet<KhoaApiNgoai> KhoaApiNgoai { get; }
     DbSet<CauHinhHeThong> CauHinhHeThong { get; }
     DbSet<CauHinhMenu> CauHinhMenu { get; }
     DbSet<CauHinhEmailSms> CauHinhEmailSms { get; }

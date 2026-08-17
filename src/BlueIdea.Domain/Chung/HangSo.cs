@@ -127,6 +127,9 @@ public static class KhoaCauHinh
     public const string ChinhSachMatKhauSoNgayHetHan = "MAT_KHAU_SO_NGAY_HET_HAN";
     public const string ChinhSachMatKhauSoLanKhongTrung = "MAT_KHAU_SO_LAN_KHONG_TRUNG";
     public const string SoLanDangNhapSaiToiDa = "SO_LAN_DANG_NHAP_SAI_TOI_DA";
+
+    /// <summary>So lan dang nhap sai truoc khi bat buoc nhap CAPTCHA. Dat 0 de tat CAPTCHA.</summary>
+    public const string SoLanSaiCanCaptcha = "SO_LAN_SAI_CAN_CAPTCHA";
     public const string ThoiGianKhoaTaiKhoanPhut = "THOI_GIAN_KHOA_TAI_KHOAN_PHUT";
 
     /// <summary>

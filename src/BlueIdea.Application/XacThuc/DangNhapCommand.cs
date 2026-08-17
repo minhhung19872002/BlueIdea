@@ -9,7 +9,12 @@ using Microsoft.EntityFrameworkCore;
 namespace BlueIdea.Application.XacThuc;
 
 /// <summary>Chuc nang 21 - Dang nhap noi bo bang tai khoan/mat khau.</summary>
-public sealed record DangNhapCommand(string TenDangNhap, string MatKhau, string? MaMfa = null)
+public sealed record DangNhapCommand(
+    string TenDangNhap,
+    string MatKhau,
+    string? MaMfa = null,
+    string? CaptchaId = null,
+    string? CaptchaLoiGiai = null)
     : IRequest<KetQuaDangNhap>;
 
 public sealed class DangNhapCommandValidator : AbstractValidator<DangNhapCommand>
@@ -32,12 +37,17 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
 
     private const int SoPhutKhoaMacDinh = 15;
 
+    /// <summary>So lan sai truoc khi bat buoc nhap CAPTCHA (Muc 5 - chuc nang 21).</summary>
+    private const int SoLanSaiCanCaptchaMacDinh = 3;
+
     private readonly IAppDbContext _db;
     private readonly IDichVuMatKhau _matKhau;
     private readonly IDichVuToken _token;
     private readonly IDongHoHeThong _dongHo;
     private readonly INguoiDungHienTai _nguoiDungHienTai;
     private readonly IDichVuCauHinh _cauHinh;
+    private readonly DichVuMfa _mfa;
+    private readonly DichVuCaptcha _captcha;
 
     public DangNhapCommandHandler(
         IAppDbContext db,
@@ -45,7 +55,9 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
         IDichVuToken token,
         IDongHoHeThong dongHo,
         INguoiDungHienTai nguoiDungHienTai,
-        IDichVuCauHinh cauHinh)
+        IDichVuCauHinh cauHinh,
+        DichVuMfa mfa,
+        DichVuCaptcha captcha)
     {
         _db = db;
         _matKhau = matKhau;
@@ -53,6 +65,8 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
         _dongHo = dongHo;
         _nguoiDungHienTai = nguoiDungHienTai;
         _cauHinh = cauHinh;
+        _mfa = mfa;
+        _captcha = captcha;
     }
 
     public async Task<KetQuaDangNhap> Handle(DangNhapCommand request, CancellationToken ct)
@@ -98,6 +112,31 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
                 "Tài khoản chưa được kích hoạt.");
         }
 
+        // CAPTCHA kiem tra TRUOC khi so mat khau: neu so mat khau truoc roi moi doi CAPTCHA
+        // thi endpoint van la mot bo tien doan mat khau chay het toc do, dung y nghia chan.
+        var soLanSaiCanCaptcha = await _cauHinh
+            .LayAsync(KhoaCauHinh.SoLanSaiCanCaptcha, SoLanSaiCanCaptchaMacDinh, ct)
+            .ConfigureAwait(false);
+
+        if (soLanSaiCanCaptcha > 0 && nguoiDung.SoLanDangNhapSai >= soLanSaiCanCaptcha)
+        {
+            if (string.IsNullOrWhiteSpace(request.CaptchaId))
+            {
+                throw new NghiepVuException(MaLoiHeThong.CanNhapCaptcha,
+                    "Vui lòng nhập mã xác nhận trong ảnh.");
+            }
+
+            var dungCaptcha = await _captcha
+                .KiemTraAsync(request.CaptchaId, request.CaptchaLoiGiai, ct)
+                .ConfigureAwait(false);
+
+            if (!dungCaptcha)
+            {
+                throw new NghiepVuException(MaLoiHeThong.CaptchaKhongDung,
+                    "Mã xác nhận không đúng. Vui lòng thử lại.");
+            }
+        }
+
         var dungMatKhau = !string.IsNullOrEmpty(nguoiDung.MatKhauHash)
                           && _matKhau.KiemTra(request.MatKhau, nguoiDung.MatKhauHash,
                               nguoiDung.MatKhauSalt ?? string.Empty);
@@ -107,6 +146,32 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
             await XuLyDangNhapSaiAsync(nguoiDung, bayGio, ct).ConfigureAwait(false);
             throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
                 "Tên đăng nhập hoặc mật khẩu không đúng.");
+        }
+
+        // Lop thu hai: dung mat khau van CHUA duoc cap token neu tai khoan bat MFA.
+        if (nguoiDung.MfaEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(request.MaMfa))
+            {
+                // Khong tinh la dang nhap sai: nguoi dung moi nhap dung mat khau va chua co co
+                // hoi nhap ma. Dem vao bo dem khoa tai khoan thi ho bi khoa oan sau vai lan
+                // dang nhap binh thuong.
+                await GhiNhatKyDangNhapAsync(tenDangNhap, nguoiDung.Id, false, "Chờ mã xác thực hai lớp", ct)
+                    .ConfigureAwait(false);
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                throw new NghiepVuException(MaLoiHeThong.CanXacThucMfa,
+                    "Tài khoản đang bật xác thực hai lớp. Vui lòng nhập mã từ ứng dụng xác thực.");
+            }
+
+            if (!_mfa.KiemTraKhiDangNhap(nguoiDung, request.MaMfa))
+            {
+                // Ma sai thi PHAI dem vao bo dem khoa: ma chi co 6 chu so, khong gioi han so
+                // lan thu thi do het khong gian ma la chuyen lam duoc.
+                await XuLyDangNhapSaiAsync(nguoiDung, bayGio, ct).ConfigureAwait(false);
+                throw new NghiepVuException(MaLoiHeThong.MaXacThucKhongDung,
+                    "Mã xác thực không đúng hoặc đã được sử dụng.");
+            }
         }
 
         // Dat lai bo dem sai sau khi dang nhap thanh cong.
