@@ -1,39 +1,39 @@
 {
-    "status": "RUNNING",
-    "iteration": 12,
-    "currentRequirement": "REQ-23",
-    "currentBacklogItem": "REQ-23 SEC: LayHanhDongKhaDungQuery ICoYeuCauQuyen + GoiYAsync BatBuocCoQuyenAsync",
-    "phase": "committing",
-    "lastCompletedItem": "REQ-23 SEC: LayHanhDongKhaDungQuery ICoYeuCauQuyen + GoiYAsync BatBuocCoQuyenAsync",
-    "lastQualityGateResult": "PASS (7/7, 309 unit tests, 0 warnings)",
-    "readyForDeploy": false,
-    "lastSession": "e8f872d2-742a-4b56-a6c3-9658b5833969",
-    "lastUpdated": "2026-08-18T22:30:00+07:00",
-    "lastCommit": "a663133",
-    "lastPush": null,
-    "consecutiveInfraFailures": 0,
-    "history": [
+    "status":  "RUNNING",
+    "iteration":  13,
+    "currentRequirement":  "REQ-29",
+    "currentBacklogItem":  "REQ-29 SEC MEDIUM: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage + batch validation",
+    "phase":  "committing",
+    "lastCompletedItem":  "REQ-29 SEC MEDIUM: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage + batch validation",
+    "lastQualityGateResult":  "PASS (7/7, 309 unit tests, 0 warnings)",
+    "readyForDeploy":  false,
+    "lastSession":  "autopilot-run-002-iter-13",
+    "lastUpdated":  "2026-08-18T22:00:00+07:00",
+    "lastCommit":  null,
+    "lastPush":  null,
+    "consecutiveInfraFailures":  0,
+    "history":  [
                     {
-                        "iteration": 2,
-                        "items": [
+                        "iteration":  2,
+                        "items":  [
                                       "REQ-17 (KiemTraBoTieuChi validation)",
                                       "REQ-34 (TrungBinhCong + BoTieuChiSnapshot)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 3,
-                        "items": [
+                        "iteration":  3,
+                        "items":  [
                                       "REQ-26 (ChayAsync IDOR — org-scope check)",
                                       "REQ-26 (DanhDauDaXemXetAsync IDOR — parent SangKienId scope check)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 4,
-                        "items": [
+                        "iteration":  4,
+                        "items":  [
                                       "REQ-21 (account enumeration — unified error codes)",
                                       "REQ-21 (SSO state validation — server-side IMemoryCache)",
                                       "REQ-21 (open redirect — scheme+host+port whitelist)",
@@ -41,76 +41,86 @@
                                       "REQ-21 (audit log persistence — SaveChangesAsync on early exits)",
                                       "REQ-21 (CAPTCHA side-channel — log-based check on all paths)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 5,
-                        "items": [
+                        "iteration":  5,
+                        "items":  [
                                       "REQ-12 (ChucNangBoSung runtime enforcement in BoMayQuyTrinh)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 6,
-                        "items": [
+                        "iteration":  6,
+                        "items":  [
                                       "REQ-12 (code review fixes for feature toggle enforcement)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 7,
-                        "items": [
+                        "iteration":  7,
+                        "items":  [
                                       "REQ-34 (BoTieuChiSnapshot — DanhSachMucCongNhan inclusion)",
                                       "REQ-12 (notification channel gating by ChucNangBat feature toggles)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 8,
-                        "items": [
+                        "iteration":  8,
+                        "items":  [
                                       "REQ-16 (wire integration sync adapter to workflow transitions)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 9,
-                        "items": [
+                        "iteration":  9,
+                        "items":  [
                                       "REQ-21 SEC (MFA credential-stuffing oracle — Phase 1 + Phase 2 fix)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 10,
-                        "items": [
+                        "iteration":  10,
+                        "items":  [
                                       "REQ-12/REQ-16 (batch processing notification + integration sync dispatch)",
                                       "REQ-12/REQ-29 (ChoThemTacNhan guard on single handler — spurious notification prevention)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 11,
-                        "items": [
+                        "iteration":  11,
+                        "items":  [
                                       "REQ-21/REQ-41 SEC MEDIUM (SSO state IMemoryCache → IDistributedCache for multi-instance HA)",
                                       "REQ-16 (ADR 0003 — QuyTrinhLienThong live-data exception documented)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
                     },
                     {
-                        "iteration": 12,
-                        "items": [
+                        "iteration":  12,
+                        "items":  [
                                       "REQ-23 SEC LOW (LayHanhDongKhaDungQuery — ICoYeuCauQuyen permission gate)",
                                       "REQ-23 SEC LOW (GoiYAsync — BatBuocCoQuyenAsync permission enforcement)"
                                   ],
-                        "result": "PASS",
-                        "phase": "committing"
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  13,
+                        "items":  [
+                                      "REQ-29 SEC MEDIUM (ThucThiHangLoatCommandHandler MaHoSo cross-org leakage — org-scope pre-filter)",
+                                      "REQ-29 SEC MEDIUM (existence oracle + timing side-channel — cross-org ID short-circuit)",
+                                      "REQ-29 (batch validation — FluentValidation max 200 + dedup)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
                     }
                 ]
 }

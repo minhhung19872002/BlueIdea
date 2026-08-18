@@ -7,6 +7,7 @@ using BlueIdea.Domain.SangKien;
 using BlueIdea.Shared.KetQua;
 using BlueIdea.Workflow;
 using BlueIdea.Workflow.MoHinh;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -313,6 +314,17 @@ public sealed record ThucThiHangLoatCommand(
     public string ModuleNhatKy => "XU_LY";
 }
 
+public sealed class ThucThiHangLoatCommandValidator : AbstractValidator<ThucThiHangLoatCommand>
+{
+    public ThucThiHangLoatCommandValidator()
+    {
+        RuleFor(x => x.SangKienIds).NotEmpty()
+            .Must(x => x.Count <= 200)
+            .WithMessage("Không được xử lý quá 200 hồ sơ trong một lần.");
+        RuleFor(x => x.TruongHopId).NotEmpty();
+    }
+}
+
 public sealed record KetQuaXuLyHangLoat(
     int TongSo, int ThanhCong, int ThatBai, IReadOnlyList<string> ChiTietLoi);
 
@@ -322,18 +334,21 @@ public sealed class ThucThiHangLoatCommandHandler
     private readonly IWorkflowEngine _engine;
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IAppDbContext _db;
+    private readonly IDichVuPhanQuyen _phanQuyen;
     private readonly IDichVuThongBao _thongBao;
     private readonly DichVuDongBoLienThong _dongBo;
     private readonly ILogger<ThucThiHangLoatCommandHandler> _logger;
 
     public ThucThiHangLoatCommandHandler(
         IWorkflowEngine engine, INguoiDungHienTai nguoiDung, IAppDbContext db,
-        IDichVuThongBao thongBao, DichVuDongBoLienThong dongBo,
+        IDichVuPhanQuyen phanQuyen, IDichVuThongBao thongBao,
+        DichVuDongBoLienThong dongBo,
         ILogger<ThucThiHangLoatCommandHandler> logger)
     {
         _engine = engine;
         _nguoiDung = nguoiDung;
         _db = db;
+        _phanQuyen = phanQuyen;
         _thongBao = thongBao;
         _dongBo = dongBo;
         _logger = logger;
@@ -349,15 +364,49 @@ public sealed class ThucThiHangLoatCommandHandler
         var loi = new List<string>();
         var thanhCong = 0;
 
-        foreach (var id in request.SangKienIds)
+        var nguoiDungId = _nguoiDung.Id.Value;
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiDungId, ct)
+            .ConfigureAwait(false);
+
+        var truyVan = _db.SangKien.AsNoTracking()
+            .Where(x => request.SangKienIds.Contains(x.Id));
+
+        if (!phamVi.ToanHeThong)
         {
-            var maHoSo = await _db.SangKien.AsNoTracking()
-                .Where(x => x.Id == id).Select(x => x.MaHoSo)
-                .FirstOrDefaultAsync(ct).ConfigureAwait(false) ?? id.ToString();
+            if (phamVi.ChiCaNhan)
+            {
+                truyVan = truyVan.Where(x => x.NguoiTaoId == nguoiDungId
+                    || x.DanhSachTacGia.Any(t => t.NguoiDungId == nguoiDungId));
+            }
+            else
+            {
+                var donViIds = phamVi.DonViIds.ToList();
+                truyVan = truyVan.Where(x =>
+                    (x.DonViId.HasValue && donViIds.Contains(x.DonViId.Value))
+                    || x.NguoiTaoId == nguoiDungId
+                    || x.DanhSachTacGia.Any(t => t.NguoiDungId == nguoiDungId));
+            }
+        }
+
+        var uniqueIds = request.SangKienIds.Distinct().ToList();
+
+        var maHoSoMap = await truyVan
+            .Select(x => new { x.Id, x.MaHoSo })
+            .ToDictionaryAsync(x => x.Id, x => x.MaHoSo ?? x.Id.ToString(), ct)
+            .ConfigureAwait(false);
+
+        foreach (var id in uniqueIds)
+        {
+            if (!maHoSoMap.ContainsKey(id))
+            {
+                loi.Add($"{id}: không tìm thấy hoặc không có quyền xử lý.");
+                continue;
+            }
+
+            var maHoSo = maHoSoMap[id];
 
             try
             {
-                // Moi ho so co the o quy trinh khac nhau -> tim truong hop tuong ung theo ma.
                 var hanhDong = await _engine
                     .LayHanhDongKhaDungAsync(id, _nguoiDung.Id.Value, ct)
                     .ConfigureAwait(false);
@@ -404,7 +453,7 @@ public sealed class ThucThiHangLoatCommandHandler
         }
 
         return new KetQuaXuLyHangLoat(
-            request.SangKienIds.Count, thanhCong, request.SangKienIds.Count - thanhCong, loi);
+            uniqueIds.Count, thanhCong, uniqueIds.Count - thanhCong, loi);
     }
 
     private async Task GuiThongBaoAsync(Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)

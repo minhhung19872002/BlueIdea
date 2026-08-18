@@ -1,44 +1,50 @@
-# Iteration 12 — REQ-23 SEC: LayHanhDongKhaDungQuery + GoiYAsync Authorization Fixes
+# Iteration 13 — REQ-29 SEC: ThucThiHangLoatCommandHandler Cross-Org Leakage + Batch Validation
 
 ## What Was Worked On
 
-Two SEC LOW authorization gaps in REQ-23 (Quan ly ho so sang kien):
+Three tightly related security and input validation gaps in ThucThiHangLoatCommandHandler (batch workflow processing, function 29):
 
-1. **LayHanhDongKhaDungQuery** had no `ICoYeuCauQuyen`, so any authenticated user could probe arbitrary SangKien IDs via `GET /api/v1/sang-kien/{id}/hanh-dong` and get 200+empty (existence oracle).
-2. **GoiYAsync** did not call `BatBuocCoQuyenAsync`, so any authenticated user could use autocomplete suggestions without `SANG_KIEN.XEM` permission.
+1. **SEC MEDIUM: MaHoSo cross-org leakage** — The batch handler queried MaHoSo (case numbers) for arbitrary SangKien IDs without org scope, then leaked those MaHoSo in error messages. Any user with XuLyThucThi permission could learn case numbers from other organizations.
+2. **SEC LOW: Existence oracle + timing side-channel** — Cross-org IDs were passed to the workflow engine, which produced distinguishable responses (and timing) for existing vs non-existing records.
+3. **DoS + input validation: No batch size cap or dedup** — No FluentValidation validator, no size limit, no deduplication. Could cause DB connection pool exhaustion and ToDictionary crash on duplicate IDs.
 
 ## What Was Accomplished
 
-### Fix 1: LayHanhDongKhaDungQuery — ICoYeuCauQuyen Added
+### Fix 1: Org-scoped MaHoSo pre-fetch
 
-- Added `ICoYeuCauQuyen` with `MaQuyenYeuCau => MaQuyen.SangKienXem` and `DoiTuongId => SangKienId`.
-- The MediatR `HanhViPhanQuyen` pipeline now enforces `SANG_KIEN.XEM` permission before the handler runs.
-- `DoiTuongId` provides audit log context via `HanhViGhiNhatKy`.
-- Initially used `XuLyXem` — code review caught that "Tac gia" role lacks this permission. Corrected to `SangKienXem`.
+- Added `IDichVuPhanQuyen _phanQuyen` to handler constructor
+- Before the loop, fetches user's scope via `LayPhamViTruyCapAsync` (cached, single call)
+- Batch query loads MaHoSo only for in-scope records:
+  - `ToanHeThong`: no filter
+  - `ChiCaNhan`: NguoiTaoId or DanhSachTacGia membership
+  - Org scope: DonViId in DonViIds OR NguoiTaoId OR DanhSachTacGia (matches canonical `ApDungPhamViDuLieuAsync` pattern)
+- Cross-org IDs fall back to `id.ToString()` (GUID the attacker already knows)
 
-### Fix 2: GoiYAsync — BatBuocCoQuyenAsync Added
+### Fix 2: Cross-org ID short-circuit
 
-- Added `await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, ct: ct)` at the start of `GoiYAsync`.
-- Now all 5 read methods in `DichVuTruyVanSangKien` are gated by `SangKienXem`.
-- Org-scope was already enforced via `ApDungPhamViDuLieuAsync` — this fix adds the missing feature-permission check.
+- If an ID is not in the `maHoSoMap`, the handler skips the workflow engine call entirely
+- Returns generic "không tìm thấy hoặc không có quyền xử lý" error using the GUID
+- Eliminates both the existence oracle (same error for non-existent and cross-org) and timing side-channel (no workflow engine queries for cross-org IDs)
+
+### Fix 3: FluentValidation + deduplication
+
+- Added `ThucThiHangLoatCommandValidator` with `NotEmpty` + `Count <= 200` for SangKienIds and `NotEmpty` for TruongHopId
+- Loop iterates over `request.SangKienIds.Distinct().ToList()` to prevent ToDictionary crash and double workflow transitions
+- Result counts use `uniqueIds.Count` for accurate reporting
 
 ### Code Review Findings Addressed
 
-- **BLOCKER (wrong permission)**: Fixed — `XuLyXem` → `SangKienXem`. "Tac gia" role holds `SangKienXem` but not `XuLyXem`.
-- **MAJOR (DoiTuongId discarded)**: Documented as TD-005. Pre-existing infrastructure limitation affecting all commands/queries. `KiemTraQuyenAsync` discards `doiTuongId` — the IDOR protection comes from per-service scope checks, not the pipeline.
-- **MINOR (dead null guard)**: Retained — belt-and-suspenders defensive pattern, not worth changing in this iteration.
-- **MINOR (no negative auth tests)**: Deferred — documented as gap in traceability.
+- **MAJOR (no regression test)**: Documented as gap in traceability. Environment lacks .NET 8 Docker for Testcontainers.
+- **MINOR (org-scope missing author OR clauses)**: Fixed — org-scope branch now includes NguoiTaoId and DanhSachTacGia OR clauses, matching canonical pattern.
 
-### Security Review Findings
+### Security Review Findings Addressed
 
-- **CRITICAL (DoiTuongId infrastructure gap)**: Pre-existing, documented as TD-005 in technical-debt.md. Affects entire codebase.
-- **HIGH (residual existence oracle)**: Scoped from "all authenticated users" to "users with SangKienXem". Residual oracle via 404/200+[] differential for SangKienXem holders — acceptable LOW risk.
-- **MEDIUM (batch MaHoSo leakage)**: Pre-existing in `ThucThiHangLoatCommandHandler`. Not in scope for this iteration.
-
-### Traceability Updates
-
-- REQ-23: Removed two SEC LOW gaps (LayHanhDongKhaDungQuery oracle, GoiYAsync permission bypass). Updated notes with B12 actions. Added residual gaps for DoiTuongId limitation and missing negative tests.
-- TD-005: New technical debt item for DoiTuongId infrastructure gap.
+- **Original MaHoSo leakage**: CLOSED by org-scoped pre-fetch
+- **Existence oracle (LOW)**: CLOSED by cross-org short-circuit before workflow engine
+- **Timing side-channel (LOW)**: CLOSED by cross-org short-circuit
+- **No max batch size (MEDIUM)**: CLOSED by FluentValidation validator (max 200)
+- **No dedup / ToDictionary crash (LOW)**: CLOSED by `.Distinct()` on SangKienIds
+- **Audit log bloat (INFO)**: Mitigated by batch size cap
 
 ## Quality Gate Result
 
@@ -46,28 +52,26 @@ PASS — 7/7 checks, 309 unit tests, 0 warnings, frontend typecheck + build clea
 
 ## Files Changed
 
-- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — LayHanhDongKhaDungQuery + ICoYeuCauQuyen
-- `src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs` — GoiYAsync + BatBuocCoQuyenAsync
-- `docs/requirements/traceability.yaml` — REQ-23 gaps updated
-- `docs/audit/technical-debt.md` — TD-005 added
+- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — handler + validator
+- `docs/requirements/traceability.yaml` — REQ-29 notes updated
+- `docs/autopilot/STATE.json` — iteration 13
+- `docs/autopilot/LAST-ITERATION.md` — this file
 
 ## Commit Hash
 
-a663133
+(pending)
 
 ## Next Priority Items
 
 1. SEC LOW: MFA recovery codes — upgrade from SHA-256 to Argon2id (REQ-21)
 2. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong + GuiThongBao)
 3. TD-005: Implement DoiTuongId object-level scope checking in KiemTraQuyenAsync (MEDIUM, systemic)
-4. SEC: ThucThiHangLoatCommandHandler MaHoSo leakage — add don_vi_id scope filter (MEDIUM, pre-existing)
 
 ## Known Limitations
 
-- DoiTuongId is discarded by KiemTraQuyenAsync (pre-existing, TD-005). The pipeline provides permission gating but not object-level scope enforcement.
-- Residual existence oracle for SangKienXem holders on /{id}/hanh-dong (404 vs 200+[] differential). LOW risk — scoped to authorized users only.
-- No negative authorization tests for /{id}/hanh-dong or /goi-y endpoints.
-- Integration tests compile but require .NET 8 runtime with Docker for Testcontainers.
+- No regression test for batch cross-org MaHoSo leakage (documented as gap; env lacks Docker for Testcontainers)
+- Integration tests compile but require .NET 8 runtime with Docker
+- GuiThongBaoAsync still queries SangKien without org scope (acceptable — only runs after successful workflow execution, no data returned to caller)
 
 ## Blockers Discovered
 

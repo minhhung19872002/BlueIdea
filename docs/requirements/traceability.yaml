@@ -454,7 +454,8 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps:
       - "No test for idempotency key deduplication or batch processing"
-    notes: "Multi-step processing flow verified through full workflow."
+      - "SEC: No regression test for batch cross-org MaHoSo leakage (fix in place, needs test)"
+    notes: "Multi-step processing flow verified through full workflow. Run-002-B13: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage fixed — batch MaHoSo query now scoped by LayPhamViTruyCapAsync (ToanHeThong/ChiCaNhan/DonViIds). Cross-org IDs short-circuited before workflow engine call (eliminates existence oracle + timing side-channel). FluentValidation added (max 200 items). Deduplication added (prevents ToDictionary crash + double-transition)."
 
   - id: REQ-30
     source_number: 30
