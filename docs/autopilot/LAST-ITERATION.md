@@ -1,35 +1,35 @@
-# Iteration 10 — REQ-12/REQ-16: Batch Processing Notification + Integration Sync
+# Iteration 11 — REQ-21/REQ-41 SEC: IDistributedCache SSO State + ADR 0003
 
 ## What Was Worked On
 
-ThucThiHangLoatCommandHandler (batch processing) silently dropped all post-transition side effects. Authors processed in batch received no notifications, and integration sync was never dispatched — causing inconsistent behavior between single and batch processing paths.
+SEC MEDIUM: SSO state validation used IMemoryCache, which does not work across multiple API instances behind a load balancer. A state token generated on instance A would fail validation on instance B, breaking SSO CSRF protection in HA deployments.
+
+Batched with: ADR documentation for the QuyTrinhLienThong live-data exception to the snapshot rule, which was identified as a gap in iteration 8's code review.
 
 ## What Was Accomplished
 
-### Batch Handler — Notification Dispatch
+### IDistributedCache Migration (SEC MEDIUM → Resolved)
 
-1. **IDichVuThongBao injected** — batch handler now sends notifications to innovation authors after each successful transition.
-2. **Channel gating** — reuses `ThucThiBuocCommandHandler.LayKenhChoPhep()` to gate EMAIL/SMS channels via workflow feature toggles (ChucNangBat).
-3. **Error isolation** — notification failures are logged but never block the batch loop. `OperationCanceledException` is re-thrown for clean cancellation.
-
-### Batch Handler — Integration Sync Dispatch
-
-1. **DichVuDongBoLienThong injected** — batch handler now dispatches integration sync when `HanhDongCanChay` contains `DongBoLienThong`.
-2. **Same query logic** — queries `QuyTrinhLienThong` for matching configs (3 event types: KhiHoanThanh, KhiVaoBuoc, KhiPheDuyet), supporting wildcard configs.
-3. **Error isolation** — outer try/catch wraps the entire sync dispatch; per-config try/catch handles individual system failures. Neither blocks the batch.
-
-### ChoThemTacNhan Guard (Code Review Finding)
-
-1. **Spurious notification prevention** — code review identified that multi-actor steps (TAT_CA/DA_SO processing rules) return `ThanhCong=true` with `ChoThemTacNhan=true` for partial votes. Without a guard, each partial vote triggers a "hồ sơ được tiếp nhận" notification.
-2. **Guard added to both handlers** — `if (!ketQua.ChoThemTacNhan)` check before `GuiThongBaoAsync` in both `ThucThiBuocCommandHandler` (line 121) and `ThucThiHangLoatCommandHandler`.
-3. **Pre-existing bug fixed** — the single handler had this same issue; the fix corrects both paths simultaneously.
+1. **PackageReference added** — `Microsoft.Extensions.Caching.StackExchangeRedis` added to `BlueIdea.Infrastructure.csproj` (version pinned in `Directory.Packages.props` at 8.0.10).
+2. **DI registration** — `DangKyHaTang.cs` now registers `IDistributedCache`: Redis-backed (`AddStackExchangeRedisCache`) when `ConnectionStrings:Redis` is configured, with `InstanceName = "blueidea:"` for key isolation; falls back to `AddDistributedMemoryCache()` for tests and single-instance deployments.
+3. **XacThucController updated** — SSO state operations (`BatDauSsoAsync`, `DoiMaSsoAsync`) now use `IDistributedCache` with `SetAsync`/`GetAsync`/`RemoveAsync`. `BatDauSso` method became async. `IMemoryCache` remains registered and used by `DichVuCauHinh`, `DichVuPhanQuyen`, `NguonNgayNghiLeTuCsdl` — those are intentionally process-local.
 
 ### Code Review Findings Addressed
 
-- **MAJOR (ChoThemTacNhan spurious notifications)**: Fixed — guard added to both handlers.
-- **MINOR (asymmetric cancellation)**: Fixed — both `GuiThongBaoAsync` and `DieuPhaiLienThongAsync` use `when (ex is not OperationCanceledException)` for symmetric cancellation behavior.
-- **MAJOR (code duplication)**: Accepted — notification/sync logic mirrors single handler. Reuses static methods (`SuKienTheoTrangThai`, `LayKenhChoPhep`). Full extraction deferred as over-engineering per project rules.
-- **MAJOR (O(N) DB queries)**: Accepted — matches single handler's pattern (same queries per item). Pre-fetching optimization deferred as it's not a correctness issue and batch sizes are small in practice.
+- **MAJOR (stale comment in TrangSsoTraVe.tsx)**: Fixed — JSDoc updated to accurately describe server-side SSO state storage (IDistributedCache).
+- **MINOR (rate limiting asymmetry)**: Fixed — `[EnableRateLimiting("DangNhap")]` added to `BatDauSsoAsync` (initiation endpoint now rate-limited like exchange endpoint).
+- **MINOR (Redis InstanceName)**: Fixed — `o.InstanceName = "blueidea:"` prevents key collision on shared Redis instances.
+- **MINOR (DoiMaSsoDto FluentValidation)**: Deferred — pre-existing issue not introduced by this change. The null State case is correctly rejected by the cache miss path.
+
+### ADR 0003 — QuyTrinhLienThong Live-Data Exception
+
+Documented in `docs/ADR/0003-lien-thong-du-lieu-song.md`. Integration configs (`quy_trinh_lien_thong`) are deliberately read from live DB data, not from snapshot, because they contain operational settings (endpoints, API keys) that must reflect current state. The ADR explains the rationale and distinction from ADR 0002's snapshot rule.
+
+### Traceability Updates
+
+- REQ-21: Removed SEC MEDIUM gap (IMemoryCache → IDistributedCache). Added B11 notes.
+- REQ-41: Removed duplicate SEC MEDIUM gap.
+- REQ-16: Updated gap text to reference ADR 0003.
 
 ## Quality Gate Result
 
@@ -37,25 +37,28 @@ PASS — 7/7 checks, 309 unit tests, 0 warnings, frontend typecheck + build clea
 
 ## Files Changed
 
-- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — batch handler notification + sync dispatch, single handler ChoThemTacNhan guard
-- `docs/requirements/traceability.yaml` — REQ-12 and REQ-16 gaps updated
+- `src/BlueIdea.Api/Controllers/XacThucController.cs` — IDistributedCache for SSO state, rate limiting on BatDauSsoAsync
+- `src/BlueIdea.Infrastructure/BlueIdea.Infrastructure.csproj` — StackExchangeRedis package reference
+- `src/BlueIdea.Infrastructure/DangKyHaTang.cs` — IDistributedCache DI registration (Redis + fallback)
+- `web/src/features/xac-thuc/TrangSsoTraVe.tsx` — stale security comment fixed
+- `docs/ADR/0003-lien-thong-du-lieu-song.md` — new ADR
+- `docs/requirements/traceability.yaml` — REQ-21, REQ-41, REQ-16 gaps updated
 
 ## Commit Hash
 
-60d2e67
+7cb5f0c
 
 ## Next Priority Items
 
-1. SEC MEDIUM: IMemoryCache-based SSO state → IDistributedCache for multi-instance HA (REQ-21/REQ-41)
-2. ADR documentation: QuyTrinhLienThong live-data exception to snapshot rule
-3. SEC LOW: MFA recovery codes — upgrade from SHA-256 to Argon2id
+1. SEC LOW: MFA recovery codes — upgrade from SHA-256 to Argon2id (REQ-21)
+2. SEC LOW: LayHanhDongKhaDungQuery existence oracle — add ICoYeuCauQuyen or return 404 (REQ-23)
+3. SEC LOW: GoiYAsync permission bypass — add BatBuocCoQuyenAsync (REQ-23)
 4. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong)
 
 ## Known Limitations
 
-- Notification and integration sync logic is duplicated between single and batch handlers (code review accepted this as appropriate given project rules against premature abstraction).
-- Batch handler does O(N) DB queries per item for side effects (same as calling single handler N times; optimization deferred).
-- HanhDongCanChay dispatch loop still only handles DongBoLienThong — other auto-actions (TAO_QUYET_DINH, KY_SO, etc.) are handled by other subsystems.
+- SSO state TOCTOU race (GetAsync + RemoveAsync not atomic) remains a documented LOW risk — IDistributedCache interface does not expose atomic get-and-delete. Exploitability is low due to IdP single-use code + PKCE.
+- DoiMaSsoDto lacks FluentValidation — null State is caught by cache miss but returns DuLieuKhongHopLe instead of 422 chiTietLoi (pre-existing, deferred).
 - Integration tests compile but require .NET 8 runtime with Docker for Testcontainers.
 
 ## Blockers Discovered
