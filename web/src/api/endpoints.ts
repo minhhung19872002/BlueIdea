@@ -120,6 +120,19 @@ export interface TongQuanDot {
   soPhieuCanCham: number;
 }
 
+/** Chức năng 47 — cấu hình riêng của đơn vị (tiêu đề văn bản, người ký mặc định). */
+export interface DonViChiTiet extends DanhMucDto {
+  tenVietTat?: string | null;
+  donViChaId?: string | null;
+  cap: number;
+  loai: string;
+  laDonViPheDuyet: boolean;
+  capPheDuyet?: string | null;
+  tieuDeVanBan?: string | null;
+  nguoiKyMacDinh?: string | null;
+  chucVuNguoiKyMacDinh?: string | null;
+}
+
 export const apiDonVi = {
   /** Chức năng 44 — kéo thả đổi cấp trên trên cây tổ chức. */
   chuyenCha: (id: string, donViChaMoiId: string | null) =>
@@ -127,7 +140,7 @@ export const apiDonVi = {
   /** Chức năng 44 — gộp đơn vị khi sáp nhập. */
   gop: (nguonId: string, dichId: string) =>
     guiDuLieu<number>(`/api/v1/don-vi/${nguonId}/gop-vao/${dichId}`),
-  ...taoApiDanhMuc('/api/v1/don-vi'),
+  ...taoApiDanhMuc<DonViChiTiet>('/api/v1/don-vi'),
   cay: () => layDuLieu<NutCay[]>('/api/v1/don-vi/cay'),
 };
 
