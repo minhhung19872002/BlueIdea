@@ -1,3 +1,4 @@
+using System.Text.Json;
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.HoiDong;
@@ -363,6 +364,8 @@ public sealed class DichVuDanhGia
             };
             _db.PhieuDanhGia.Add(phieu);
         }
+
+        phieu.BoTieuChiSnapshot = JsonSerializer.Serialize(ChuyenDoiBoTieuChi(boTieuChi));
 
         phieu.ChiTiet.Clear();
         var tieuChiTheoId = boTieuChi.DanhSachNhom

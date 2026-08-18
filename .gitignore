@@ -41,4 +41,6 @@ Thumbs.db
 .DS_Store
 desktop.ini
 
-tools
+# --- Công cụ phát triển AI -----------------------------------------------
+tools/
+docs/autopilot/logs/

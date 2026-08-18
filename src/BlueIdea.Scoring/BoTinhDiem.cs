@@ -95,9 +95,14 @@ public sealed class BoTinhDiem : IBoTinhDiem
             loi.Add($"Chưa chấm {thieu.Count} tiêu chí: {string.Join(", ", thieu)}.");
         }
 
-        var tongDiem = boTieuChi.CachTinh == CachTinhDiem.TrungBinhTrongSo
-            ? TinhTheoTrongSo(diemTheoNhom, nhomTheoId)
-            : tongTho;
+        var tongDiem = boTieuChi.CachTinh switch
+        {
+            CachTinhDiem.TrungBinhTrongSo => TinhTheoTrongSo(diemTheoNhom, nhomTheoId),
+            CachTinhDiem.TrungBinhCong => nhomTheoId.Count > 0
+                ? diemTheoNhom.Values.Sum() / nhomTheoId.Count
+                : 0m,
+            _ => tongTho
+        };
 
         tongDiem = LamTron(tongDiem, boTieuChi.LamTron);
 

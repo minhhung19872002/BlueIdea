@@ -58,6 +58,36 @@ public class BoTinhDiemTests
     }
 
     [Fact]
+    public void Trung_Binh_Cong_La_Trung_Binh_Diem_Cac_Nhom()
+    {
+        var bo = XuongDuLieuTest.TaoBoTieuChiMau(CachTinhDiem.TrungBinhCong);
+        // 4 nhóm, chấm tối đa: TINH_MOI=30, HIEU_QUA=30, AP_DUNG=25, PHAM_VI=15.
+        // Trung bình cộng = (30+30+25+15)/4 = 25.
+        var phieu = XuongDuLieuTest.TaoPhieu(bo, 20, 10, 15, 15, 15, 10, 15);
+
+        var ketQua = _boTinhDiem.TinhDiemPhieu(phieu, bo);
+
+        ketQua.HopLe.Should().BeTrue(string.Join(" | ", ketQua.DanhSachLoi));
+        ketQua.TongDiem.Should().Be(25m);
+        ketQua.TongDiemTho.Should().Be(100m, "tổng thô vẫn là tổng điểm tiêu chí");
+    }
+
+    [Fact]
+    public void Trung_Binh_Cong_Khong_Giong_Tong_Diem()
+    {
+        var bo = XuongDuLieuTest.TaoBoTieuChiMau(CachTinhDiem.TrungBinhCong);
+        // Chấm: TINH_MOI=18+8=26, HIEU_QUA=12+13=25, AP_DUNG=12+8=20, PHAM_VI=12.
+        // Trung bình cộng = (26+25+20+12)/4 = 83/4 = 20.75
+        var phieu = XuongDuLieuTest.TaoPhieu(bo, 18, 8, 12, 13, 12, 8, 12);
+
+        var ketQua = _boTinhDiem.TinhDiemPhieu(phieu, bo);
+
+        ketQua.HopLe.Should().BeTrue(string.Join(" | ", ketQua.DanhSachLoi));
+        ketQua.TongDiem.Should().Be(20.75m);
+        ketQua.TongDiemTho.Should().Be(83m);
+    }
+
+    [Fact]
     public void Diem_Vuot_Toi_Da_Cua_Tieu_Chi_Bi_Bao_Loi()
     {
         var bo = XuongDuLieuTest.TaoBoTieuChiMau();

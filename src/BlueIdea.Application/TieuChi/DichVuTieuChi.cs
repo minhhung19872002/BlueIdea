@@ -61,6 +61,7 @@ public sealed class DichVuTieuChi : DichVuDanhMucCoSo<BoTieuChi>
 
         var bo = await Db.BoTieuChi
             .Include(x => x.DanhSachNhom).ThenInclude(n => n.DanhSachTieuChi).ThenInclude(t => t.DanhSachMucDiem)
+            .Include(x => x.DanhSachMucCongNhan)
             .FirstOrDefaultAsync(x => x.Id == boTieuChiId, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException(TenDanhMuc, boTieuChiId);
 
@@ -133,7 +134,13 @@ public sealed class DichVuTieuChi : DichVuDanhMucCoSo<BoTieuChi>
                 nhom.DanhSachTieuChi.Add(tieuChi);
             }
 
-            Db.NhomTieuChi.Add(nhom);
+            bo.DanhSachNhom.Add(nhom);
+        }
+
+        var loi = _tinhDiem.KiemTraBoTieuChi(bo);
+        if (loi.Count > 0)
+        {
+            throw new NghiepVuException(MaLoiHeThong.BoTieuChiKhongHopLe, string.Join(" ", loi));
         }
 
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);

@@ -252,14 +252,14 @@ requirements:
     title: "Danh sach nhom tieu chi"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: scoring
-    status: PARTIAL
+    status: IMPLEMENTED_NOT_VERIFIED
     evidence:
       frontend: ["web/src/features/tieu-chi/TrangTieuChi.tsx"]
       backend: ["src/BlueIdea.Application/TieuChi/DichVuTieuChi.cs"]
       tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs"]
     gaps:
-      - "KiemTraBoTieuChi validates weight sum but is NOT called during LuuCayTieuChiAsync save"
-      - "Admin can save criteria with weights != 100% without server rejection"
+      - "No runtime integration test for criteria save with invalid weights"
+    notes: "Run-002-B1-scoring: KiemTraBoTieuChi now called inside LuuCayTieuChiAsync before SaveChangesAsync. Server rejects weights != 100% with BO_TIEU_CHI_KHONG_HOP_LE. Also includes MucCongNhan for overlap validation."
 
   - id: REQ-18
     source_number: 18
@@ -517,15 +517,15 @@ requirements:
     title: "Danh gia ho so"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: evaluation
-    status: PARTIAL
+    status: IMPLEMENTED_NOT_VERIFIED
     evidence:
       frontend: ["web/src/features/danh-gia/TrangChamDiem.tsx"]
       backend: ["src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs", "src/BlueIdea.Scoring/BoTinhDiem.cs"]
-      tests: []
+      tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs"]
     gaps:
-      - "P0 BUG: TRUNG_BINH_CONG calculation computes raw sum instead of average (BoTinhDiem.cs:98-100)"
-      - "BoTieuChiSnapshot property exists but is NEVER written — criteria changes could corrupt running evaluations"
-    notes: "Independently confirmed: CachTinhDiem.TrungBinhCong branch missing; BoTieuChiSnapshot has no assignment in src/."
+      - "BoTieuChiSnapshot does not include DanhSachMucCongNhan (recognition levels not captured in snapshot)"
+      - "Score visibility before form submission not verified by integration test"
+    notes: "Run-002-B1-scoring: (1) TrungBinhCong now divides by group count (switch expression). 2 unit tests added (Trung_Binh_Cong_La_Trung_Binh_Diem_Cac_Nhom, Trung_Binh_Cong_Khong_Giong_Tong_Diem). (2) BoTieuChiSnapshot now serialized via JsonSerializer in LuuPhieuAsync."
 
   - id: REQ-35
     source_number: 35
