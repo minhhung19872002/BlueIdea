@@ -1,15 +1,15 @@
 {
     "status":  "RUNNING",
-    "iteration":  13,
-    "currentRequirement":  "REQ-29",
-    "currentBacklogItem":  "REQ-29 SEC MEDIUM: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage + batch validation",
+    "iteration":  14,
+    "currentRequirement":  "REQ-21",
+    "currentBacklogItem":  "REQ-21 SEC LOW: MFA recovery codes SHA-256 to Argon2id + TatAsync null-secret bypass",
     "phase":  "committing",
-    "lastCompletedItem":  "REQ-29 SEC MEDIUM: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage + batch validation",
+    "lastCompletedItem":  "REQ-21 SEC LOW: MFA recovery codes SHA-256 to Argon2id + TatAsync null-secret bypass",
     "lastQualityGateResult":  "PASS (7/7, 309 unit tests, 0 warnings)",
     "readyForDeploy":  false,
-    "lastSession":  "autopilot-run-002-iter-13",
-    "lastUpdated":  "2026-08-18T22:00:00+07:00",
-    "lastCommit":  "00e357f",
+    "lastSession":  "0cd087c1-c911-42ba-a217-0c67a7caf152",
+    "lastUpdated":  "2026-08-18T22:30:00+07:00",
+    "lastCommit":  null,
     "lastPush":  null,
     "consecutiveInfraFailures":  0,
     "history":  [
@@ -118,6 +118,16 @@
                                       "REQ-29 SEC MEDIUM (ThucThiHangLoatCommandHandler MaHoSo cross-org leakage — org-scope pre-filter)",
                                       "REQ-29 SEC MEDIUM (existence oracle + timing side-channel — cross-org ID short-circuit)",
                                       "REQ-29 (batch validation — FluentValidation max 200 + dedup)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  14,
+                        "items":  [
+                                      "REQ-21 SEC LOW (MFA recovery codes SHA-256 → Argon2id upgrade)",
+                                      "REQ-21 SEC HIGH (TatAsync null-MfaSecret bypass — undecryptable secret skipped MFA check)",
+                                      "REQ-21 SEC MEDIUM (DungMaKhoiPhuc format guard — prevent TOTP fallthrough to 10× Argon2id)"
                                   ],
                         "result":  "PASS",
                         "phase":  "committing"
