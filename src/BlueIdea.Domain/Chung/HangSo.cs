@@ -137,6 +137,20 @@ public static class KhoaCauHinh
     /// Mac dinh TAT: co quan nha nuoc thuong muon kiem soat ai duoc vao he thong.
     /// </summary>
     public const string SsoTuDongTaoTaiKhoan = "SSO_TU_DONG_TAO_TAI_KHOAN";
+
+    /// <summary>
+    /// Buoc vai tro quan tri he thong phai bat xac thuc hai lop moi dung duoc cac chuc nang khac.
+    ///
+    /// Mac dinh TAT. Bat len roi ma quan tri vien khong dung duoc ung dung xac thuc thi ho se kep
+    /// o man hinh cai dat MFA — go bang cach doi lai khoa nay trong bang cau hinh.
+    /// </summary>
+    public const string MfaBatBuocQuanTri = "MFA_BAT_BUOC_QUAN_TRI";
+
+    /// <summary>
+    /// Danh sach IP/CIDR duoc phep dung tai khoan quan tri, ngan cach bang dau phay.
+    /// De trong = khong gioi han (mac dinh).
+    /// </summary>
+    public const string IpChoPhepQuanTri = "IP_CHO_PHEP_QUAN_TRI";
 }
 
 /// <summary>Trang thai tong cua ho so sang kien.</summary>

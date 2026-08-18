@@ -391,6 +391,13 @@ public sealed partial class DuLieuMau
                 "Số lần sai trước khi bắt nhập CAPTCHA (đặt 0 để tắt CAPTCHA)"),
             ("TICH_HOP", KhoaCauHinh.SsoTuDongTaoTaiKhoan, "false", "BOOLEAN",
                 "Tự tạo tài khoản khi đăng nhập SSO lần đầu"),
+
+            // Hai muc duoi day phuc vu yeu cau an toan thong tin cap do 2. Mac dinh TAT de khong
+            // khoa quan tri vien ra ngoai ngay khi nang cap; don vi bat len khi da san sang.
+            ("BAO_MAT", KhoaCauHinh.MfaBatBuocQuanTri, "false", "BOOLEAN",
+                "Bắt buộc quản trị viên bật xác thực hai lớp"),
+            ("BAO_MAT", KhoaCauHinh.IpChoPhepQuanTri, "", "TEXT",
+                "IP/CIDR được phép dùng tài khoản quản trị (cách nhau bởi dấu phẩy, để trống = không giới hạn)"),
             ("BAO_MAT", KhoaCauHinh.ThoiGianKhoaTaiKhoanPhut, "15", "NUMBER", "Thời gian khóa (phút)")
         };
 

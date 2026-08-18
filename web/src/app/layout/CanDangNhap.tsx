@@ -42,5 +42,18 @@ export function CanDangNhap({ children }: { children: React.ReactNode }) {
     return <Navigate to="/doi-mat-khau" replace />;
   }
 
+  /*
+   * Quản trị viên bắt buộc bật xác thực hai lớp (Mục 6 đặc tả, bật/tắt trong cấu hình).
+   *
+   * Đưa sang màn hình cài đặt chứ không chặn đăng nhập: chặn đăng nhập thì họ không còn đường nào
+   * vào để bật, tức là khoá cứng cả hệ thống. Vẫn cho vào trang đổi mật khẩu vì hai ràng buộc này
+   * có thể cùng lúc áp lên một tài khoản mới.
+   */
+  const duocVaoKhiThieuMfa = ['/bao-mat-tai-khoan', '/doi-mat-khau'];
+
+  if (nguoiDung.buocBatMfa && !duocVaoKhiThieuMfa.includes(viTri.pathname)) {
+    return <Navigate to="/bao-mat-tai-khoan" replace />;
+  }
+
   return <>{children}</>;
 }

@@ -41,6 +41,7 @@ public sealed class XacThucController : ControllerBase
     private readonly DichVuQuenMatKhau _quenMatKhau;
     private readonly IDistributedCache _cachePhanTan;
     private readonly IConfiguration _cauHinh;
+    private readonly IDichVuCauHinh _dichVuCauHinh;
 
     public XacThucController(
         IMediator mediator,
@@ -50,7 +51,8 @@ public sealed class XacThucController : ControllerBase
         DichVuCaptcha captcha,
         DichVuQuenMatKhau quenMatKhau,
         IDistributedCache cachePhanTan,
-        IConfiguration cauHinh)
+        IConfiguration cauHinh,
+        IDichVuCauHinh dichVuCauHinh)
     {
         _mediator = mediator;
         _nguoiDung = nguoiDung;
@@ -60,6 +62,7 @@ public sealed class XacThucController : ControllerBase
         _quenMatKhau = quenMatKhau;
         _cachePhanTan = cachePhanTan;
         _cauHinh = cauHinh;
+        _dichVuCauHinh = dichVuCauHinh;
     }
 
     /// <summary>Sinh ảnh CAPTCHA (SVG) cho trang đăng nhập.</summary>
@@ -320,10 +323,16 @@ public sealed class XacThucController : ControllerBase
                 .FirstOrDefaultAsync(ct)
             : null;
 
+        // Tai lai trang cung phai biet: nguoi dung F5 giua chung khong duoc thoat khoi rang buoc.
+        var buocBatMfa = !nguoiDung.MfaEnabled
+                         && _nguoiDung.VaiTro.Contains(MaVaiTro.QuanTriHeThong)
+                         && await _dichVuCauHinh.LayAsync(KhoaCauHinh.MfaBatBuocQuanTri, false, ct);
+
         var dto = new ThongTinNguoiDungDto(
             nguoiDung.Id, nguoiDung.TenDangNhap, nguoiDung.HoTen, nguoiDung.Email,
             nguoiDung.ChucVu, nguoiDung.DonViId, tenDonVi,
-            _nguoiDung.VaiTro.ToList(), _nguoiDung.Quyen.ToList(), nguoiDung.MfaEnabled);
+            _nguoiDung.VaiTro.ToList(), _nguoiDung.Quyen.ToList(), nguoiDung.MfaEnabled,
+            buocBatMfa);
 
         return Ok(PhanHoiApi<ThongTinNguoiDungDto>.Ok(dto));
     }

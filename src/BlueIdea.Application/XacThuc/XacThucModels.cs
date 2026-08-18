@@ -37,7 +37,14 @@ public sealed record ThongTinNguoiDungDto(
     string? TenDonVi,
     IReadOnlyList<string> VaiTro,
     IReadOnlyList<string> Quyen,
-    bool MfaEnabled);
+    bool MfaEnabled,
+    /// <summary>
+    /// Tai khoan nay dang bi buoc bat xac thuc hai lop truoc khi dung cac chuc nang khac.
+    ///
+    /// Tinh o may chu chu khong de giao dien tu suy ra: chinh sach bat/tat nam trong cau hinh, va
+    /// giao dien khong nen phai biet quy tac ay.
+    /// </summary>
+    bool BuocBatMfa = false);
 
 /// <summary>Mot muc menu da loc theo quyen cua nguoi dung (chuc nang 48).</summary>
 public sealed record MenuDto(

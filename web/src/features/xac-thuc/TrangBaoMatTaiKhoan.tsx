@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { guiDuLieu, layDuLieu, LoiApi } from '@/api/client';
 import { ngayGio } from '@/components/ThanhPhanChung';
+import { useAuthStore } from '@/app/store/authStore';
 import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 
 interface TrangThaiMfa {
@@ -44,6 +45,7 @@ export default function TrangBaoMatTaiKhoan() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
 
+  const nguoiDung = useAuthStore((s) => s.nguoiDung);
   const formXacNhan = useBieuMau(luatXacNhanMfa, { ma: '' });
   const [ghiDanh, setGhiDanh] = useState<BatDauGhiDanh | null>(null);
   const [maKhoiPhuc, setMaKhoiPhuc] = useState<string[] | null>(null);
@@ -123,6 +125,20 @@ export default function TrangBaoMatTaiKhoan() {
 
   return (
     <div className="tk-the tk-the-than" style={{ maxWidth: 720 }}>
+      {/*
+       * Người dùng bị đưa tới đây tự động thì phải nói rõ vì sao — màn hình bảo mật hiện ra
+       * không lời giải thích chỉ khiến họ tưởng bấm nhầm rồi bấm quay lại.
+       */}
+      {nguoiDung?.buocBatMfa && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Tài khoản quản trị bắt buộc bật xác thực hai lớp"
+          description="Đơn vị đã bật yêu cầu này trong cấu hình bảo mật. Hoàn tất các bước bên dưới rồi mới dùng được các chức năng khác."
+        />
+      )}
+
       <Descriptions
         title="Xác thực hai lớp (TOTP)"
         column={1}
