@@ -1,35 +1,44 @@
-# Iteration 11 — REQ-21/REQ-41 SEC: IDistributedCache SSO State + ADR 0003
+# Iteration 12 — REQ-23 SEC: LayHanhDongKhaDungQuery + GoiYAsync Authorization Fixes
 
 ## What Was Worked On
 
-SEC MEDIUM: SSO state validation used IMemoryCache, which does not work across multiple API instances behind a load balancer. A state token generated on instance A would fail validation on instance B, breaking SSO CSRF protection in HA deployments.
+Two SEC LOW authorization gaps in REQ-23 (Quan ly ho so sang kien):
 
-Batched with: ADR documentation for the QuyTrinhLienThong live-data exception to the snapshot rule, which was identified as a gap in iteration 8's code review.
+1. **LayHanhDongKhaDungQuery** had no `ICoYeuCauQuyen`, so any authenticated user could probe arbitrary SangKien IDs via `GET /api/v1/sang-kien/{id}/hanh-dong` and get 200+empty (existence oracle).
+2. **GoiYAsync** did not call `BatBuocCoQuyenAsync`, so any authenticated user could use autocomplete suggestions without `SANG_KIEN.XEM` permission.
 
 ## What Was Accomplished
 
-### IDistributedCache Migration (SEC MEDIUM → Resolved)
+### Fix 1: LayHanhDongKhaDungQuery — ICoYeuCauQuyen Added
 
-1. **PackageReference added** — `Microsoft.Extensions.Caching.StackExchangeRedis` added to `BlueIdea.Infrastructure.csproj` (version pinned in `Directory.Packages.props` at 8.0.10).
-2. **DI registration** — `DangKyHaTang.cs` now registers `IDistributedCache`: Redis-backed (`AddStackExchangeRedisCache`) when `ConnectionStrings:Redis` is configured, with `InstanceName = "blueidea:"` for key isolation; falls back to `AddDistributedMemoryCache()` for tests and single-instance deployments.
-3. **XacThucController updated** — SSO state operations (`BatDauSsoAsync`, `DoiMaSsoAsync`) now use `IDistributedCache` with `SetAsync`/`GetAsync`/`RemoveAsync`. `BatDauSso` method became async. `IMemoryCache` remains registered and used by `DichVuCauHinh`, `DichVuPhanQuyen`, `NguonNgayNghiLeTuCsdl` — those are intentionally process-local.
+- Added `ICoYeuCauQuyen` with `MaQuyenYeuCau => MaQuyen.SangKienXem` and `DoiTuongId => SangKienId`.
+- The MediatR `HanhViPhanQuyen` pipeline now enforces `SANG_KIEN.XEM` permission before the handler runs.
+- `DoiTuongId` provides audit log context via `HanhViGhiNhatKy`.
+- Initially used `XuLyXem` — code review caught that "Tac gia" role lacks this permission. Corrected to `SangKienXem`.
+
+### Fix 2: GoiYAsync — BatBuocCoQuyenAsync Added
+
+- Added `await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, ct: ct)` at the start of `GoiYAsync`.
+- Now all 5 read methods in `DichVuTruyVanSangKien` are gated by `SangKienXem`.
+- Org-scope was already enforced via `ApDungPhamViDuLieuAsync` — this fix adds the missing feature-permission check.
 
 ### Code Review Findings Addressed
 
-- **MAJOR (stale comment in TrangSsoTraVe.tsx)**: Fixed — JSDoc updated to accurately describe server-side SSO state storage (IDistributedCache).
-- **MINOR (rate limiting asymmetry)**: Fixed — `[EnableRateLimiting("DangNhap")]` added to `BatDauSsoAsync` (initiation endpoint now rate-limited like exchange endpoint).
-- **MINOR (Redis InstanceName)**: Fixed — `o.InstanceName = "blueidea:"` prevents key collision on shared Redis instances.
-- **MINOR (DoiMaSsoDto FluentValidation)**: Deferred — pre-existing issue not introduced by this change. The null State case is correctly rejected by the cache miss path.
+- **BLOCKER (wrong permission)**: Fixed — `XuLyXem` → `SangKienXem`. "Tac gia" role holds `SangKienXem` but not `XuLyXem`.
+- **MAJOR (DoiTuongId discarded)**: Documented as TD-005. Pre-existing infrastructure limitation affecting all commands/queries. `KiemTraQuyenAsync` discards `doiTuongId` — the IDOR protection comes from per-service scope checks, not the pipeline.
+- **MINOR (dead null guard)**: Retained — belt-and-suspenders defensive pattern, not worth changing in this iteration.
+- **MINOR (no negative auth tests)**: Deferred — documented as gap in traceability.
 
-### ADR 0003 — QuyTrinhLienThong Live-Data Exception
+### Security Review Findings
 
-Documented in `docs/ADR/0003-lien-thong-du-lieu-song.md`. Integration configs (`quy_trinh_lien_thong`) are deliberately read from live DB data, not from snapshot, because they contain operational settings (endpoints, API keys) that must reflect current state. The ADR explains the rationale and distinction from ADR 0002's snapshot rule.
+- **CRITICAL (DoiTuongId infrastructure gap)**: Pre-existing, documented as TD-005 in technical-debt.md. Affects entire codebase.
+- **HIGH (residual existence oracle)**: Scoped from "all authenticated users" to "users with SangKienXem". Residual oracle via 404/200+[] differential for SangKienXem holders — acceptable LOW risk.
+- **MEDIUM (batch MaHoSo leakage)**: Pre-existing in `ThucThiHangLoatCommandHandler`. Not in scope for this iteration.
 
 ### Traceability Updates
 
-- REQ-21: Removed SEC MEDIUM gap (IMemoryCache → IDistributedCache). Added B11 notes.
-- REQ-41: Removed duplicate SEC MEDIUM gap.
-- REQ-16: Updated gap text to reference ADR 0003.
+- REQ-23: Removed two SEC LOW gaps (LayHanhDongKhaDungQuery oracle, GoiYAsync permission bypass). Updated notes with B12 actions. Added residual gaps for DoiTuongId limitation and missing negative tests.
+- TD-005: New technical debt item for DoiTuongId infrastructure gap.
 
 ## Quality Gate Result
 
@@ -37,28 +46,27 @@ PASS — 7/7 checks, 309 unit tests, 0 warnings, frontend typecheck + build clea
 
 ## Files Changed
 
-- `src/BlueIdea.Api/Controllers/XacThucController.cs` — IDistributedCache for SSO state, rate limiting on BatDauSsoAsync
-- `src/BlueIdea.Infrastructure/BlueIdea.Infrastructure.csproj` — StackExchangeRedis package reference
-- `src/BlueIdea.Infrastructure/DangKyHaTang.cs` — IDistributedCache DI registration (Redis + fallback)
-- `web/src/features/xac-thuc/TrangSsoTraVe.tsx` — stale security comment fixed
-- `docs/ADR/0003-lien-thong-du-lieu-song.md` — new ADR
-- `docs/requirements/traceability.yaml` — REQ-21, REQ-41, REQ-16 gaps updated
+- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — LayHanhDongKhaDungQuery + ICoYeuCauQuyen
+- `src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs` — GoiYAsync + BatBuocCoQuyenAsync
+- `docs/requirements/traceability.yaml` — REQ-23 gaps updated
+- `docs/audit/technical-debt.md` — TD-005 added
 
 ## Commit Hash
 
-7cb5f0c
+a663133
 
 ## Next Priority Items
 
 1. SEC LOW: MFA recovery codes — upgrade from SHA-256 to Argon2id (REQ-21)
-2. SEC LOW: LayHanhDongKhaDungQuery existence oracle — add ICoYeuCauQuyen or return 404 (REQ-23)
-3. SEC LOW: GoiYAsync permission bypass — add BatBuocCoQuyenAsync (REQ-23)
-4. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong)
+2. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong + GuiThongBao)
+3. TD-005: Implement DoiTuongId object-level scope checking in KiemTraQuyenAsync (MEDIUM, systemic)
+4. SEC: ThucThiHangLoatCommandHandler MaHoSo leakage — add don_vi_id scope filter (MEDIUM, pre-existing)
 
 ## Known Limitations
 
-- SSO state TOCTOU race (GetAsync + RemoveAsync not atomic) remains a documented LOW risk — IDistributedCache interface does not expose atomic get-and-delete. Exploitability is low due to IdP single-use code + PKCE.
-- DoiMaSsoDto lacks FluentValidation — null State is caught by cache miss but returns DuLieuKhongHopLe instead of 422 chiTietLoi (pre-existing, deferred).
+- DoiTuongId is discarded by KiemTraQuyenAsync (pre-existing, TD-005). The pipeline provides permission gating but not object-level scope enforcement.
+- Residual existence oracle for SangKienXem holders on /{id}/hanh-dong (404 vs 200+[] differential). LOW risk — scoped to authorized users only.
+- No negative authorization tests for /{id}/hanh-dong or /goi-y endpoints.
 - Integration tests compile but require .NET 8 runtime with Docker for Testcontainers.
 
 ## Blockers Discovered
