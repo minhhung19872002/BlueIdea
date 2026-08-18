@@ -359,9 +359,9 @@ requirements:
     gaps:
       - "No test for diff accuracy (before/after values)"
       - "No test for withdrawal blocked after scoring step"
-      - "SEC: LayHanhDongKhaDungQuery — no ICoYeuCauQuyen, returns 200+empty instead of 404 for cross-org (LOW, existence oracle)"
-      - "SEC: GoiYAsync — BatBuocCoQuyenAsync not called, permission bypass but org scope IS enforced (LOW)"
-    notes: "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime)."
+      - "SEC: LayHanhDongKhaDungQuery — ICoYeuCauQuyen added (SangKienXem + DoiTuongId), but DoiTuongId discarded by KiemTraQuyenAsync (pre-existing infra limitation). Residual oracle for SangKienXem holders via 404/200+[] differential (LOW)"
+      - "SEC: No negative authorization tests for /{id}/hanh-dong or /goi-y endpoints"
+    notes: "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
 
   - id: REQ-24
     source_number: 24

@@ -428,6 +428,8 @@ public sealed class DichVuTruyVanSangKien
     public async Task<IReadOnlyList<GoiYTimKiem>> GoiYAsync(
         string tuKhoa, int soLuong = 8, CancellationToken ct = default)
     {
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, ct: ct).ConfigureAwait(false);
+
         if (string.IsNullOrWhiteSpace(tuKhoa) || tuKhoa.Trim().Length < 2)
         {
             return Array.Empty<GoiYTimKiem>();

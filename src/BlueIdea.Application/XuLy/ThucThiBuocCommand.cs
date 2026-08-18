@@ -273,7 +273,12 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
 }
 
 /// <summary>Chuc nang 29 - Lay danh sach hanh dong kha dung (frontend render nut dong).</summary>
-public sealed record LayHanhDongKhaDungQuery(Guid SangKienId) : IRequest<IReadOnlyList<HanhDongKhaDung>>;
+public sealed record LayHanhDongKhaDungQuery(Guid SangKienId) : IRequest<IReadOnlyList<HanhDongKhaDung>>, ICoYeuCauQuyen
+{
+    public string MaQuyenYeuCau => MaQuyen.SangKienXem;
+
+    public Guid? DoiTuongId => SangKienId;
+}
 
 public sealed class LayHanhDongKhaDungQueryHandler
     : IRequestHandler<LayHanhDongKhaDungQuery, IReadOnlyList<HanhDongKhaDung>>
