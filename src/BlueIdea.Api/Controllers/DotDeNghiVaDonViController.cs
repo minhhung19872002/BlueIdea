@@ -64,6 +64,20 @@ public sealed class DotDeNghiController : ControllerBase
         => Ok(PhanHoiPhanTrang<DotDeNghiQuanLyDto>.Tu(
             await _dichVu.LayDanhSachQuanLyAsync(thamSo, ct)));
 
+    /// <summary>
+    /// Danh sách đợt để đổ vào ô chọn — dùng ở mọi màn hình LỌC theo đợt.
+    ///
+    /// Khác <c>dang-mo</c>: ô lọc phải liệt kê cả những đợt đã đóng, vì người dùng thường tra
+    /// cứu và làm báo cáo cho các đợt của những năm trước. <c>dang-mo</c> chỉ dành cho bước 1 của
+    /// wizard nộp hồ sơ, nơi chỉ được nộp vào đợt còn hạn.
+    ///
+    /// Thiếu endpoint này thì 11 màn hình gọi tới đều nhận 404 và ô chọn đợt trống trơn — lọc
+    /// theo đợt không dùng được ở đâu cả, mà giao diện vẫn hiện ô chọn như bình thường.
+    /// </summary>
+    [HttpGet("chon")]
+    public async Task<IActionResult> LayDanhSachChonAsync(CancellationToken ct)
+        => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
+
     /// <summary>Các đợt đang mở và còn hạn nộp — dùng ở bước 1 của wizard nộp hồ sơ.</summary>
     [HttpGet("dang-mo")]
     public async Task<IActionResult> LayDotDangMoAsync(CancellationToken ct)
