@@ -24,13 +24,16 @@ public sealed class BoGuiLienThongHttp : IBoGuiLienThong
 {
     private readonly IHttpClientFactory _httpFactory;
     private readonly IDichVuMaHoa _maHoa;
+    private readonly IReadOnlyList<IBoAnhXaLienThong> _boAnhXa;
     private readonly ILogger<BoGuiLienThongHttp> _logger;
 
     public BoGuiLienThongHttp(
-        IHttpClientFactory httpFactory, IDichVuMaHoa maHoa, ILogger<BoGuiLienThongHttp> logger)
+        IHttpClientFactory httpFactory, IDichVuMaHoa maHoa,
+        IEnumerable<IBoAnhXaLienThong> boAnhXa, ILogger<BoGuiLienThongHttp> logger)
     {
         _httpFactory = httpFactory;
         _maHoa = maHoa;
+        _boAnhXa = boAnhXa?.ToList() ?? new List<IBoAnhXaLienThong>();
         _logger = logger;
     }
 
@@ -39,13 +42,14 @@ public sealed class BoGuiLienThongHttp : IBoGuiLienThong
     {
         var http = _httpFactory.CreateClient("lien-thong");
 
-        var than = new
-        {
-            nguon = "BLUEIDEA",
-            loaiDuLieu = "SANG_KIEN_DUOC_CONG_NHAN",
-            tongBanGhi = duLieu.Count,
-            duLieu = duLieu.Select(x => AnhXa(x, heThong.CauHinhMapping)).ToList()
-        };
+        // Moi he thong dich co hop dong du lieu rieng; khong co bo anh xa rieng thi dung bo
+        // chung — them mot he thong moi chi can khai bao trong bang, khong phai sua ma nguon.
+        var boAnhXa = _boAnhXa.FirstOrDefault(x =>
+                          string.Equals(x.MaHeThong, heThong.Ma, StringComparison.OrdinalIgnoreCase))
+                      ?? _boAnhXa.FirstOrDefault(x => x.MaHeThong == "*")
+                      ?? new AnhXaLienThongChung();
+
+        var than = boAnhXa.TaoThan(heThong, duLieu);
 
         var json = System.Text.Json.JsonSerializer.Serialize(than);
 
@@ -72,46 +76,6 @@ public sealed class BoGuiLienThongHttp : IBoGuiLienThong
         var soNhan = DocSoNhan(noiDung) ?? duLieu.Count;
 
         return (true, soNhan, noiDung);
-    }
-
-    /// <summary>
-    /// Doi ten truong theo cau hinh anh xa cua tung he thong.
-    /// Khong co cau hinh thi giu nguyen ten goc.
-    /// </summary>
-    private static Dictionary<string, object?> AnhXa(
-        BanGhiDongBo x, IReadOnlyDictionary<string, string>? mapping)
-    {
-        var goc = new Dictionary<string, object?>
-        {
-            ["maHoSo"] = x.MaHoSo,
-            ["tenSangKien"] = x.TenSangKien,
-            ["tacGiaChinh"] = x.TacGiaChinh,
-            ["donVi"] = x.DonVi,
-            ["linhVuc"] = x.LinhVuc,
-            ["tongDiem"] = x.TongDiem,
-            ["mucCongNhan"] = x.MucCongNhan,
-            ["soQuyetDinh"] = x.SoQuyetDinh,
-            ["ngayCongNhan"] = x.NgayCongNhan,
-            ["nam"] = x.Nam
-        };
-
-        if (mapping is not { Count: > 0 })
-        {
-            return goc;
-        }
-
-        var ketQua = new Dictionary<string, object?>();
-
-        foreach (var (tenGoc, giaTri) in goc)
-        {
-            var tenMoi = mapping.TryGetValue(tenGoc, out var t) && !string.IsNullOrWhiteSpace(t)
-                ? t
-                : tenGoc;
-
-            ketQua[tenMoi] = giaTri;
-        }
-
-        return ketQua;
     }
 
     private async Task GanXacThucAsync(

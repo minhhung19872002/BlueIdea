@@ -87,6 +87,9 @@ public static class DangKyHaTang
         // Lien thong: timeout ngan hon mac dinh vi he thong ngoai treo khong duoc keo dai
         // thao tac dong bo cua nguoi dung.
         services.AddHttpClient("lien-thong", http => http.Timeout = TimeSpan.FromSeconds(60));
+        services.AddScoped<IBoAnhXaLienThong, AnhXaThiDuaKhenThuong>();
+        services.AddScoped<IBoAnhXaLienThong, AnhXaIoc>();
+        services.AddScoped<IBoAnhXaLienThong, AnhXaLienThongChung>();
         services.AddScoped<IBoGuiLienThong, BoGuiLienThongHttp>();
         services.AddScoped<IBoKySo, BoKySoPkcs7>();
 
