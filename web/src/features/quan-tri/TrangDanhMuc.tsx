@@ -19,6 +19,7 @@ import {
   ArrowUpOutlined,
   DeleteOutlined,
   EditOutlined,
+  ImportOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,8 +35,13 @@ import {
   type ThamSoLoc,
 } from '@/api/endpoints';
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
+import { BocKeoTha, DongKeoTha } from '@/components/DongKeoTha';
+import { HopThoaiNhapDanhMuc } from './HopThoaiNhapDanhMuc';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_DANH_MUC } from '@/features/quan-tri/danhMucTab';
+
+/** Các danh mục nhập được bằng tệp Excel — phải khớp DichVuNhapDanhMuc.LoaiHoTro ở máy chủ. */
+const NHAP_DUOC = ['linh-vuc', 'doi-tuong', 'loai-tac-gia'];
 
 /** Tập hàm tối thiểu mà mọi API danh mục đều có (một số danh mục có thêm hàm riêng). */
 interface ApiDanhMucCoBan {
@@ -71,6 +77,7 @@ export default function TrangDanhMuc() {
   const [tuKhoa, setTuKhoa] = useState('');
   const [dangSua, setDangSua] = useState<DanhMucDto | null>(null);
   const [moForm, setMoForm] = useState(false);
+  const [moNhap, setMoNhap] = useState(false);
   const [form] = Form.useForm();
 
   const thamSo = { trang, soDong, tuKhoa };
@@ -94,10 +101,10 @@ export default function TrangDanhMuc() {
   });
 
   /**
-   * Chức năng 1 — đổi thứ tự lĩnh vực bằng nút lên/xuống.
+   * Chức năng 1 — đổi thứ tự lĩnh vực.
    *
-   * Dùng nút thay vì kéo–thả: thao tác này cũng phải làm được trên điện thoại, mà kéo–thả trong
-   * bảng cuộn ngang trên màn hình hẹp gần như không dùng nổi.
+   * Có CẢ kéo–thả lẫn nút lên/xuống: kéo–thả nhanh hơn khi sắp lại nhiều dòng, nhưng trong bảng
+   * cuộn ngang trên điện thoại thì gần như không dùng nổi, nên nút lên/xuống vẫn phải giữ.
    */
   const sapXep = useMutation({
     mutationFn: (idTheoThuTu: string[]) => apiLinhVuc.sapXep(idTheoThuTu),
@@ -151,6 +158,11 @@ export default function TrangDanhMuc() {
               setTrang(1);
             }}
           />
+          {NHAP_DUOC.includes(ma) && (
+            <Button icon={<ImportOutlined />} onClick={() => setMoNhap(true)}>
+              Nhập Excel
+            </Button>
+          )}
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -167,13 +179,22 @@ export default function TrangDanhMuc() {
     >
       <DaiTabTrang danhSach={DS_TAB_DANH_MUC} dangChon={ma} />
 
+      <BocKeoTha
+        khoaTheoThuTu={danhSach.map((x) => x.id)}
+        keoDuoc={choPhepSapXep && !sapXep.isPending}
+        onDoiThuTu={(khoaMoi) => sapXep.mutate(khoaMoi)}
+      >
       <Table<DanhMucDto>
         rowKey="id"
         size="middle"
         loading={isLoading}
         dataSource={danhSach}
         scroll={{ x: 800 }}
+        components={choPhepSapXep ? { body: { row: DongKeoTha } } : undefined}
         columns={[
+          ...(choPhepSapXep
+            ? [{ key: 'tay-cam', title: '', width: 44, fixed: 'left' as const }]
+            : []),
           { title: 'Mã', dataIndex: 'ma', width: 180 },
           { title: 'Tên', dataIndex: 'ten' },
           { title: 'Mô tả', dataIndex: 'moTa', responsive: ['lg'] },
@@ -257,6 +278,9 @@ export default function TrangDanhMuc() {
           },
         }}
       />
+      </BocKeoTha>
+
+      {moNhap && <HopThoaiNhapDanhMuc loai={ma} onDong={() => setMoNhap(false)} />}
 
       <Modal
         open={moForm}

@@ -70,6 +70,7 @@ public static class DangKyDichVuUngDung
         services.AddScoped<DichVuHoiDong>();
         services.AddScoped<HoiDong.DichVuBienBanHop>();
         services.AddScoped<BaoCao.DichVuSinhBieuMau>();
+        services.AddScoped<DanhMuc.DichVuNhapDanhMuc>();
         services.AddScoped<BanHanh.DichVuQuyetDinh>();
         services.AddScoped<CongKhai.DichVuTraCuuCongKhai>();
         services.AddScoped<XacThuc.DichVuMfa>();

@@ -1246,6 +1246,23 @@ export const apiNhapXuat = {
     return data.duLieu;
   },
 
+  duongDanMauNhapDanhMuc: (loai: string) =>
+    `/api/v1/nhap-xuat/danh-muc/mau?loai=${encodeURIComponent(loai)}`,
+
+  /** Nhập danh mục từ Excel. chayThu = true chỉ kiểm tra, không ghi. */
+  nhapDanhMuc: async (loai: string, tep: File, chayThu: boolean) => {
+    const form = new FormData();
+    form.append('tep', tep);
+
+    const { data } = await http.post<{ duLieu: KetQuaNhapDanhMuc }>(
+      `/api/v1/nhap-xuat/danh-muc?loai=${encodeURIComponent(loai)}&chayThu=${chayThu}`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+
+    return data.duLieu;
+  },
+
   duongDanPhieuChamHoSo: (sangKienId: string, dinhDang?: 'PDF' | 'ZIP') =>
     `/api/v1/nhap-xuat/phieu-cham/ho-so/${sangKienId}` +
     (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
@@ -1532,6 +1549,25 @@ export interface TinhTrangSaoLuu {
 export const apiSaoLuu = {
   tinhTrang: () => layDuLieu<TinhTrangSaoLuu>('/api/v1/sao-luu'),
 };
+
+export interface DongKetQuaNhapDanhMuc {
+  soDong: number;
+  ma: string;
+  ten: string;
+  hopLe: boolean;
+  loi?: string | null;
+}
+
+export interface KetQuaNhapDanhMuc {
+  chayThu: boolean;
+  loai: string;
+  tongDong: number;
+  soHopLe: number;
+  soLoi: number;
+  soThemMoi: number;
+  soCapNhat: number;
+  chiTiet: DongKetQuaNhapDanhMuc[];
+}
 
 export interface TepTinDaTaiLen {
   id: string;

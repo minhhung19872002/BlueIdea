@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.BaoCao;
+using BlueIdea.Application.DanhMuc;
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhGia;
 using BlueIdea.Application.QuanTri;
@@ -24,6 +25,11 @@ namespace BlueIdea.Api.Controllers;
 public sealed class NhapXuatController : ControllerBase
 {
     /// <summary>Thứ tự cột bắt buộc của tệp nhập người dùng.</summary>
+    private static readonly string[] CotNhapDanhMuc =
+    {
+        "Mã", "Tên", "Mô tả", "Thứ tự"
+    };
+
     private static readonly string[] CotNhapNguoiDung =
     {
         "Tên đăng nhập", "Họ và tên", "Email", "Điện thoại", "Chức vụ", "Mã đơn vị", "Mã vai trò"
@@ -32,15 +38,17 @@ public sealed class NhapXuatController : ControllerBase
     private const long DungLuongTepNhapToiDa = 10L * 1024 * 1024;
 
     private readonly DichVuNhapNguoiDung _nhapNguoiDung;
+    private readonly DichVuNhapDanhMuc _nhapDanhMuc;
     private readonly DichVuXuatPhieuCham _xuatPhieu;
     private readonly DichVuBaoCaoTuyBien _baoCaoTuyBien;
     private readonly IDichVuCauHinh _cauHinh;
 
     public NhapXuatController(
-        DichVuNhapNguoiDung nhapNguoiDung, DichVuXuatPhieuCham xuatPhieu,
-        DichVuBaoCaoTuyBien baoCaoTuyBien, IDichVuCauHinh cauHinh)
+        DichVuNhapNguoiDung nhapNguoiDung, DichVuNhapDanhMuc nhapDanhMuc,
+        DichVuXuatPhieuCham xuatPhieu, DichVuBaoCaoTuyBien baoCaoTuyBien, IDichVuCauHinh cauHinh)
     {
         _nhapNguoiDung = nhapNguoiDung;
+        _nhapDanhMuc = nhapDanhMuc;
         _xuatPhieu = xuatPhieu;
         _baoCaoTuyBien = baoCaoTuyBien;
         _cauHinh = cauHinh;
@@ -200,6 +208,120 @@ public sealed class NhapXuatController : ControllerBase
         return File(tep,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"{TaoTenTep(bc.TenBaoCao)}.xlsx");
+    }
+
+    // --------------------------------------------------- Nhập danh mục từ Excel
+
+    /// <summary>Tải tệp mẫu để nhập danh mục dùng chung.</summary>
+    [HttpGet("danh-muc/mau")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
+    public IActionResult TaiMauNhapDanhMuc([FromQuery] string loai = "linh-vuc")
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Danh muc");
+
+        for (var i = 0; i < CotNhapDanhMuc.Length; i++)
+        {
+            var o = sheet.Cell(1, i + 1);
+            o.Value = CotNhapDanhMuc[i];
+            o.Style.Font.Bold = true;
+            o.Style.Fill.BackgroundColor = XLColor.FromHtml("#1677FF");
+            o.Style.Font.FontColor = XLColor.White;
+        }
+
+        var viDu = new[] { "CNTT", "Công nghệ thông tin", "Giải pháp phần mềm, hạ tầng số", "1" };
+
+        for (var i = 0; i < viDu.Length; i++)
+        {
+            sheet.Cell(2, i + 1).Value = viDu[i];
+        }
+
+        sheet.Cell(4, 1).Value =
+            "Hướng dẫn: xoá dòng ví dụ trước khi nhập  •  Mã chỉ dùng chữ, số, dấu _ và -  •  "
+            + "Mã đã có trong hệ thống sẽ được CẬP NHẬT tên, mô tả và thứ tự, không tạo bản trùng  •  "
+            + "Tệp nhập không bật lại danh mục đang ngừng sử dụng.";
+        sheet.Cell(4, 1).Style.Font.Italic = true;
+
+        sheet.Columns(1, CotNhapDanhMuc.Length).AdjustToContents(10d, 50d);
+
+        using var bo = new MemoryStream();
+        workbook.SaveAs(bo);
+
+        return File(bo.ToArray(), ThamSoPhanTrangApi.MimeExcel, $"mau-nhap-{loai}.xlsx");
+    }
+
+    /// <summary>
+    /// Nhập danh mục từ Excel. Mặc định <c>chayThu=true</c> để xem trước kết quả rồi mới ghi.
+    /// </summary>
+    [HttpPost("danh-muc")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<IActionResult> NhapDanhMucAsync(
+        IFormFile tep, [FromQuery] string loai = "linh-vuc", [FromQuery] bool chayThu = true,
+        CancellationToken ct = default)
+    {
+        if (tep is null || tep.Length == 0)
+        {
+            throw new NghiepVuException(MaLoiHeThong.TepKhongHopLe, "Chưa chọn tệp.");
+        }
+
+        if (tep.Length > DungLuongTepNhapToiDa)
+        {
+            throw new NghiepVuException(MaLoiHeThong.VuotDungLuongToiDa,
+                $"Tệp vượt quá {DungLuongTepNhapToiDa / 1024 / 1024}MB.");
+        }
+
+        var cacDong = DocTepNhapDanhMuc(tep);
+        var ketQua = await _nhapDanhMuc.NhapAsync(loai, cacDong, chayThu, ct);
+
+        var thongBao = ketQua.ChayThu
+            ? $"Kiểm tra {ketQua.TongDong} dòng: {ketQua.SoHopLe} hợp lệ ({ketQua.SoThemMoi} thêm mới, "
+              + $"{ketQua.SoCapNhat} cập nhật), {ketQua.SoLoi} lỗi."
+            : $"Đã thêm {ketQua.SoThemMoi} và cập nhật {ketQua.SoCapNhat} mục danh mục.";
+
+        return Ok(PhanHoiApi<KetQuaNhapDanhMuc>.Ok(ketQua, thongBao));
+    }
+
+    private static List<DongNhapDanhMuc> DocTepNhapDanhMuc(IFormFile tep)
+    {
+        using var luong = tep.OpenReadStream();
+
+        XLWorkbook workbook;
+        try
+        {
+            workbook = new XLWorkbook(luong);
+        }
+        catch (Exception ex)
+        {
+            throw new NghiepVuException(MaLoiHeThong.TepKhongHopLe,
+                $"Không đọc được tệp Excel: {ex.Message}");
+        }
+
+        using (workbook)
+        {
+            var sheet = workbook.Worksheets.FirstOrDefault()
+                ?? throw new NghiepVuException(MaLoiHeThong.TepKhongHopLe, "Tệp không có sheet nào.");
+
+            var ketQua = new List<DongNhapDanhMuc>();
+
+            foreach (var dong in sheet.RowsUsed().Skip(1))
+            {
+                var ma = dong.Cell(1).GetString().Trim();
+                var ten = dong.Cell(2).GetString().Trim();
+
+                // Dong hoan toan trong la dong phan cach / dong huong dan, khong phai loi du lieu.
+                if (ma.Length == 0 && ten.Length == 0) continue;
+
+                ketQua.Add(new DongNhapDanhMuc(
+                    dong.RowNumber(),
+                    ma,
+                    ten,
+                    dong.Cell(3).GetString().Trim() is { Length: > 0 } moTa ? moTa : null,
+                    dong.Cell(4).GetString().Trim()));
+            }
+
+            return ketQua;
+        }
     }
 
     // ------------------------------------------------ Chức năng 6 — quét placeholder .docx

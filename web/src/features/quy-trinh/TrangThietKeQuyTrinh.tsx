@@ -16,10 +16,13 @@ import {
   Space,
   Switch,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import {
   CheckCircleOutlined,
+  ExpandOutlined,
+  FilePdfOutlined,
   PictureOutlined,
   SafetyCertificateOutlined,
   SaveOutlined,
@@ -277,19 +280,24 @@ export default function TrangThietKeQuyTrinh() {
    * Chụp đúng khung canvas (không chụp cả trang) và ẩn phần điều khiển của ReactFlow, để ảnh
    * đưa vào hồ sơ trình ký chỉ còn sơ đồ.
    */
-  const xuatPng = useCallback(async () => {
+  const chupSoDo = useCallback(async () => {
     const khung = khungSoDo.current?.querySelector<HTMLElement>('.react-flow__viewport');
-    if (!khung) return;
+    if (!khung) return null;
 
+    return toPng(khung, {
+      backgroundColor: '#ffffff',
+      pixelRatio: 2,
+      filter: (nut) =>
+        !(nut instanceof HTMLElement)
+        || !(nut.classList.contains('react-flow__controls')
+             || nut.classList.contains('react-flow__minimap')),
+    });
+  }, []);
+
+  const xuatPng = useCallback(async () => {
     try {
-      const anh = await toPng(khung, {
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        filter: (nut) =>
-          !(nut instanceof HTMLElement)
-          || !(nut.classList.contains('react-flow__controls')
-               || nut.classList.contains('react-flow__minimap')),
-      });
+      const anh = await chupSoDo();
+      if (!anh) return;
 
       const the = document.createElement('a');
       the.href = anh;
@@ -298,7 +306,64 @@ export default function TrangThietKeQuyTrinh() {
     } catch {
       message.error('Không xuất được sơ đồ. Thử phóng to sơ đồ rồi xuất lại.');
     }
-  }, [id, message]);
+  }, [chupSoDo, id, message]);
+
+  /**
+   * Xuất sơ đồ ra PDF khổ A4 nằm ngang.
+   *
+   * Dựng PDF bằng cửa sổ in của trình duyệt thay vì thêm một thư viện PDF phía client: gói PDF
+   * đủ dùng nặng cỡ vài trăm KB cho đúng một màn hình, trong khi sơ đồ cần in ra chỉ là một tấm
+   * ảnh đặt vừa trang giấy.
+   */
+  const xuatPdf = useCallback(async () => {
+    try {
+      const anh = await chupSoDo();
+      if (!anh) return;
+
+      const cuaSo = window.open('', '_blank');
+
+      if (!cuaSo) {
+        message.warning('Trình duyệt đã chặn cửa sổ in. Cho phép cửa sổ bật lên rồi thử lại.');
+        return;
+      }
+
+      cuaSo.document.write(
+        '<!doctype html><html lang="vi"><head><meta charset="utf-8">'
+          + `<title>So do quy trinh ${id}</title>`
+          + '<style>@page{size:A4 landscape;margin:12mm}'
+          + 'body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh}'
+          + 'img{max-width:100%;max-height:100%}</style></head>'
+          + `<body><img src="${anh}" alt="Sơ đồ quy trình"></body></html>`,
+      );
+      cuaSo.document.close();
+
+      // In sau khi ảnh đã tải xong, nếu không hộp thoại in mở ra khi trang còn trắng.
+      const anhTrongCuaSo = cuaSo.document.querySelector('img');
+
+      if (anhTrongCuaSo?.complete) {
+        cuaSo.print();
+      } else {
+        anhTrongCuaSo?.addEventListener('load', () => cuaSo.print());
+      }
+    } catch {
+      message.error('Không xuất được sơ đồ ra PDF.');
+    }
+  }, [chupSoDo, id, message]);
+
+  /** Xem sơ đồ toàn màn hình — quy trình nhiều bước không đọc nổi trong khung nhỏ. */
+  const doiToanManHinh = useCallback(() => {
+    const khung = khungSoDo.current;
+    if (!khung) return;
+
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+
+    void khung.requestFullscreen?.().catch(() => {
+      message.warning('Trình duyệt không cho phép chế độ toàn màn hình ở trang này.');
+    });
+  }, [message]);
 
   /** Bật/tắt một chức năng bổ sung ở cấp quy trình (không gắn với bước cụ thể). */
   const doiChucNangBoSung = useCallback(
@@ -341,6 +406,12 @@ export default function TrangThietKeQuyTrinh() {
           <Button icon={<PictureOutlined />} onClick={() => void xuatPng()}>
             Xuất PNG
           </Button>
+          <Button icon={<FilePdfOutlined />} onClick={() => void xuatPdf()}>
+            Xuất PDF
+          </Button>
+          <Tooltip title="Xem sơ đồ toàn màn hình (Esc để thoát)">
+            <Button icon={<ExpandOutlined />} onClick={doiToanManHinh} />
+          </Tooltip>
           <Link to={`/quan-tri/quy-trinh/${id}/thanh-phan`}>
             <Button>Thành phần hồ sơ</Button>
           </Link>

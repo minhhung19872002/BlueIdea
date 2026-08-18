@@ -84,6 +84,38 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
+    // Tai lieu RIENG cho API danh cho he thong ngoai.
+    //
+    // Ben thu ba chi duoc cam mot tep OpenAPI dung pham vi ho goi: dua ca tai lieu noi bo cho ho
+    // la lo toan bo be mat quan tri (nguoi dung, phan quyen, cau hinh) cho mot doi tuong khong
+    // co quyen dung den, va ho phai tu doan dau la phan minh duoc phep goi.
+    c.SwaggerDoc("cong-khai", new OpenApiInfo
+    {
+        Title = "API công khai — Nền tảng số dùng chung phục vụ hoạt động sáng kiến",
+        Version = "v1",
+        Description = "Dành cho hệ thống bên ngoài tra cứu sáng kiến đã công bố. "
+                      + "Xác thực bằng khoá API cấp riêng cho từng hệ thống, "
+                      + "gửi ở header X-Api-Key. Chỉ trả về dữ liệu đã công khai."
+    });
+
+    // Moi controller vao dung tai lieu cua no theo tien to duong dan, khong phai khai bao tay
+    // tren tung action — them controller moi ma quen khai bao thi no se roi ra ngoai ca hai tep.
+    c.DocInclusionPredicate((tenTaiLieu, moTa) =>
+    {
+        var duongDan = moTa.RelativePath ?? string.Empty;
+        var laCongKhai = duongDan.StartsWith("api/public/", StringComparison.OrdinalIgnoreCase);
+
+        return tenTaiLieu == "cong-khai" ? laCongKhai : !laCongKhai;
+    });
+
+    c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Name = "X-Api-Key",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Description = "Khoá API do quản trị viên cấp cho hệ thống bên ngoài."
+    });
+
     var duongDanXml = Path.Combine(AppContext.BaseDirectory, "BlueIdea.Api.xml");
     if (File.Exists(duongDanXml))
     {
@@ -284,7 +316,8 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BlueIdea API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BlueIdea API v1 (nội bộ)");
+        c.SwaggerEndpoint("/swagger/cong-khai/swagger.json", "BlueIdea API công khai");
         c.DocumentTitle = "Tài liệu API - Phần mềm Sáng kiến";
         c.DisplayRequestDuration();
     });
