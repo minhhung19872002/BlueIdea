@@ -1,20 +1,60 @@
 import { useNavigate } from 'react-router-dom';
-import { App, Alert, Button, Card, Form, Input } from 'antd';
+import { App, Alert, Button, Card, Input } from 'antd';
+import { z } from 'zod';
 
 import { guiDuLieu, LoiApi } from '@/api/client';
 import { useAuthStore } from '@/app/store/authStore';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 
-interface FormDoiMatKhau {
-  matKhauCu: string;
-  matKhauMoi: string;
-  xacNhan: string;
-}
+/**
+ * Luật đổi mật khẩu.
+ *
+ * Hai luật cuối chỉ diễn đạt được khi nhìn CẢ FORM cùng lúc, nên đặt ở `superRefine`:
+ *   - mật khẩu xác nhận phải khớp mật khẩu mới;
+ *   - mật khẩu mới phải khác mật khẩu hiện tại — đặt lại đúng mật khẩu cũ thì thao tác này
+ *     không đổi được gì, mà người dùng vẫn tưởng mình đã đổi.
+ *
+ * Ràng buộc độ mạnh phải khớp chính sách của máy chủ; lệch thì người dùng nhập xong mới bị máy
+ * chủ từ chối, và họ không hiểu vì sao giao diện đã báo hợp lệ.
+ */
+const luatDoiMatKhau = z
+  .object({
+    matKhauCu: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại.'),
+    matKhauMoi: z
+      .string()
+      .min(8, 'Mật khẩu phải có ít nhất 8 ký tự.')
+      .regex(
+        /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])/,
+        'Mật khẩu phải có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.',
+      ),
+    xacNhan: z.string().min(1, 'Vui lòng xác nhận mật khẩu mới.'),
+  })
+  .superRefine((v, ctx) => {
+    if (v.matKhauMoi !== v.xacNhan) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['xacNhan'],
+        message: 'Mật khẩu xác nhận không khớp.',
+      });
+    }
+
+    if (v.matKhauCu && v.matKhauMoi && v.matKhauCu === v.matKhauMoi) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['matKhauMoi'],
+        message: 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+      });
+    }
+  });
+
+type FormDoiMatKhau = z.infer<typeof luatDoiMatKhau>;
 
 export default function TrangDoiMatKhau() {
   const { message } = App.useApp();
   const dieuHuong = useNavigate();
   const { buocDoiMatKhau, dangXuat } = useAuthStore();
-  const [form] = Form.useForm<FormDoiMatKhau>();
+
+  const form = useBieuMau(luatDoiMatKhau, { matKhauCu: '', matKhauMoi: '', xacNhan: '' });
 
   async function xuLyGui(giaTri: FormDoiMatKhau) {
     try {
@@ -43,54 +83,35 @@ export default function TrangDoiMatKhau() {
         />
       )}
 
-      <Form<FormDoiMatKhau> form={form} layout="vertical" onFinish={xuLyGui} requiredMark={false}>
-        <Form.Item
-          name="matKhauCu"
-          label="Mật khẩu hiện tại"
-          rules={[{ required: true, message: 'Vui lòng nhập mật khẩu hiện tại' }]}
-        >
-          <Input.Password autoComplete="current-password" />
-        </Form.Item>
+      <BieuMau form={form} onGui={xuLyGui}>
+        <Truong<FormDoiMatKhau> ten="matKhauCu" label="Mật khẩu hiện tại" required>
+          {(o) => (
+            <Input.Password {...o} value={o.value as string} autoComplete="current-password" />
+          )}
+        </Truong>
 
-        <Form.Item
-          name="matKhauMoi"
+        <Truong<FormDoiMatKhau>
+          ten="matKhauMoi"
           label="Mật khẩu mới"
+          required
           extra="Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt."
-          rules={[
-            { required: true, message: 'Vui lòng nhập mật khẩu mới' },
-            { min: 8, message: 'Mật khẩu phải có ít nhất 8 ký tự' },
-            {
-              pattern: /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])/,
-              message: 'Mật khẩu phải có chữ hoa, chữ thường, chữ số và ký tự đặc biệt',
-            },
-          ]}
         >
-          <Input.Password autoComplete="new-password" />
-        </Form.Item>
+          {(o) => <Input.Password {...o} value={o.value as string} autoComplete="new-password" />}
+        </Truong>
 
-        <Form.Item
-          name="xacNhan"
-          label="Xác nhận mật khẩu mới"
-          dependencies={['matKhauMoi']}
-          rules={[
-            { required: true, message: 'Vui lòng xác nhận mật khẩu mới' },
-            ({ getFieldValue }) => ({
-              validator(_, giaTri) {
-                if (!giaTri || getFieldValue('matKhauMoi') === giaTri) {
-                  return Promise.resolve();
-                }
-                return Promise.reject(new Error('Mật khẩu xác nhận không khớp'));
-              },
-            }),
-          ]}
+        <Truong<FormDoiMatKhau> ten="xacNhan" label="Xác nhận mật khẩu mới" required>
+          {(o) => <Input.Password {...o} value={o.value as string} autoComplete="new-password" />}
+        </Truong>
+
+        <Button
+          type="primary"
+          htmlType="submit"
+          block
+          loading={form.formState.isSubmitting}
         >
-          <Input.Password autoComplete="new-password" />
-        </Form.Item>
-
-        <Button type="primary" htmlType="submit" block>
           Đổi mật khẩu
         </Button>
-      </Form>
+      </BieuMau>
     </Card>
   );
 }

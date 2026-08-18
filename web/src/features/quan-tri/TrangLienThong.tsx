@@ -4,7 +4,6 @@ import {
   Alert,
   Button,
   Card,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -26,8 +25,12 @@ import {
   SyncOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFieldArray } from 'react-hook-form';
+import { z } from 'zod';
 
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, trangThai, tuyChon } from '@/components/bieu-mau/luat';
 import {
   apiDotDeNghi,
   apiTichHop,
@@ -50,6 +53,69 @@ const TAN_SUAT = [
   { value: 'HANG_TUAN', label: 'Hằng tuần' },
 ];
 
+/**
+ * Luật kiểm tra hệ thống liên thông.
+ *
+ * Hai luật phụ thuộc lẫn nhau, nên phải nhìn cả form cùng lúc:
+ *   - chọn OAUTH2 thì bắt buộc có Client ID (luồng client_credentials không chạy thiếu nó);
+ *   - đồng bộ tự động (khác THU_CONG) thì bắt buộc có endpoint, nếu không job nền sẽ chạy đều
+ *     đặn rồi thất bại lặng lẽ mỗi giờ mà không ai để ý.
+ */
+const luatHeThong = z
+  .object({
+    ma: batBuoc('Mã hệ thống', 50).regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Mã chỉ gồm chữ, số, dấu _ và -',
+    ),
+    ten: batBuoc('Tên hệ thống'),
+    endpointBase: z
+      .string()
+      .trim()
+      .url('Phải là địa chỉ http/https tuyệt đối.')
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
+    loaiXacThuc: z.string(),
+    clientId: tuyChon(200),
+    clientSecret: tuyChon(500),
+    scope: tuyChon(300),
+    tanSuatDongBo: z.string(),
+    trangThai: trangThai,
+    mapping: z.array(
+      z.object({
+        khoa: batBuoc('Trường nguồn', 100),
+        giaTri: batBuoc('Trường đích', 100),
+      }),
+    ),
+  })
+  .superRefine((v, ctx) => {
+    if (v.loaiXacThuc === 'OAUTH2' && !v.clientId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['clientId'],
+        message: 'Xác thực OAuth2 bắt buộc có Client ID.',
+      });
+    }
+
+    if (v.tanSuatDongBo !== 'THU_CONG' && !v.endpointBase) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endpointBase'],
+        message: 'Đồng bộ tự động cần endpoint, nếu không tác vụ nền sẽ thất bại lặng lẽ.',
+      });
+    }
+  });
+
+type GiaTriHeThong = z.infer<typeof luatHeThong>;
+
+const MAC_DINH_HE_THONG: GiaTriHeThong = {
+  ma: '',
+  ten: '',
+  loaiXacThuc: 'API_KEY',
+  tanSuatDongBo: 'THU_CONG',
+  trangThai: 1,
+  mapping: [],
+};
+
 /** Chức năng 16, 41 — Cấu hình liên thông và đồng bộ sang hệ thống ngoài (IOC, TĐKT). */
 export default function TrangLienThong() {
   const { message, modal } = App.useApp();
@@ -62,7 +128,10 @@ export default function TrangLienThong() {
   const [moForm, setMoForm] = useState(false);
   const [moXemTruoc, setMoXemTruoc] = useState(false);
   const [heThongDongBo, setHeThongDongBo] = useState<HeThongTichHop | null>(null);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatHeThong, MAC_DINH_HE_THONG);
+
+  // Danh sách ánh xạ là mảng động — useFieldArray thay cho Form.List của antd.
+  const anhXa = useFieldArray({ control: form.control, name: 'mapping' });
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['he-thong-tich-hop'],
@@ -70,20 +139,18 @@ export default function TrangLienThong() {
   });
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriHeThong) => {
       const duLieu = {
-        ma: (giaTri.ma as string).trim().toUpperCase(),
-        ten: giaTri.ten as string,
-        endpointBase: (giaTri.endpointBase as string) || null,
-        loaiXacThuc: giaTri.loaiXacThuc as string,
-        clientId: (giaTri.clientId as string) || null,
-        clientSecret: (giaTri.clientSecret as string) || null,
-        scope: (giaTri.scope as string) || null,
-        tanSuatDongBo: giaTri.tanSuatDongBo as string,
-        trangThai: giaTri.trangThai as number,
-        cauHinhMapping: doiSangBanDo(
-          (giaTri.mapping as { khoa: string; giaTri: string }[] | undefined) ?? [],
-        ),
+        ma: giaTri.ma.trim().toUpperCase(),
+        ten: giaTri.ten,
+        endpointBase: giaTri.endpointBase ?? null,
+        loaiXacThuc: giaTri.loaiXacThuc,
+        clientId: giaTri.clientId ?? null,
+        clientSecret: giaTri.clientSecret ?? null,
+        scope: giaTri.scope ?? null,
+        tanSuatDongBo: giaTri.tanSuatDongBo,
+        trangThai: giaTri.trangThai,
+        cauHinhMapping: doiSangBanDo(giaTri.mapping),
       };
 
       return dangSua ? apiTichHop.sua(dangSua.id, duLieu) : apiTichHop.them(duLieu);
@@ -92,7 +159,7 @@ export default function TrangLienThong() {
       message.success(dangSua ? 'Đã cập nhật hệ thống liên thông' : 'Đã thêm hệ thống liên thông');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH_HE_THONG);
       void queryClient.invalidateQueries({ queryKey: ['he-thong-tich-hop'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
@@ -136,15 +203,23 @@ export default function TrangLienThong() {
 
   function moTaoMoi() {
     setDangSua(null);
-    form.resetFields();
+    form.reset(MAC_DINH_HE_THONG);
     setMoForm(true);
   }
 
   function moSua(banGhi: HeThongTichHop) {
     setDangSua(banGhi);
-    form.setFieldsValue({
-      ...banGhi,
+    form.reset({
+      ma: banGhi.ma,
+      ten: banGhi.ten,
+      endpointBase: banGhi.endpointBase ?? undefined,
+      loaiXacThuc: banGhi.loaiXacThuc,
+      clientId: banGhi.clientId ?? undefined,
+      // Bí mật không bao giờ trả về giao diện — để trống = giữ nguyên.
       clientSecret: undefined,
+      scope: banGhi.scope ?? undefined,
+      tanSuatDongBo: banGhi.tanSuatDongBo,
+      trangThai: banGhi.trangThai as 0 | 1,
       mapping: Object.entries(banGhi.cauHinhMapping ?? {}).map(([khoa, giaTri]) => ({
         khoa,
         giaTri,
@@ -316,76 +391,110 @@ export default function TrangLienThong() {
         title={dangSua ? `Sửa hệ thống: ${dangSua.ten}` : 'Thêm hệ thống liên thông'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-he-thong' }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ loaiXacThuc: 'API_KEY', tanSuatDongBo: 'THU_CONG', trangThai: 1 }}
-        >
+        <BieuMau id="form-he-thong" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item
-              name="ma"
-              label="Mã hệ thống"
-              rules={[
-                { required: true, message: 'Nhập mã' },
-                { pattern: /^[A-Za-z0-9_-]+$/, message: 'Mã chỉ gồm chữ, số, dấu _ và -' },
-              ]}
-            >
-              <Input style={{ width: 220 }} placeholder="VD: IOC, TDKT" disabled={!!dangSua} />
-            </Form.Item>
-            <Form.Item name="ten" label="Tên hệ thống" rules={[{ required: true, message: 'Nhập tên' }]}>
-              <Input style={{ width: 340 }} placeholder="VD: Trung tâm điều hành thông minh IOC" />
-            </Form.Item>
+            <Truong<GiaTriHeThong> ten="ma" label="Mã hệ thống" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 220 }}
+                  placeholder="VD: IOC, TDKT"
+                  disabled={!!dangSua}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriHeThong> ten="ten" label="Tên hệ thống" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 340 }}
+                  placeholder="VD: Trung tâm điều hành thông minh IOC"
+                />
+              )}
+            </Truong>
           </Space>
 
-          <Form.Item
-            name="endpointBase"
-            label="Endpoint gốc"
-            rules={[{ type: 'url', message: 'Phải là URL http/https tuyệt đối' }]}
-          >
-            <Input placeholder="https://ioc.example.gov.vn/api" />
-          </Form.Item>
-
-          <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="loaiXacThuc" label="Loại xác thực">
-              <Select style={{ width: 240 }} options={LOAI_XAC_THUC} />
-            </Form.Item>
-            <Form.Item name="tanSuatDongBo" label="Tần suất đồng bộ">
-              <Select style={{ width: 180 }} options={TAN_SUAT} />
-            </Form.Item>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                style={{ width: 170 }}
-                options={[
-                  { value: 1, label: 'Hoạt động' },
-                  { value: 0, label: 'Ngừng' },
-                ]}
+          <Truong<GiaTriHeThong> ten="endpointBase" label="Endpoint gốc">
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="https://ioc.example.gov.vn/api"
               />
-            </Form.Item>
+            )}
+          </Truong>
+
+          <Space size="large" wrap style={{ display: 'flex' }}>
+            <Truong<GiaTriHeThong> ten="loaiXacThuc" label="Loại xác thực">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 240 }}
+                  options={LOAI_XAC_THUC}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriHeThong> ten="tanSuatDongBo" label="Tần suất đồng bộ">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 180 }}
+                  options={TAN_SUAT}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriHeThong> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 170 }}
+                  options={[
+                    { value: 1, label: 'Hoạt động' },
+                    { value: 0, label: 'Ngừng' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Space>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="clientId" label="Client ID / tên khoá">
-              <Input style={{ width: 260 }} />
-            </Form.Item>
-            <Form.Item
-              name="clientSecret"
+            <Truong<GiaTriHeThong> ten="clientId" label="Client ID / tên khoá">
+              {(o) => <Input {...o} value={o.value as string} style={{ width: 260 }} />}
+            </Truong>
+            <Truong<GiaTriHeThong>
+              ten="clientSecret"
               label="Client secret / API key"
               tooltip={dangSua ? 'Để trống = giữ nguyên bí mật đang lưu.' : undefined}
             >
-              <Input.Password
-                style={{ width: 300 }}
-                placeholder={dangSua ? 'Để trống nếu không đổi' : ''}
-              />
-            </Form.Item>
+              {(o) => (
+                <Input.Password
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 300 }}
+                  placeholder={dangSua ? 'Để trống nếu không đổi' : ''}
+                />
+              )}
+            </Truong>
           </Space>
 
-          <Form.Item name="scope" label="Scope (OAuth2)">
-            <Input placeholder="VD: sangkien.read sangkien.write" />
-          </Form.Item>
+          <Truong<GiaTriHeThong> ten="scope" label="Scope (OAuth2)">
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="VD: sangkien.read sangkien.write"
+              />
+            )}
+          </Truong>
 
           <Typography.Text strong>Ánh xạ tên trường</Typography.Text>
           <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
@@ -393,41 +502,51 @@ export default function TrangLienThong() {
             <code> maHoSo → ma_sang_kien</code>.
           </Typography.Paragraph>
 
-          <Form.List name="mapping">
-            {(danhSach, { add, remove }) => (
-              <>
-                {danhSach.map((muc) => (
-                  <Space key={muc.key} align="baseline" style={{ display: 'flex', marginBottom: 4 }}>
-                    <Form.Item
-                      name={[muc.name, 'khoa']}
-                      rules={[{ required: true, message: 'Nhập tên trường nguồn' }]}
-                      style={{ marginBottom: 0 }}
-                    >
-                      <Input placeholder="Trường nguồn" style={{ width: 220 }} />
-                    </Form.Item>
-                    <span>→</span>
-                    <Form.Item
-                      name={[muc.name, 'giaTri']}
-                      rules={[{ required: true, message: 'Nhập tên trường đích' }]}
-                      style={{ marginBottom: 0 }}
-                    >
-                      <Input placeholder="Trường đích" style={{ width: 220 }} />
-                    </Form.Item>
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => remove(muc.name)}
-                    />
-                  </Space>
-                ))}
-                <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
-                  Thêm ánh xạ
-                </Button>
-              </>
-            )}
-          </Form.List>
-        </Form>
+          {anhXa.fields.map((muc, i) => (
+            <Space key={muc.id} align="baseline" style={{ display: 'flex', marginBottom: 4 }}>
+              <Truong<GiaTriHeThong>
+                ten={`mapping.${i}.khoa` as `mapping.${number}.khoa`}
+                style={{ marginBottom: 0 }}
+              >
+                {(o) => (
+                  <Input
+                    {...o}
+                    value={o.value as string}
+                    placeholder="Trường nguồn"
+                    style={{ width: 220 }}
+                  />
+                )}
+              </Truong>
+              <span>→</span>
+              <Truong<GiaTriHeThong>
+                ten={`mapping.${i}.giaTri` as `mapping.${number}.giaTri`}
+                style={{ marginBottom: 0 }}
+              >
+                {(o) => (
+                  <Input
+                    {...o}
+                    value={o.value as string}
+                    placeholder="Trường đích"
+                    style={{ width: 220 }}
+                  />
+                )}
+              </Truong>
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => anhXa.remove(i)}
+              />
+            </Space>
+          ))}
+          <Button
+            type="dashed"
+            onClick={() => anhXa.append({ khoa: '', giaTri: '' })}
+            icon={<PlusOutlined />}
+          >
+            Thêm ánh xạ
+          </Button>
+        </BieuMau>
       </Modal>
 
       <ModalXemTruoc mo={moXemTruoc} onDong={() => setMoXemTruoc(false)} />
