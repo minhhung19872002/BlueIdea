@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Alert, Button, Empty, Result, Skeleton, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Empty, Result, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
 import { ReloadOutlined, WarningOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 
 import { LoiApi } from '@/api/client';
@@ -89,6 +90,46 @@ export function KhoiRong({ moTa, hanhDong }: { moTa: string; hanhDong?: ReactNod
     <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<Typography.Text type="secondary">{moTa}</Typography.Text>}>
       {hanhDong}
     </Empty>
+  );
+}
+
+/**
+ * Báo địa chỉ không ứng với màn hình nào.
+ *
+ * Vài màn hình dùng chung một route có tham số (`/quan-tri/danh-muc/:ma`, `/bao-cao/:loai`) và
+ * tra tham số đó trong một bảng cấu hình. Trước đây tra không thấy thì rơi về mục mặc định, nên
+ * gõ sai địa chỉ — hoặc vào một mục CHƯA CÓ MÀN HÌNH — lại hiện ra một màn hình khác trông hoàn
+ * toàn bình thường. Người dùng tưởng mình đang xem đúng thứ mình chọn.
+ *
+ * Nêu rõ mã không nhận ra và liệt kê các mã hợp lệ, để người gõ nhầm sửa được ngay tại chỗ.
+ */
+export function KhoiKhongNhanRa({
+  ma,
+  hopLe,
+  duongDanGoc,
+}: {
+  ma: string;
+  hopLe: { ma: string; ten: string }[];
+  duongDanGoc: string;
+}) {
+  return (
+    <Result
+      status="404"
+      title="Không có màn hình cho mục này"
+      subTitle={`Địa chỉ chứa mã "${ma}" nhưng hệ thống không có mục nào mang mã đó.`}
+      extra={
+        <Space direction="vertical" align="center">
+          <Typography.Text type="secondary">Các mục hiện có:</Typography.Text>
+          <Space wrap>
+            {hopLe.map((x) => (
+              <Link key={x.ma} to={`${duongDanGoc}/${x.ma}`}>
+                <Button size="small">{x.ten}</Button>
+              </Link>
+            ))}
+          </Space>
+        </Space>
+      }
+    />
   );
 }
 
