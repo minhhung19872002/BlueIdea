@@ -244,7 +244,7 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs", "tests/BlueIdea.UnitTests/XuLy/DieuPhaiLienThongTests.cs"]
     gaps:
       - "No runtime integration test for workflow-triggered sync end-to-end"
-      - "QuyTrinhLienThong uses live DB data (not snapshot) — deliberate: integration config is operational, but ADR should document this exception"
+      - "QuyTrinhLienThong uses live DB data (not snapshot) — deliberate per ADR 0003: integration config is operational"
     notes: "Run-002-B8: DongBoSangKienAsync added to DichVuDongBoLienThong for single-innovation sync. ThucThiBuocCommandHandler now dispatches integration sync via DieuPhaiLienThongAsync when HanhDongCanChay contains DongBoLienThong. Queries QuyTrinhLienThong scoped by QuyTrinhId, supports all 3 events (KHI_HOAN_THANH, KHI_VAO_BUOC, KHI_PHE_DUYET). Failures logged but never block workflow. SuKienLienThong constants added to Domain. DongBoSangKienAsync is internal, skips log when nothing to sync. Run-002-B10: ThucThiHangLoatCommandHandler now dispatches DieuPhaiLienThongAsync per successful transition. Failures logged but never block the batch."
 
   # ── Nhom III: Tieu chi dong ────────────────────────────────────────
@@ -324,12 +324,11 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/XacThucNangCaoTests.cs", "tests/BlueIdea.UnitTests/XacThuc/"]
     gaps:
       - "SSO component BLOCKED_EXTERNAL — needs real city SSO credentials"
-      - "SEC: IMemoryCache-based SSO state validation does not work in multi-instance deployments — upgrade to IDistributedCache (Redis) for HA (MEDIUM)"
       - "SEC: SSO state TryGetValue+Remove not atomic — TOCTOU race window, low exploitability due to IdP code one-time-use + PKCE (LOW)"
       - "SEC: MFA recovery codes hashed with unsalted SHA-256 — 40-bit entropy brute-forceable from DB dump (LOW, post-compromise only)"
       - "SEC: MFA Phase 1 reveals account has MFA enabled — design tradeoff for UX, rate-limited (LOW)"
       - "SEC: MFA Phase 1 failures bypass lockout counter — deliberate to prevent DoS oracle, rate limiter is sole protection (LOW, documented)"
-    notes: "Internal auth verified by 11+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes, MFA oracle). Run-002-B3: Account enumeration fixed (all login errors return SaiTaiKhoanMatKhau). SSO state validated server-side (IMemoryCache, 5-min TTL). Open redirect blocked (scheme+host+port whitelist from Cors:NguonChoPhep + Sso:AllowedRedirectHosts). Run-002-B4: Timing oracle fixed (dummy Argon2id for non-existent accounts). CAPTCHA side-channel fixed (log-based CAPTCHA for null/locked/inactive paths). Audit log persistence fixed (SaveChangesAsync on early-exit paths). Run-002-B9: MFA credential-stuffing oracle fixed — Phase 1 defers password check (Argon2id runs for timing but result discarded), Phase 2 unifies error code for wrong password and wrong TOTP (both SAI_TAI_KHOAN_MAT_KHAU). MA_XAC_THUC_KHONG_DUNG added to HTTP 401 mapping. Frontend dead code removed."
+    notes: "Internal auth verified by 11+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes, MFA oracle). Run-002-B3: Account enumeration fixed (all login errors return SaiTaiKhoanMatKhau). SSO state validated server-side (IMemoryCache, 5-min TTL). Open redirect blocked (scheme+host+port whitelist from Cors:NguonChoPhep + Sso:AllowedRedirectHosts). Run-002-B4: Timing oracle fixed (dummy Argon2id for non-existent accounts). CAPTCHA side-channel fixed (log-based CAPTCHA for null/locked/inactive paths). Audit log persistence fixed (SaveChangesAsync on early-exit paths). Run-002-B9: MFA credential-stuffing oracle fixed — Phase 1 defers password check (Argon2id runs for timing but result discarded), Phase 2 unifies error code for wrong password and wrong TOTP (both SAI_TAI_KHOAN_MAT_KHAU). MA_XAC_THUC_KHONG_DUNG added to HTTP 401 mapping. Frontend dead code removed. Run-002-B11: SSO state validation upgraded from IMemoryCache to IDistributedCache (Redis when ConnectionStrings:Redis configured, in-memory fallback for tests/single-instance). Fixes multi-instance HA concern."
 
   - id: REQ-22
     source_number: 22
@@ -636,7 +635,6 @@ requirements:
     gaps:
       - "SSO needs real SSO_ISSUER/CLIENT_ID/CLIENT_SECRET"
       - "IOC/TDKT needs real endpoint and API key"
-      - "SEC: IMemoryCache-based SSO state validation needs IDistributedCache for multi-instance HA (MEDIUM)"
     dependencies: ["external-sso-provider", "external-ioc-system", "external-tdkt-system"]
 
   # ── Nhom XII: Ung dung di dong ─────────────────────────────────────

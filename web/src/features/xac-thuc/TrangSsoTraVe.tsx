@@ -10,8 +10,9 @@ import { KHOA_SSO } from '@/features/xac-thuc/sso';
 /**
  * Chức năng 21, 41 — Trang nhận mã trả về từ nhà cung cấp SSO.
  *
- * `state` và `codeVerifier` do CHÍNH trang này sinh ra ở bước bắt đầu và giữ trong
- * sessionStorage; máy chủ không lưu phiên tạm nên chạy được sau cân bằng tải.
+ * `state` do máy chủ sinh ra và lưu server-side (IDistributedCache — Redis khi nhiều bản,
+ * in-memory khi đơn lẻ) để chống CSRF. Trình duyệt giữ `state` và `codeVerifier` trong
+ * sessionStorage để hoàn tất đổi mã.
  */
 export default function TrangSsoTraVe() {
   const [thamSo] = useSearchParams();

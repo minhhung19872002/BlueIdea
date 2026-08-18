@@ -51,6 +51,20 @@ public static class DangKyHaTang
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
 
+        var redisCs = cauHinh.GetConnectionString("Redis");
+        if (!string.IsNullOrWhiteSpace(redisCs))
+        {
+            services.AddStackExchangeRedisCache(o =>
+            {
+                o.Configuration = redisCs;
+                o.InstanceName = "blueidea:";
+            });
+        }
+        else
+        {
+            services.AddDistributedMemoryCache();
+        }
+
         services.Configure<TuyChonJwt>(cauHinh.GetSection(TuyChonJwt.Muc));
         services.Configure<TuyChonMaHoa>(cauHinh.GetSection(TuyChonMaHoa.Muc));
         services.Configure<TuyChonLuuTru>(cauHinh.GetSection(TuyChonLuuTru.Muc));

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace BlueIdea.Api.Controllers;
 
@@ -39,7 +39,7 @@ public sealed class XacThucController : ControllerBase
     private readonly DichVuDangNhapSso _sso;
     private readonly DichVuCaptcha _captcha;
     private readonly DichVuQuenMatKhau _quenMatKhau;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCache _cachePhanTan;
     private readonly IConfiguration _cauHinh;
 
     public XacThucController(
@@ -49,7 +49,7 @@ public sealed class XacThucController : ControllerBase
         DichVuDangNhapSso sso,
         DichVuCaptcha captcha,
         DichVuQuenMatKhau quenMatKhau,
-        IMemoryCache cache,
+        IDistributedCache cachePhanTan,
         IConfiguration cauHinh)
     {
         _mediator = mediator;
@@ -58,7 +58,7 @@ public sealed class XacThucController : ControllerBase
         _sso = sso;
         _captcha = captcha;
         _quenMatKhau = quenMatKhau;
-        _cache = cache;
+        _cachePhanTan = cachePhanTan;
         _cauHinh = cauHinh;
     }
 
@@ -125,12 +125,15 @@ public sealed class XacThucController : ControllerBase
     /// Bắt đầu luồng SSO: sinh <c>state</c> và cặp PKCE, gửi về cho client rồi chuyển hướng
     /// sang nhà cung cấp.
     ///
-    /// <c>state</c> được lưu server-side (IMemoryCache, TTL 5 phút) và kiểm tra lại khi đổi mã
-    /// để chống CSRF. Triển khai nhiều bản API cần IDistributedCache (Redis) thay IMemoryCache.
+    /// <c>state</c> được lưu server-side (IDistributedCache — Redis khi triển khai nhiều bản,
+    /// in-memory khi chạy đơn lẻ hoặc kiểm thử) với TTL 5 phút, kiểm tra lại khi đổi mã
+    /// để chống CSRF.
     /// </summary>
     [HttpGet("sso/bat-dau")]
     [AllowAnonymous]
-    public IActionResult BatDauSso([FromQuery] string duongDanTraVe)
+    [EnableRateLimiting("DangNhap")]
+    public async Task<IActionResult> BatDauSsoAsync(
+        [FromQuery] string duongDanTraVe, CancellationToken ct)
     {
         KiemTraDuongDanTraVe(duongDanTraVe);
 
@@ -138,7 +141,14 @@ public sealed class XacThucController : ControllerBase
         var codeVerifier = TaoChuoiNgauNhien();
         var codeChallenge = TaoCodeChallenge(codeVerifier);
 
-        _cache.Set(TienToSsoState + state, true, ThoiGianSongState);
+        await _cachePhanTan.SetAsync(
+            TienToSsoState + state,
+            [1],
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = ThoiGianSongState
+            },
+            ct);
 
         var diaChi = _sso.TaoDiaChiDangNhap(state, codeChallenge, duongDanTraVe);
 
@@ -155,13 +165,14 @@ public sealed class XacThucController : ControllerBase
         KiemTraDuongDanTraVe(duLieu.DuongDanTraVe);
 
         var khoaState = TienToSsoState + duLieu.State;
-        if (!_cache.TryGetValue(khoaState, out _))
+        var giaTri = await _cachePhanTan.GetAsync(khoaState, ct);
+        if (giaTri is null)
         {
             throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
                 "Phiên SSO không hợp lệ hoặc đã hết hạn.");
         }
 
-        _cache.Remove(khoaState);
+        await _cachePhanTan.RemoveAsync(khoaState, ct);
 
         var ketQua = await _sso.XuLyTraVeAsync(
             duLieu.Code, duLieu.CodeVerifier, duLieu.DuongDanTraVe, ct);
