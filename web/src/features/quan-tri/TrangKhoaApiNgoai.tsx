@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { App, Alert, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
+import { App, Alert, Button, DatePicker, Input, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import { KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { z } from 'zod';
 
 import { capNhatDuLieu, guiDuLieu, layDuLieu, LoiApi, xoaDuLieu } from '@/api/client';
 import { ngayGio } from '@/components/ThanhPhanChung';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, tuyChon } from '@/components/bieu-mau/luat';
 
 interface KhoaApi {
   id: string;
@@ -19,12 +23,35 @@ interface KhoaApi {
   ghiChu: string | null;
 }
 
-interface FormKhoa {
-  ten: string;
-  danhSachIp?: string[];
-  ngayHetHan?: dayjs.Dayjs | null;
-  ghiChu?: string;
-}
+/**
+ * Luật kiểm tra khoá API.
+ *
+ * Kiểm tra định dạng IP / CIDR ngay tại giao diện: khai sai một dải là hệ thống ngoài bị chặn
+ * im lặng, và người cấu hình rất khó đoán vì lỗi chỉ lộ ra lúc bên kia gọi vào.
+ */
+const MAU_IP_HOAC_CIDR =
+  /^(\d{1,3}\.){3}\d{1,3}(\/([0-9]|[12][0-9]|3[0-2]))?$/;
+
+const luatKhoaApi = z.object({
+  ten: batBuoc('Tên hệ thống'),
+  danhSachIp: z
+    .array(
+      z
+        .string()
+        .trim()
+        .refine(
+          (v) =>
+            MAU_IP_HOAC_CIDR.test(v)
+            && v.split('/')[0].split('.').every((o) => Number(o) <= 255),
+          'Địa chỉ IP hoặc dải CIDR không hợp lệ.',
+        ),
+    )
+    .optional(),
+  ngayHetHan: z.custom<Dayjs>((v) => v == null || dayjs.isDayjs(v)).nullish(),
+  ghiChu: tuyChon(),
+});
+
+type FormKhoa = z.infer<typeof luatKhoaApi>;
 
 /**
  * Chức năng 41 — Cấp và quản lý khoá API cho hệ thống ngoài gọi vào BlueIdea.
@@ -39,7 +66,7 @@ export default function TrangKhoaApiNgoai() {
   const [moForm, setMoForm] = useState(false);
   const [dangSua, setDangSua] = useState<KhoaApi | null>(null);
   const [khoaMoi, setKhoaMoi] = useState<string | null>(null);
-  const [form] = Form.useForm<FormKhoa>();
+  const form = useBieuMau(luatKhoaApi, { ten: '' } as FormKhoa);
 
   const { data, isLoading } = useQuery({
     queryKey: ['khoa-api-ngoai'],
@@ -67,7 +94,7 @@ export default function TrangKhoaApiNgoai() {
     onSuccess: (kq) => {
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset({ ten: '' } as FormKhoa);
       void lamMoi();
 
       if (kq) {
@@ -97,13 +124,13 @@ export default function TrangKhoaApiNgoai() {
 
   function moTao() {
     setDangSua(null);
-    form.resetFields();
+    form.reset({ ten: '' } as FormKhoa);
     setMoForm(true);
   }
 
   function moSua(ban: KhoaApi) {
     setDangSua(ban);
-    form.setFieldsValue({
+    form.reset({
       ten: ban.ten,
       danhSachIp: ban.danhSachIp,
       ngayHetHan: ban.ngayHetHan ? dayjs(ban.ngayHetHan) : null,
@@ -197,36 +224,55 @@ export default function TrangKhoaApiNgoai() {
         open={moForm}
         title={dangSua ? 'Sửa khoá API' : 'Cấp khoá API mới'}
         onCancel={() => setMoForm(false)}
-        onOk={() => form.submit()}
-        confirmLoading={luu.isPending}
+        okButtonProps={{ htmlType: 'submit', form: 'form-khoa-api' }}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         okText="Lưu"
         cancelText="Huỷ"
       >
-        <Form<FormKhoa> form={form} layout="vertical" onFinish={(v) => luu.mutate(v)}>
-          <Form.Item
-            name="ten"
-            label="Tên hệ thống"
-            rules={[{ required: true, message: 'Vui lòng nhập tên hệ thống' }]}
-          >
-            <Input placeholder="Ví dụ: Hệ thống Thi đua khen thưởng" />
-          </Form.Item>
+        <BieuMau id="form-khoa-api" form={form} onGui={(v) => luu.mutateAsync(v)}>
+          <Truong<FormKhoa> ten="ten" label="Tên hệ thống" required>
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="Ví dụ: Hệ thống Thi đua khen thưởng"
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="danhSachIp"
+          <Truong<FormKhoa>
+            ten="danhSachIp"
             label="Địa chỉ IP được phép"
             extra="Để trống nghĩa là cho phép mọi địa chỉ. Nhập IP đơn hoặc dải CIDR, ví dụ 10.0.0.0/8."
           >
-            <Select mode="tags" placeholder="203.0.113.7 hoặc 10.0.0.0/8" tokenSeparators={[',']} />
-          </Form.Item>
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string[] | undefined}
+                mode="tags"
+                placeholder="203.0.113.7 hoặc 10.0.0.0/8"
+                tokenSeparators={[',']}
+              />
+            )}
+          </Truong>
 
-          <Form.Item name="ngayHetHan" label="Ngày hết hạn">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-          </Form.Item>
+          <Truong<FormKhoa> ten="ngayHetHan" label="Ngày hết hạn">
+            {(o) => (
+              <DatePicker
+                value={(o.value as Dayjs | null | undefined) ?? null}
+                onChange={o.onChange}
+                onBlur={o.onBlur}
+                status={o.status}
+                style={{ width: '100%' }}
+                format="DD/MM/YYYY"
+              />
+            )}
+          </Truong>
 
-          <Form.Item name="ghiChu" label="Ghi chú">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
+          <Truong<FormKhoa> ten="ghiChu" label="Ghi chú">
+            {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+          </Truong>
+        </BieuMau>
       </Modal>
 
       <Modal

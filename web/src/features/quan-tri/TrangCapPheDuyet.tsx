@@ -4,7 +4,6 @@ import {
   Alert,
   Button,
   Card,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -16,7 +15,11 @@ import {
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { soNguyen, tuyChon } from '@/components/bieu-mau/luat';
 import {
   apiCapPheDuyet,
   apiDonVi,
@@ -27,6 +30,26 @@ import {
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_DANH_MUC } from '@/features/quan-tri/danhMucTab';
+
+/**
+ * Luật kiểm tra cấp phê duyệt.
+ *
+ * Đợt và lĩnh vực để trống nghĩa là "áp dụng cho mọi đợt / mọi lĩnh vực", nên hai trường này
+ * là tuỳ chọn — không phải quên khai báo bắt buộc.
+ */
+const luatCapPheDuyet = z.object({
+  donViPheDuyetId: z
+    .string({ required_error: 'Vui lòng chọn đơn vị phê duyệt.' })
+    .uuid('Vui lòng chọn đơn vị phê duyệt.'),
+  thuTuCap: soNguyen('Thứ tự cấp', 1, 10),
+  dotDeNghiId: z.string().uuid().optional().nullable(),
+  linhVucId: z.string().uuid().optional().nullable(),
+  ghiChu: tuyChon(),
+});
+
+type GiaTriCapPheDuyet = z.infer<typeof luatCapPheDuyet>;
+
+const MAC_DINH_CAP = { thuTuCap: 1 } as GiaTriCapPheDuyet;
 
 /**
  * Chức năng 5 — Cấp phê duyệt theo đợt và lĩnh vực.
@@ -42,7 +65,7 @@ export default function TrangCapPheDuyet() {
   const [locLinhVuc, setLocLinhVuc] = useState<string | undefined>();
   const [dangSua, setDangSua] = useState<CapPheDuyet | null>(null);
   const [moForm, setMoForm] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatCapPheDuyet, MAC_DINH_CAP);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['cap-phe-duyet', locDot, locLinhVuc],
@@ -58,13 +81,13 @@ export default function TrangCapPheDuyet() {
   }
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriCapPheDuyet) => {
       const duLieu = {
-        dotDeNghiId: (giaTri.dotDeNghiId as string) || null,
-        linhVucId: (giaTri.linhVucId as string) || null,
-        donViPheDuyetId: giaTri.donViPheDuyetId as string,
-        thuTuCap: (giaTri.thuTuCap as number) ?? 1,
-        ghiChu: (giaTri.ghiChu as string) || null,
+        dotDeNghiId: giaTri.dotDeNghiId ?? null,
+        linhVucId: giaTri.linhVucId ?? null,
+        donViPheDuyetId: giaTri.donViPheDuyetId,
+        thuTuCap: giaTri.thuTuCap,
+        ghiChu: giaTri.ghiChu ?? null,
       };
 
       return dangSua ? apiCapPheDuyet.sua(dangSua.id, duLieu) : apiCapPheDuyet.them(duLieu);
@@ -73,7 +96,7 @@ export default function TrangCapPheDuyet() {
       message.success(dangSua ? 'Đã cập nhật cấp phê duyệt' : 'Đã thêm cấp phê duyệt');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH_CAP);
       lamMoi();
     },
     onError: (loi) =>
@@ -103,7 +126,7 @@ export default function TrangCapPheDuyet() {
           icon={<PlusOutlined />}
           onClick={() => {
             setDangSua(null);
-            form.resetFields();
+            form.reset(MAC_DINH_CAP);
             setMoForm(true);
           }}
         >
@@ -184,7 +207,13 @@ export default function TrangCapPheDuyet() {
                   icon={<EditOutlined />}
                   onClick={() => {
                     setDangSua(dong);
-                    form.setFieldsValue(dong);
+                    form.reset({
+                      donViPheDuyetId: dong.donViPheDuyetId,
+                      thuTuCap: dong.thuTuCap,
+                      dotDeNghiId: dong.dotDeNghiId ?? undefined,
+                      linhVucId: dong.linhVucId ?? undefined,
+                      ghiChu: dong.ghiChu ?? undefined,
+                    });
                     setMoForm(true);
                   }}
                 />
@@ -215,52 +244,68 @@ export default function TrangCapPheDuyet() {
         title={dangSua ? 'Sửa cấp phê duyệt' : 'Thêm cấp phê duyệt'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-cap-phe-duyet' }}
       >
-        <Form form={form} layout="vertical" initialValues={{ thuTuCap: 1 }}>
-          <Form.Item
-            name="donViPheDuyetId"
-            label="Đơn vị phê duyệt"
-            rules={[{ required: true, message: 'Chọn đơn vị phê duyệt' }]}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-            />
-          </Form.Item>
+        <BieuMau id="form-cap-phe-duyet" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
+          <Truong<GiaTriCapPheDuyet> ten="donViPheDuyetId" label="Đơn vị phê duyệt" required>
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string}
+                showSearch
+                optionFilterProp="label"
+                options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="thuTuCap"
+          <Truong<GiaTriCapPheDuyet>
+            ten="thuTuCap"
             label="Thứ tự cấp"
             tooltip="Cấp 1 xét trước, cấp 2 xét sau."
-            rules={[{ required: true, message: 'Nhập thứ tự cấp' }]}
+            required
           >
-            <InputNumber min={1} max={10} style={{ width: '100%' }} />
-          </Form.Item>
+            {(o) => (
+              <InputNumber
+                {...o}
+                value={o.value as number}
+                min={1}
+                max={10}
+                style={{ width: '100%' }}
+              />
+            )}
+          </Truong>
 
-          <Form.Item name="dotDeNghiId" label="Áp dụng cho đợt">
-            <Select
-              allowClear
-              placeholder="Mọi đợt"
-              options={(cacDot ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-            />
-          </Form.Item>
+          <Truong<GiaTriCapPheDuyet> ten="dotDeNghiId" label="Áp dụng cho đợt">
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string | undefined}
+                allowClear
+                placeholder="Mọi đợt"
+                options={(cacDot ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+              />
+            )}
+          </Truong>
 
-          <Form.Item name="linhVucId" label="Áp dụng cho lĩnh vực">
-            <Select
-              allowClear
-              placeholder="Mọi lĩnh vực"
-              options={(cacLinhVuc ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-            />
-          </Form.Item>
+          <Truong<GiaTriCapPheDuyet> ten="linhVucId" label="Áp dụng cho lĩnh vực">
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string | undefined}
+                allowClear
+                placeholder="Mọi lĩnh vực"
+                options={(cacLinhVuc ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+              />
+            )}
+          </Truong>
 
-          <Form.Item name="ghiChu" label="Ghi chú">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
+          <Truong<GiaTriCapPheDuyet> ten="ghiChu" label="Ghi chú">
+            {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+          </Truong>
+        </BieuMau>
       </Modal>
     </Card>
   );
