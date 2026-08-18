@@ -8,6 +8,7 @@ import {
   Card,
   Col,
   Descriptions,
+  Dropdown,
   Form,
   Input,
   Modal,
@@ -27,6 +28,7 @@ import {
   DownloadOutlined,
   EditOutlined,
   FilePdfOutlined,
+  FileTextOutlined,
   ReloadOutlined,
   RollbackOutlined,
   TeamOutlined,
@@ -265,25 +267,51 @@ export default function TrangChiTietHoSo() {
         }
         extra={
           <Space wrap className="khong-in">
-            {/* Chỉ hiện khi hồ sơ đã qua chấm điểm — trước đó chưa có phiếu nào để xuất. */}
-            {hs.tongDiem != null && (
+            {/* Hồ sơ chưa nộp thì chưa có gì để xác nhận tiếp nhận. */}
+            {hs.trangThaiTong !== 'NHAP' && (
               <Button
-                icon={<FilePdfOutlined />}
+                icon={<FileTextOutlined />}
                 onClick={async () => {
                   try {
                     await taiTep(
-                      apiNhapXuat.duongDanPhieuChamHoSo(id!),
-                      `phieu-cham-${hs.maHoSo}.pdf`,
+                      apiSangKien.duongDanPhieuTiepNhan(id!),
+                      `phieu-tiep-nhan-${hs.maHoSo}.pdf`,
                     );
                   } catch (loi) {
                     message.error(
-                      loi instanceof LoiApi ? loi.message : 'Không xuất được phiếu chấm.',
+                      loi instanceof LoiApi ? loi.message : 'Không xuất được phiếu tiếp nhận.',
                     );
                   }
                 }}
               >
-                Xuất phiếu chấm
+                Phiếu tiếp nhận
               </Button>
+            )}
+
+            {/* Chỉ hiện khi hồ sơ đã qua chấm điểm — trước đó chưa có phiếu nào để xuất. */}
+            {hs.tongDiem != null && (
+              <Dropdown
+                menu={{
+                  items: [
+                    { key: 'PDF', label: 'Một tệp PDF (mỗi phiếu một trang)' },
+                    { key: 'ZIP', label: 'ZIP — mỗi phiếu một tệp riêng' },
+                  ],
+                  onClick: async ({ key }) => {
+                    try {
+                      await taiTep(
+                        apiNhapXuat.duongDanPhieuChamHoSo(id!, key as 'PDF' | 'ZIP'),
+                        `phieu-cham-${hs.maHoSo}.${key === 'ZIP' ? 'zip' : 'pdf'}`,
+                      );
+                    } catch (loi) {
+                      message.error(
+                        loi instanceof LoiApi ? loi.message : 'Không xuất được phiếu chấm.',
+                      );
+                    }
+                  },
+                }}
+              >
+                <Button icon={<FilePdfOutlined />}>Xuất phiếu chấm</Button>
+              </Dropdown>
             )}
             {hs.choPhepSua && (
               <Link to={`/sang-kien/${id}/sua`}>

@@ -19,7 +19,12 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { InfoCircleOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
+import {
+  InfoCircleOutlined,
+  SafetyCertificateOutlined,
+  SaveOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi } from '@/api/client';
@@ -39,7 +44,7 @@ export default function TrangChamDiem() {
   const [thamSo] = useSearchParams();
   const hoiDongId = thamSo.get('hoiDongId') ?? '';
 
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
 
   const [cham, setCham] = useState<Record<string, DongCham>>({});
@@ -119,6 +124,15 @@ export default function TrangChamDiem() {
       void queryClient.invalidateQueries({ queryKey: ['danh-gia'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được phiếu.'),
+  });
+
+  const kySo = useMutation({
+    mutationFn: () => apiDanhGia.kySoPhieu(phieu.data!.id),
+    onSuccess: () => {
+      message.success('Đã ký số phiếu đánh giá');
+      void queryClient.invalidateQueries({ queryKey: ['phieu-cham', id, hoiDongId] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không ký số được.'),
   });
 
   if (phieu.isLoading || hoSo.isLoading) return <KhoiDangTai />;
@@ -362,6 +376,27 @@ export default function TrangChamDiem() {
             >
               Gửi phiếu đánh giá
             </Button>
+
+            {/* Chỉ ký được phiếu đã gửi: ký một phiếu còn sửa được thì chữ ký vô nghĩa. */}
+            {phieu.data && phieu.data.trangThaiPhieu !== 'DANG_CHAM' && (
+              <Button
+                icon={<SafetyCertificateOutlined />}
+                loading={kySo.isPending}
+                onClick={() =>
+                  modal.confirm({
+                    title: 'Ký số phiếu đánh giá',
+                    content:
+                      'Hệ thống chốt phiếu thành bản PDF rồi ký số lên bản đó. '
+                      + 'Sau khi ký, sửa phiếu sẽ làm chữ ký không còn khớp nội dung.',
+                    okText: 'Ký số',
+                    cancelText: 'Huỷ',
+                    onOk: () => kySo.mutateAsync(),
+                  })
+                }
+              >
+                Ký số phiếu
+              </Button>
+            )}
           </Space>
         </Card>
       </Col>

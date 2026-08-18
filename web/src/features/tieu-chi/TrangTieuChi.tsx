@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tag } from 'antd';
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+} from 'antd';
+import { CopyOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi } from '@/api/client';
@@ -16,7 +30,25 @@ export default function TrangTieuChi() {
   const [trang, setTrang] = useState(1);
   const [soDong, setSoDong] = useState(20);
   const [moTao, setMoTao] = useState(false);
+  const [saoChep, setSaoChep] = useState<DanhMucDto | null>(null);
   const [form] = Form.useForm();
+  const [formSaoChep] = Form.useForm();
+
+  const taoBanSao = useMutation({
+    mutationFn: (giaTri: { ma: string; ten: string; nam: number }) =>
+      apiTieuChi.saoChep(saoChep!.id, {
+        ma: giaTri.ma.trim().toUpperCase(),
+        ten: giaTri.ten,
+        nam: giaTri.nam,
+      }),
+    onSuccess: () => {
+      message.success('Đã sao chép bộ tiêu chí');
+      setSaoChep(null);
+      formSaoChep.resetFields();
+      void queryClient.invalidateQueries({ queryKey: ['bo-tieu-chi'] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không sao chép được.'),
+  });
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['bo-tieu-chi', { trang, soDong }],
@@ -65,13 +97,31 @@ export default function TrangTieuChi() {
           },
           {
             title: '',
-            width: 130,
+            width: 230,
             render: (_v, dong) => (
-              <Link to={`/quan-tri/tieu-chi/${dong.id}`}>
-                <Button size="small" icon={<SettingOutlined />}>
-                  Cấu hình
-                </Button>
-              </Link>
+              <Space>
+                <Link to={`/quan-tri/tieu-chi/${dong.id}`}>
+                  <Button size="small" icon={<SettingOutlined />}>
+                    Cấu hình
+                  </Button>
+                </Link>
+                <Tooltip title="Tạo bộ tiêu chí năm mới từ bộ này, giữ nguyên cây tiêu chí và mức công nhận">
+                  <Button
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => {
+                      setSaoChep(dong);
+                      formSaoChep.setFieldsValue({
+                        ma: `${dong.ma}-SAO-CHEP`,
+                        ten: `${dong.ten} (bản sao)`,
+                        nam: new Date().getFullYear() + 1,
+                      });
+                    }}
+                  >
+                    Sao chép
+                  </Button>
+                </Tooltip>
+              </Space>
             ),
           },
         ]}
@@ -85,6 +135,35 @@ export default function TrangTieuChi() {
           },
         }}
       />
+
+      <Modal
+        open={!!saoChep}
+        title={`Sao chép bộ tiêu chí: ${saoChep?.ten ?? ''}`}
+        okText="Tạo bản sao"
+        cancelText="Huỷ"
+        confirmLoading={taoBanSao.isPending}
+        onCancel={() => setSaoChep(null)}
+        onOk={async () => taoBanSao.mutate(await formSaoChep.validateFields())}
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="Bản sao nhận đủ cây tiêu chí, thang điểm và các mức công nhận của bộ gốc."
+          description="Dùng khi sang năm mới: sửa vài tiêu chí trên bản sao thay vì gõ lại từ đầu, và bộ cũ vẫn giữ nguyên để tra cứu hồ sơ các năm trước."
+        />
+        <Form form={formSaoChep} layout="vertical">
+          <Form.Item name="ma" label="Mã bộ mới" rules={[{ required: true, message: 'Nhập mã' }]}>
+            <Input placeholder="VD: BTC-CO-SO-2027" />
+          </Form.Item>
+          <Form.Item name="ten" label="Tên bộ mới" rules={[{ required: true, message: 'Nhập tên' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="nam" label="Năm áp dụng" rules={[{ required: true, message: 'Nhập năm' }]}>
+            <InputNumber min={2000} max={2100} style={{ width: 160 }} />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         open={moTao}

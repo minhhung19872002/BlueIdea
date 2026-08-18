@@ -1,10 +1,14 @@
 using BlueIdea.Api.Chung;
+using BlueIdea.Application.BaoCao;
+using BlueIdea.Application.Chung;
 using BlueIdea.Application.SangKien;
 using BlueIdea.Application.TraCuu;
 using BlueIdea.Application.TrungLap;
 using BlueIdea.Application.XuLy;
 using BlueIdea.Domain.Chung;
+using BlueIdea.Domain.DanhMuc;
 using BlueIdea.Reporting;
+using BlueIdea.Shared.KetQua;
 using BlueIdea.Workflow.MoHinh;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -23,15 +27,17 @@ public sealed class SangKienController : ControllerBase
     private readonly DichVuTruyVanSangKien _truyVan;
     private readonly DichVuKiemTraTrungLap _trungLap;
     private readonly DichVuTimNguNghia _timNguNghia;
+    private readonly DichVuSinhBieuMau _sinhBieuMau;
 
     public SangKienController(
         IMediator mediator, DichVuTruyVanSangKien truyVan, DichVuKiemTraTrungLap trungLap,
-        DichVuTimNguNghia timNguNghia)
+        DichVuTimNguNghia timNguNghia, DichVuSinhBieuMau sinhBieuMau)
     {
         _mediator = mediator;
         _truyVan = truyVan;
         _trungLap = trungLap;
         _timNguNghia = timNguNghia;
+        _sinhBieuMau = sinhBieuMau;
     }
 
     /// <summary>Chức năng 28 — Danh sách hồ sơ với bộ lọc đa tiêu chí.</summary>
@@ -134,6 +140,54 @@ public sealed class SangKienController : ControllerBase
     {
         var ketQua = await _mediator.Send(new NopHoSoCommand(id), ct);
         return Ok(PhanHoiApi<KetQuaNopHoSo>.Ok(ketQua, "Nộp hồ sơ thành công"));
+    }
+
+    /// <summary>
+    /// Chức năng 22 — Phiếu tiếp nhận hồ sơ (PDF) để tác giả in làm bằng chứng đã nộp.
+    ///
+    /// Dùng bố cục do quản trị viên cấu hình ở biểu mẫu loại PHIEU_TIEP_NHAN; chưa cấu hình biểu
+    /// mẫu nào thì in bố cục mặc định — thiếu cấu hình không được làm mất luôn chức năng in.
+    /// </summary>
+    [HttpGet("{id:guid}/phieu-tiep-nhan")]
+    public async Task<IActionResult> PhieuTiepNhanAsync(Guid id, CancellationToken ct)
+    {
+        var hoSo = await _truyVan.LayChiTietAsync(id, ct);
+
+        if (hoSo.TrangThaiTong == TrangThaiTongHoSo.Nhap)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Hồ sơ chưa nộp nên chưa có phiếu tiếp nhận.");
+        }
+
+        var mau = await _sinhBieuMau.TimMauHoatDongAsync(LoaiBieuMau.PhieuTiepNhan, ct);
+
+        var thongTin = mau is null
+            ? new List<DongThongTin>
+            {
+                new("Mã hồ sơ", hoSo.MaHoSo),
+                new("Tên sáng kiến", hoSo.TenSangKien),
+                new("Tác giả chính", hoSo.DanhSachTacGia.FirstOrDefault(x => x.LaTacGiaChinh)?.HoTen),
+                new("Đơn vị", hoSo.TenDonVi),
+                new("Lĩnh vực", hoSo.TenLinhVuc),
+                new("Đợt đề nghị", hoSo.TenDot),
+                new("Ngày nộp", hoSo.NgayNop?.ToLocalTime().ToString("HH:mm 'ngày' dd/MM/yyyy")),
+                new("Hạn xử lý", hoSo.HanXuLyHienTai?.ToLocalTime().ToString("dd/MM/yyyy")),
+                new("Trạng thái", hoSo.TenTrangThaiHienTai),
+            }
+            : (await _sinhBieuMau.SinhChoHoSoAsync(mau.Id, id, ct)).DongDuLieu
+                .Select(x => new DongThongTin(x.Nhan, x.GiaTri))
+                .ToList();
+
+        var pdf = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: hoSo.TenDonVi ?? string.Empty,
+            tenDonVi: string.Empty,
+            tieuDe: "PHIẾU TIẾP NHẬN HỒ SƠ SÁNG KIẾN",
+            phuDe: hoSo.MaHoSo,
+            thongTin: thongTin,
+            noiDungThem: "Phiếu này xác nhận hệ thống đã tiếp nhận hồ sơ nêu trên. "
+                + "Tác giả theo dõi tiến độ xử lý trên hệ thống bằng mã hồ sơ.");
+
+        return File(pdf, "application/pdf", $"phieu-tiep-nhan-{hoSo.MaHoSo}.pdf");
     }
 
     /// <summary>Chức năng 23 — Rút hồ sơ (chỉ khi chưa vào bước chấm điểm).</summary>

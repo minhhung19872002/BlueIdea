@@ -10,6 +10,7 @@ import {
   DatePicker,
   Descriptions,
   Divider,
+  Dropdown,
   Form,
   Input,
   Modal,
@@ -219,22 +220,26 @@ export default function TrangChiTietHoiDong() {
           <Link to="/hoi-dong">
             <Button>Danh sách hội đồng</Button>
           </Link>
-          <Button
-            icon={<FilePdfOutlined />}
-            onClick={() =>
-              taiTep(
-                apiNhapXuat.duongDanPhieuChamHoiDong(id),
-                `phieu-cham-${hoiDong.ma}.pdf`,
-                hoiDong.dotDeNghiId ? { dotDeNghiId: hoiDong.dotDeNghiId } : undefined,
-              ).catch((loi: unknown) =>
-                message.error(
-                  loi instanceof LoiApi ? loi.message : 'Không xuất được phiếu chấm.',
+          <Dropdown
+            menu={{
+              items: [
+                { key: 'PDF', label: 'Một tệp PDF (mỗi phiếu một trang)' },
+                { key: 'ZIP', label: 'ZIP — mỗi phiếu một tệp riêng' },
+              ],
+              onClick: ({ key }) =>
+                taiTep(
+                  apiNhapXuat.duongDanPhieuChamHoiDong(id, key as 'PDF' | 'ZIP'),
+                  `phieu-cham-${hoiDong.ma}.${key === 'ZIP' ? 'zip' : 'pdf'}`,
+                  hoiDong.dotDeNghiId ? { dotDeNghiId: hoiDong.dotDeNghiId } : undefined,
+                ).catch((loi: unknown) =>
+                  message.error(
+                    loi instanceof LoiApi ? loi.message : 'Không xuất được phiếu chấm.',
+                  ),
                 ),
-              )
-            }
+            }}
           >
-            Xuất phiếu chấm
-          </Button>
+            <Button icon={<FilePdfOutlined />}>Xuất phiếu chấm</Button>
+          </Dropdown>
         </Space>
       }
     >

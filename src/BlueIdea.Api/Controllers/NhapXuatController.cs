@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.BaoCao;
 using BlueIdea.Application.Chung;
@@ -128,20 +129,28 @@ public sealed class NhapXuatController : ControllerBase
     /// <summary>Xuất toàn bộ phiếu chấm đã gửi của một hồ sơ ra PDF, mỗi phiếu một trang.</summary>
     [HttpGet("phieu-cham/ho-so/{sangKienId:guid}")]
     [Authorize(Policy = MaQuyen.DanhGiaXem)]
-    public async Task<IActionResult> XuatPhieuChamTheoHoSoAsync(Guid sangKienId, CancellationToken ct)
+    public async Task<IActionResult> XuatPhieuChamTheoHoSoAsync(
+        Guid sangKienId, [FromQuery] string? dinhDang, CancellationToken ct)
     {
         var duLieu = await _xuatPhieu.TheoHoSoAsync(sangKienId, ct);
-        return await TaoPdfPhieuAsync(duLieu, $"phieu-cham-{duLieu[0].MaHoSo}.pdf", ct);
+
+        return LaZip(dinhDang)
+            ? await TaoZipPhieuAsync(duLieu, $"phieu-cham-{duLieu[0].MaHoSo}.zip", ct)
+            : await TaoPdfPhieuAsync(duLieu, $"phieu-cham-{duLieu[0].MaHoSo}.pdf", ct);
     }
 
     /// <summary>Xuất phiếu chấm hàng loạt của một hội đồng — dùng khi in hồ sơ phiên họp.</summary>
     [HttpGet("phieu-cham/hoi-dong/{hoiDongId:guid}")]
     [Authorize(Policy = MaQuyen.DanhGiaXem)]
     public async Task<IActionResult> XuatPhieuChamTheoHoiDongAsync(
-        Guid hoiDongId, [FromQuery] Guid? dotDeNghiId, CancellationToken ct)
+        Guid hoiDongId, [FromQuery] Guid? dotDeNghiId, [FromQuery] string? dinhDang,
+        CancellationToken ct)
     {
         var duLieu = await _xuatPhieu.TheoHoiDongAsync(hoiDongId, dotDeNghiId, ct);
-        return await TaoPdfPhieuAsync(duLieu, $"phieu-cham-hoi-dong-{duLieu.Count}-phieu.pdf", ct);
+
+        return LaZip(dinhDang)
+            ? await TaoZipPhieuAsync(duLieu, $"phieu-cham-hoi-dong-{duLieu.Count}-phieu.zip", ct)
+            : await TaoPdfPhieuAsync(duLieu, $"phieu-cham-hoi-dong-{duLieu.Count}-phieu.pdf", ct);
     }
 
     // ------------------------------------------------ Chức năng 7 — báo cáo tuỳ biến
@@ -240,18 +249,73 @@ public sealed class NhapXuatController : ControllerBase
 
     // -----------------------------------------------------------------------------------
 
+    private static bool LaZip(string? dinhDang)
+        => string.Equals(dinhDang, "ZIP", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Xuat moi phieu thanh MOT tep PDF rieng, nen lai thanh ZIP.
+    ///
+    /// Mac dinh van la mot PDF lien mach vi ho so nghiem thu can mot van ban de dong quyen; ZIP
+    /// danh cho truong hop phai gui rieng tung phieu cho tung thanh vien hoi dong.
+    /// </summary>
+    private async Task<IActionResult> TaoZipPhieuAsync(
+        IReadOnlyList<DuLieuPhieuCham> duLieu, string tenTep, CancellationToken ct)
+    {
+        var tenCoQuan = await _cauHinh.LayAsync(KhoaCauHinh.TenDonVi, string.Empty, ct);
+        var tenHeThong = await _cauHinh.LayAsync(KhoaCauHinh.TenHeThong, string.Empty, ct);
+
+        using var boNho = new MemoryStream();
+
+        using (var zip = new ZipArchive(boNho, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var daDung = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var x in duLieu)
+            {
+                var pdf = BoXuatPhieuChamPdf.Xuat(tenCoQuan, tenHeThong, new[] { ChuyenDoi(x) });
+
+                // Hai thanh vien cham cung mot ho so sinh ra ten tep giong nhau; ZIP cho phep
+                // trung ten nhung giai nen ra se de len nhau, nen them hau to cho chac.
+                var ten = LamSachTenTep($"{x.MaHoSo}-{x.TenThanhVien}");
+                var tenCuoi = $"{ten}.pdf";
+
+                for (var i = 2; !daDung.Add(tenCuoi); i++)
+                {
+                    tenCuoi = $"{ten}-{i}.pdf";
+                }
+
+                var muc = zip.CreateEntry(tenCuoi, CompressionLevel.Optimal);
+                await using var luong = muc.Open();
+                await luong.WriteAsync(pdf, ct);
+            }
+        }
+
+        return File(boNho.ToArray(), "application/zip", tenTep);
+    }
+
+    private static string LamSachTenTep(string ten)
+    {
+        var xau = new string(ten.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c)
+            .ToArray());
+
+        return xau.Length > 80 ? xau[..80] : xau;
+    }
+
+    private static PhieuChamPdf ChuyenDoi(DuLieuPhieuCham x)
+        => new(
+            x.SoPhieu, x.MaHoSo, x.TenSangKien, x.TenTacGiaChinh, x.TenDonVi,
+            x.TenThanhVien, x.ChucDanh, x.TenHoiDong, x.TongDiem, x.KetLuan,
+            x.TenMucCongNhanDeXuat, x.NhanXetChung, x.UuDiem, x.HanChe, x.NgayGui,
+            x.ChiTiet.Select(c => new DongPhieuChamPdf(c.TenTieuChi, c.DiemToiDa, c.Diem, c.NhanXet))
+                .ToList());
+
     private async Task<IActionResult> TaoPdfPhieuAsync(
         IReadOnlyList<DuLieuPhieuCham> duLieu, string tenTep, CancellationToken ct)
     {
         var tenCoQuan = await _cauHinh.LayAsync(KhoaCauHinh.TenDonVi, string.Empty, ct);
         var tenHeThong = await _cauHinh.LayAsync(KhoaCauHinh.TenHeThong, string.Empty, ct);
 
-        var phieu = duLieu.Select(x => new PhieuChamPdf(
-            x.SoPhieu, x.MaHoSo, x.TenSangKien, x.TenTacGiaChinh, x.TenDonVi,
-            x.TenThanhVien, x.ChucDanh, x.TenHoiDong, x.TongDiem, x.KetLuan,
-            x.TenMucCongNhanDeXuat, x.NhanXetChung, x.UuDiem, x.HanChe, x.NgayGui,
-            x.ChiTiet.Select(c => new DongPhieuChamPdf(c.TenTieuChi, c.DiemToiDa, c.Diem, c.NhanXet))
-                .ToList())).ToList();
+        var phieu = duLieu.Select(ChuyenDoi).ToList();
 
         var tep = BoXuatPhieuChamPdf.Xuat(tenCoQuan, tenHeThong, phieu);
 

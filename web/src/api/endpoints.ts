@@ -274,6 +274,7 @@ export const apiSangKien = {
     layPhanTrang<SangKienTomTat>('/api/v1/sang-kien/cua-toi', thamSo),
   chiTiet: (id: string) => layDuLieu<SangKienChiTiet>(`/api/v1/sang-kien/${id}`),
   tienDo: (id: string) => layDuLieu<MocTienDo[]>(`/api/v1/sang-kien/${id}/tien-do`),
+  duongDanPhieuTiepNhan: (id: string) => `/api/v1/sang-kien/${id}/phieu-tiep-nhan`,
   lichSu: (id: string) => layDuLieu<LichSuChinhSua[]>(`/api/v1/sang-kien/${id}/lich-su`),
   hanhDong: (id: string) => layDuLieu<HanhDongKhaDung[]>(`/api/v1/sang-kien/${id}/hanh-dong`),
   trungLap: (id: string) => layDuLieu<KetQuaTrungLap | null>(`/api/v1/sang-kien/${id}/trung-lap`),
@@ -488,6 +489,9 @@ export const apiDanhGia = {
     }),
   /** Chức năng 35 — thư ký mở lại phiếu đã gửi để thành viên sửa. */
   moLaiPhieu: (phieuId: string) => guiDuLieu(`/api/v1/danh-gia/phieu/${phieuId}/mo-lai`),
+  kySoPhieu: (phieuId: string) => guiDuLieu<string>(`/api/v1/danh-gia/phieu/${phieuId}/ky-so`),
+  lichSuKySoPhieu: (phieuId: string) =>
+    layDuLieu<NhatKyKySo[]>(`/api/v1/danh-gia/phieu/${phieuId}/lich-su-ky-so`),
 };
 
 export interface KetQuaTongHop {
@@ -704,6 +708,8 @@ export const apiTieuChi = {
   luuCay: (id: string, nhom: unknown[]) => capNhatDuLieu(`/api/v1/tieu-chi/${id}/cay`, nhom),
   luuMucCongNhan: (id: string, danhSach: unknown[]) =>
     capNhatDuLieu(`/api/v1/tieu-chi/${id}/muc-cong-nhan`, danhSach),
+  saoChep: (id: string, duLieu: { ma: string; ten: string; nam: number }) =>
+    guiDuLieu<string>(`/api/v1/tieu-chi/${id}/sao-chep`, duLieu),
 };
 
 // --- Hội đồng (chức năng 19–20) --------------------------------------------
@@ -1151,10 +1157,12 @@ export const apiNhapXuat = {
     return data.duLieu;
   },
 
-  duongDanPhieuChamHoSo: (sangKienId: string) =>
-    `/api/v1/nhap-xuat/phieu-cham/ho-so/${sangKienId}`,
-  duongDanPhieuChamHoiDong: (hoiDongId: string) =>
-    `/api/v1/nhap-xuat/phieu-cham/hoi-dong/${hoiDongId}`,
+  duongDanPhieuChamHoSo: (sangKienId: string, dinhDang?: 'PDF' | 'ZIP') =>
+    `/api/v1/nhap-xuat/phieu-cham/ho-so/${sangKienId}` +
+    (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
+  duongDanPhieuChamHoiDong: (hoiDongId: string, dinhDang?: 'PDF' | 'ZIP') =>
+    `/api/v1/nhap-xuat/phieu-cham/hoi-dong/${hoiDongId}` +
+    (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
 
   nguonDuLieuBaoCao: () =>
     layDuLieu<NguonDuLieuBaoCao[]>('/api/v1/nhap-xuat/bao-cao-tuy-bien/nguon-du-lieu'),
@@ -1335,9 +1343,40 @@ export interface LuuBieuMauXuat {
   cauHinhTruong: TruongBieuMau[];
 }
 
-export const apiBieuMauXuat = taoApiDanhMuc<BieuMauXuat, LuuBieuMauXuat>(
-  '/api/v1/danh-muc/bieu-mau-xuat',
-);
+export interface TruongBieuMauKhaDung {
+  nguon: string;
+  nhan: string;
+  kieu: string;
+  viDu: string;
+}
+
+export interface BieuMauDaPhanGiai {
+  tieuDe: string;
+  phuDe?: string | null;
+  dongDuLieu: { nhan: string; giaTri?: string | null }[];
+  /** Placeholder ánh xạ sang nguồn không tồn tại — cần sửa lại cấu hình. */
+  truongThieu: string[];
+}
+
+export const apiBieuMauXuat = {
+  ...taoApiDanhMuc<BieuMauXuat, LuuBieuMauXuat>('/api/v1/danh-muc/bieu-mau-xuat'),
+  truongKhaDung: (loai: string) =>
+    layDuLieu<TruongBieuMauKhaDung[]>('/api/v1/danh-muc/bieu-mau-xuat/truong-kha-dung', {
+      params: { loai },
+    }),
+  xemTruoc: (id: string, thamSo?: { hoSoId?: string; phienHopId?: string }) =>
+    layDuLieu<BieuMauDaPhanGiai>(`/api/v1/danh-muc/bieu-mau-xuat/${id}/xem-truoc`, {
+      params: thamSo,
+    }),
+  duongDanXemTruocPdf: (id: string, thamSo?: { hoSoId?: string; phienHopId?: string }) => {
+    const q = new URLSearchParams();
+    if (thamSo?.hoSoId) q.set('hoSoId', thamSo.hoSoId);
+    if (thamSo?.phienHopId) q.set('phienHopId', thamSo.phienHopId);
+    const chuoi = q.toString();
+
+    return `/api/v1/danh-muc/bieu-mau-xuat/${id}/xem-truoc.pdf${chuoi ? `?${chuoi}` : ''}`;
+  },
+};
 
 export interface TepTinDaTaiLen {
   id: string;

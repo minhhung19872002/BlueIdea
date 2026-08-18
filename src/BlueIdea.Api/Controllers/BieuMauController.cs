@@ -4,6 +4,7 @@ using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhMuc;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.DanhMuc;
+using BlueIdea.Reporting;
 using BlueIdea.Shared.KetQua;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,8 +39,13 @@ public sealed class LuuBieuMauThongKeDto : LuuDanhMucDto
 public sealed class BieuMauXuatController : ControllerBase
 {
     private readonly DichVuBieuMauXuat _dichVu;
+    private readonly DichVuSinhBieuMau _sinhBieuMau;
 
-    public BieuMauXuatController(DichVuBieuMauXuat dichVu) => _dichVu = dichVu;
+    public BieuMauXuatController(DichVuBieuMauXuat dichVu, DichVuSinhBieuMau sinhBieuMau)
+    {
+        _dichVu = dichVu;
+        _sinhBieuMau = sinhBieuMau;
+    }
 
     [HttpGet]
     public async Task<IActionResult> LayDanhSachAsync(
@@ -70,6 +76,48 @@ public sealed class BieuMauXuatController : ControllerBase
     {
         await _dichVu.XoaAsync(id, ct);
         return Ok(PhanHoiApi.Ok("Đã xoá"));
+    }
+
+    /// <summary>Danh sách trường dữ liệu dùng được cho một loại biểu mẫu.</summary>
+    [HttpGet("truong-kha-dung")]
+    public IActionResult LayTruongKhaDung([FromQuery] string loai)
+        => Ok(PhanHoiApi<IReadOnlyList<TruongBieuMauKhaDung>>.Ok(
+            DichVuSinhBieuMau.TruongKhaDung(loai)));
+
+    /// <summary>
+    /// Xem trước biểu mẫu. Không truyền <c>hoSoId</c> thì dựng bằng dữ liệu mẫu, để người cấu hình
+    /// kiểm tra bố cục ngay lúc soạn mà không cần đi tìm một hồ sơ thật.
+    /// </summary>
+    [HttpGet("{id:guid}/xem-truoc")]
+    public async Task<IActionResult> XemTruocAsync(
+        Guid id, [FromQuery] Guid? hoSoId, [FromQuery] Guid? phienHopId, CancellationToken ct)
+    {
+        var ketQua = phienHopId is not null
+            ? await _sinhBieuMau.SinhChoPhienHopAsync(id, phienHopId.Value, ct)
+            : await _sinhBieuMau.SinhChoHoSoAsync(id, hoSoId, ct);
+
+        return Ok(PhanHoiApi<BieuMauDaPhanGiai>.Ok(ketQua));
+    }
+
+    /// <summary>Xem trước biểu mẫu dưới dạng PDF đúng bố cục văn bản hành chính.</summary>
+    [HttpGet("{id:guid}/xem-truoc.pdf")]
+    public async Task<IActionResult> XemTruocPdfAsync(
+        Guid id, [FromQuery] Guid? hoSoId, [FromQuery] Guid? phienHopId, CancellationToken ct)
+    {
+        var ketQua = phienHopId is not null
+            ? await _sinhBieuMau.SinhChoPhienHopAsync(id, phienHopId.Value, ct)
+            : await _sinhBieuMau.SinhChoHoSoAsync(id, hoSoId, ct);
+
+        var pdf = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: string.Empty,
+            tenDonVi: string.Empty,
+            tieuDe: ketQua.TieuDe.ToUpperInvariant(),
+            phuDe: ketQua.PhuDe,
+            thongTin: ketQua.DongDuLieu
+                .Select(x => new DongThongTin(x.Nhan, x.GiaTri))
+                .ToList());
+
+        return File(pdf, "application/pdf", $"xem-truoc-bieu-mau-{id:N}.pdf");
     }
 
     private static BieuMauXuat ApDung(BieuMauXuat x, LuuBieuMauXuatDto d)

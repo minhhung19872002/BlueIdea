@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Card,
+  Descriptions,
   Form,
   Input,
   InputNumber,
@@ -12,19 +13,21 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
   Upload,
 } from 'antd';
 import {
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   FileWordOutlined,
   PlusOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { LoiApi } from '@/api/client';
+import { LoiApi, taiTep } from '@/api/client';
 import {
   apiBieuMauXuat,
   apiNhapXuat,
@@ -104,6 +107,49 @@ export default function TrangBieuMauXuat() {
       void queryClient.invalidateQueries({ queryKey: ['bieu-mau-xuat'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
+  });
+
+  /**
+   * Xem truoc bang du lieu MAU, khong doi hoi phai co ho so that: nguoi cau hinh bieu mau thuong
+   * lam truoc khi he thong co du lieu, bat ho di tim mot ho so de thu la vo ly.
+   */
+  const xemTruoc = useMutation({
+    mutationFn: (id: string) => apiBieuMauXuat.xemTruoc(id),
+    onSuccess: (kq, id) =>
+      modal.info({
+        title: `Xem trước: ${kq.tieuDe}`,
+        width: 720,
+        content: (
+          <div style={{ marginTop: 12 }}>
+            {kq.truongThieu.length > 0 && (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message="Có placeholder trỏ tới nguồn dữ liệu không tồn tại"
+                description={`Sẽ in ra ô trống: ${kq.truongThieu.join(', ')}`}
+              />
+            )}
+            <Descriptions bordered size="small" column={1}>
+              {kq.dongDuLieu.map((d, i) => (
+                <Descriptions.Item key={`${d.nhan}-${i}`} label={d.nhan}>
+                  {d.giaTri || <Typography.Text type="secondary">(để trống)</Typography.Text>}
+                </Descriptions.Item>
+              ))}
+            </Descriptions>
+            <Button
+              type="link"
+              style={{ paddingLeft: 0, marginTop: 8 }}
+              onClick={() =>
+                void taiTep(apiBieuMauXuat.duongDanXemTruocPdf(id), 'xem-truoc-bieu-mau.pdf')
+              }
+            >
+              Tải bản PDF xem trước
+            </Button>
+          </div>
+        ),
+      }),
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không xem trước được.'),
   });
 
   const xoa = useMutation({
@@ -218,7 +264,7 @@ export default function TrangBieuMauXuat() {
         size="middle"
         loading={isLoading}
         dataSource={data?.duLieu ?? []}
-        scroll={{ x: 1110 }}
+        scroll={{ x: 1150 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 200 },
           { title: 'Tên biểu mẫu', dataIndex: 'ten', width: 320 },
@@ -239,10 +285,18 @@ export default function TrangBieuMauXuat() {
           },
           {
             title: '',
-            width: 100,
+            width: 140,
             fixed: 'right',
             render: (_v, dong) => (
               <Space>
+                <Tooltip title="Xem trước bố cục với dữ liệu mẫu">
+                  <Button
+                    type="text"
+                    icon={<EyeOutlined />}
+                    loading={xemTruoc.isPending && xemTruoc.variables === dong.id}
+                    onClick={() => xemTruoc.mutate(dong.id)}
+                  />
+                </Tooltip>
                 <Button type="text" icon={<EditOutlined />} onClick={() => void moSua(dong)} />
                 <Button
                   type="text"

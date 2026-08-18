@@ -59,6 +59,11 @@ public sealed class DichVuXuatPhieuCham
             hoiDongId,
             ct);
 
+    /// <summary>Mot phieu cu the — dung khi ky so tung phieu.</summary>
+    public Task<IReadOnlyList<DuLieuPhieuCham>> TheoPhieuAsync(
+        Guid phieuId, CancellationToken ct = default)
+        => LayAsync(x => x.Id == phieuId, phieuId, ct);
+
     private async Task<IReadOnlyList<DuLieuPhieuCham>> LayAsync(
         System.Linq.Expressions.Expression<Func<Domain.SangKien.PhieuDanhGia, bool>> dieuKien,
         Guid doiTuongId,
