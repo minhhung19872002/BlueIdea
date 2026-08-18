@@ -251,6 +251,14 @@ public interface IDichVuThongBao
     Task GuiTheoSuKienAsync(string maSuKien, IEnumerable<Guid> nguoiNhanIds,
         IDictionary<string, object?> bien, CancellationToken ct = default);
 
+    /// <summary>
+    /// Gui thong bao chi qua cac kenh duoc cho phep ("APP", "EMAIL", "SMS").
+    /// Workflow feature toggles (GUI_EMAIL, GUI_SMS) quyet dinh kenh nao duoc phep.
+    /// </summary>
+    Task GuiTheoSuKienAsync(string maSuKien, IEnumerable<Guid> nguoiNhanIds,
+        IDictionary<string, object?> bien, IReadOnlyCollection<string> kenhChoPhep,
+        CancellationToken ct = default);
+
     Task GuiTrongUngDungAsync(Guid nguoiNhanId, string tieuDe, string noiDung,
         string? duongDan = null, string? mucDo = null, CancellationToken ct = default);
 }

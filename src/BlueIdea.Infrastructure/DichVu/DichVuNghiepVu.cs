@@ -236,9 +236,21 @@ public sealed class DichVuThongBao : IDichVuThongBao
         _realtime = realtime;
     }
 
-    public async Task GuiTheoSuKienAsync(
+    public Task GuiTheoSuKienAsync(
         string maSuKien, IEnumerable<Guid> nguoiNhanIds,
         IDictionary<string, object?> bien, CancellationToken ct = default)
+        => GuiTheoSuKienCoreAsync(maSuKien, nguoiNhanIds, bien, null, ct);
+
+    public Task GuiTheoSuKienAsync(
+        string maSuKien, IEnumerable<Guid> nguoiNhanIds,
+        IDictionary<string, object?> bien, IReadOnlyCollection<string> kenhChoPhep,
+        CancellationToken ct = default)
+        => GuiTheoSuKienCoreAsync(maSuKien, nguoiNhanIds, bien, kenhChoPhep, ct);
+
+    private async Task GuiTheoSuKienCoreAsync(
+        string maSuKien, IEnumerable<Guid> nguoiNhanIds,
+        IDictionary<string, object?> bien, IReadOnlyCollection<string>? kenhChoPhep,
+        CancellationToken ct)
     {
         var danhSachNhan = nguoiNhanIds.Distinct().ToList();
         if (danhSachNhan.Count == 0)
@@ -253,12 +265,14 @@ public sealed class DichVuThongBao : IDichVuThongBao
 
         if (mau.Count == 0)
         {
-            // Khong co mau cau hinh -> van gui thong bao trong ung dung voi noi dung mac dinh.
-            foreach (var id in danhSachNhan)
+            if (kenhChoPhep is null || kenhChoPhep.Contains("APP"))
             {
-                await GuiTrongUngDungAsync(id, maSuKien.Replace('_', ' '),
-                    string.Join(", ", bien.Select(b => $"{b.Key}: {b.Value}")), ct: ct)
-                    .ConfigureAwait(false);
+                foreach (var id in danhSachNhan)
+                {
+                    await GuiTrongUngDungAsync(id, maSuKien.Replace('_', ' '),
+                        string.Join(", ", bien.Select(b => $"{b.Key}: {b.Value}")), ct: ct)
+                        .ConfigureAwait(false);
+                }
             }
 
             return;
@@ -283,7 +297,8 @@ public sealed class DichVuThongBao : IDichVuThongBao
                 var tieuDe = KetXuat(m.TieuDe, duLieu);
                 var noiDung = KetXuat(m.NoiDung, duLieu);
 
-                if (m.Kenh is "APP" or "TAT_CA")
+                if (m.Kenh is "APP" or "TAT_CA"
+                    && (kenhChoPhep is null || kenhChoPhep.Contains("APP")))
                 {
                     _db.ThongBao.Add(new ThongBao
                     {
@@ -297,7 +312,8 @@ public sealed class DichVuThongBao : IDichVuThongBao
                     });
                 }
 
-                if (m.Kenh is "EMAIL" or "TAT_CA" && !string.IsNullOrWhiteSpace(nd.Email))
+                if (m.Kenh is "EMAIL" or "TAT_CA" && !string.IsNullOrWhiteSpace(nd.Email)
+                    && (kenhChoPhep is null || kenhChoPhep.Contains("EMAIL")))
                 {
                     _db.HangDoiGuiTin.Add(new HangDoiGuiTin
                     {
@@ -308,7 +324,8 @@ public sealed class DichVuThongBao : IDichVuThongBao
                     });
                 }
 
-                if (m.Kenh is "SMS" or "TAT_CA" && !string.IsNullOrWhiteSpace(nd.DienThoai))
+                if (m.Kenh is "SMS" or "TAT_CA" && !string.IsNullOrWhiteSpace(nd.DienThoai)
+                    && (kenhChoPhep is null || kenhChoPhep.Contains("SMS")))
                 {
                     _db.HangDoiGuiTin.Add(new HangDoiGuiTin
                     {

@@ -695,9 +695,16 @@ public sealed class DichVuDanhGia
                         t.Id, t.Ma, t.Ten, t.MoTa, t.DiemToiDa, t.DiemToiThieu, t.TrongSo,
                         t.KieuNhap, t.BuocNhay, t.BatBuocNhanXet, t.HuongDanCham, t.ThuTu,
                         t.DanhSachMucDiem
+                            .Where(m => !m.DaXoa)
                             .OrderBy(m => m.ThuTu)
                             .Select(m => new MucDiemDto(m.Id, m.Ten, m.Diem, m.MoTa, m.ThuTu))
                             .ToList()))
                     .ToList()))
+            .ToList(),
+        bo.DanhSachMucCongNhan
+            .Where(mc => !mc.DaXoa && mc.TrangThai == TrangThaiDanhMuc.HoatDong)
+            .OrderBy(mc => mc.DiemTu)
+            .Select(mc => new MucCongNhanDto(
+                mc.Id, mc.Ma, mc.Ten, mc.DiemTu, mc.DiemDen, mc.MauSac, mc.LaDat, mc.ThuTu))
             .ToList());
 }

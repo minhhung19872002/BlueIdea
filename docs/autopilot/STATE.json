@@ -1,15 +1,15 @@
 {
     "status": "RUNNING",
-    "iteration": 5,
-    "currentRequirement": "REQ-12",
-    "currentBacklogItem": "REQ-12: Feature toggle enforcement in BoMayQuyTrinh (ChucNangBoSung runtime filtering)",
+    "iteration": 7,
+    "currentRequirement": "REQ-34, REQ-12",
+    "currentBacklogItem": "REQ-34: BoTieuChiSnapshot missing DanhSachMucCongNhan + REQ-12: notification channel gating by feature toggles",
     "phase": "committing",
-    "lastCompletedItem": "REQ-12: Feature toggle enforcement in BoMayQuyTrinh (ChucNangBoSung runtime filtering)",
-    "lastQualityGateResult": "PASS (7/7, 289 unit tests, 0 warnings)",
+    "lastCompletedItem": "REQ-34: BoTieuChiSnapshot missing DanhSachMucCongNhan + REQ-12: notification channel gating by feature toggles",
+    "lastQualityGateResult": "PASS (7/7, 301 unit tests, 0 warnings)",
     "readyForDeploy": false,
-    "lastSession": "ffd863a3-5490-4581-9a9e-ecd908bca352",
-    "lastUpdated": "2026-08-18T20:30:00+07:00",
-    "lastCommit": "e23b7cf",
+    "lastSession": null,
+    "lastUpdated": "2026-08-18T19:15:00+07:00",
+    "lastCommit": null,
     "lastPush": null,
     "consecutiveInfraFailures": 0,
     "history": [
@@ -48,6 +48,23 @@
             "iteration": 5,
             "items": [
                 "REQ-12 (ChucNangBoSung runtime enforcement in BoMayQuyTrinh)"
+            ],
+            "result": "PASS",
+            "phase": "committing"
+        },
+        {
+            "iteration": 6,
+            "items": [
+                "REQ-12 (code review fixes for feature toggle enforcement)"
+            ],
+            "result": "PASS",
+            "phase": "committing"
+        },
+        {
+            "iteration": 7,
+            "items": [
+                "REQ-34 (BoTieuChiSnapshot — DanhSachMucCongNhan inclusion)",
+                "REQ-12 (notification channel gating by ChucNangBat feature toggles)"
             ],
             "result": "PASS",
             "phase": "committing"

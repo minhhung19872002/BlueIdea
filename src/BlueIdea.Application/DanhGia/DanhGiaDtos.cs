@@ -81,7 +81,8 @@ public sealed record BoTieuChiDto(
     decimal DiemDatToiThieu,
     string CachTinh,
     int LamTron,
-    IReadOnlyList<NhomTieuChiDto> DanhSachNhom);
+    IReadOnlyList<NhomTieuChiDto> DanhSachNhom,
+    IReadOnlyList<MucCongNhanDto>? DanhSachMucCongNhan = null);
 
 public sealed record NhomTieuChiDto(
     Guid Id,
@@ -109,6 +110,10 @@ public sealed record TieuChiDto(
     IReadOnlyList<MucDiemDto> DanhSachMucDiem);
 
 public sealed record MucDiemDto(Guid Id, string Ten, decimal Diem, string? MoTa, int ThuTu);
+
+public sealed record MucCongNhanDto(
+    Guid Id, string Ma, string Ten, decimal DiemTu, decimal DiemDen,
+    string? MauSac, bool LaDat, int ThuTu);
 
 /// <summary>Dong trong man hinh "Viec cua toi" cua thanh vien hoi dong (chuc nang 33).</summary>
 public sealed record PhanCongChamDto(

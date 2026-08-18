@@ -1,6 +1,7 @@
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.QuanTri;
+using BlueIdea.Domain.QuyTrinh;
 using BlueIdea.Domain.SangKien;
 using BlueIdea.Shared.KetQua;
 using BlueIdea.Workflow;
@@ -156,11 +157,10 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
         }
 
         var maSuKien = SuKienTheoTrangThai(hoSo.TrangThaiTong);
+        var kenhChoPhep = LayKenhChoPhep(ketQua.ChucNangBat);
 
-        await _thongBao.GuiTheoSuKienAsync(maSuKien, tacGiaIds, new Dictionary<string, object?>
+        var bien = new Dictionary<string, object?>
         {
-            // sangKienId va duongDan quyet dinh viec bam vao thong bao co mo duoc ho so hay khong.
-            // Thieu chung thi day la nhom thong bao thuong gap nhat ma bam vao khong co phan ung gi.
             ["sangKienId"] = sangKienId,
             ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(sangKienId),
             ["maHoSo"] = hoSo.MaHoSo,
@@ -168,7 +168,36 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
             ["trangThai"] = hoSo.TrangThaiTong,
             ["tenBuoc"] = ketQua.TenBuocMoi,
             ["thongBao"] = ketQua.ThongBao
-        }, ct).ConfigureAwait(false);
+        };
+
+        await _thongBao.GuiTheoSuKienAsync(maSuKien, tacGiaIds, bien, kenhChoPhep, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Map workflow feature toggles (ChucNangBat) to allowed notification channels.
+    /// APP is always allowed; EMAIL/SMS only when their feature toggle is enabled.
+    /// </summary>
+    internal static IReadOnlyCollection<string> LayKenhChoPhep(IReadOnlyList<string>? chucNangBat)
+    {
+        var kenh = new List<string>(3) { "APP" };
+
+        if (chucNangBat is null or { Count: 0 })
+        {
+            return kenh;
+        }
+
+        if (chucNangBat.Contains(MaChucNangBoSung.GuiEmail))
+        {
+            kenh.Add("EMAIL");
+        }
+
+        if (chucNangBat.Contains(MaChucNangBoSung.GuiSms))
+        {
+            kenh.Add("SMS");
+        }
+
+        return kenh;
     }
 }
 

@@ -186,12 +186,13 @@ requirements:
     status: IMPLEMENTED_NOT_VERIFIED
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
-      backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
-      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
+      backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/XuLy/LayKenhChoPhepTests.cs"]
     gaps:
-      - "ThucThiBuocCommandHandler does not dispatch actions based on HanhDongCanChay — notifications fire unconditionally via GuiThongBaoAsync regardless of feature toggles"
+      - "ThucThiHangLoatCommandHandler (batch processing) does not call GuiThongBaoAsync — authors processed via batch receive no notification"
+      - "HanhDongCanChay dispatch loop not yet implemented — only notification channel gating is enforced"
       - "No runtime integration test for feature toggles affecting live workflow execution"
-    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. HanhDongCanChay filtered by ChucNangBoSung (6 action-to-feature mappings). LayHanhDongKhaDung exposes ChucNangBuoc for frontend. Snapshot preserves toggles. 9 unit tests cover ON/OFF filtering, workflow-level vs step-level, mixed gated/non-gated actions, snapshot round-trip. Code review: ThucThiBuocCommandHandler sends notifications unconditionally — feature-gated dispatch is a separate follow-up."
+    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). IDichVuThongBao has new overload with kenhChoPhep parameter. APP channel always fires. 6 unit tests for channel mapping."
 
   - id: REQ-13
     source_number: 13
@@ -524,11 +525,10 @@ requirements:
     evidence:
       frontend: ["web/src/features/danh-gia/TrangChamDiem.tsx"]
       backend: ["src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs", "src/BlueIdea.Scoring/BoTinhDiem.cs"]
-      tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs", "tests/BlueIdea.UnitTests/Scoring/BoTieuChiSnapshotTests.cs"]
     gaps:
-      - "BoTieuChiSnapshot does not include DanhSachMucCongNhan (recognition levels not captured in snapshot)"
       - "Score visibility before form submission not verified by integration test"
-    notes: "Run-002-B1-scoring: (1) TrungBinhCong now divides by group count (switch expression). 2 unit tests added (Trung_Binh_Cong_La_Trung_Binh_Diem_Cac_Nhom, Trung_Binh_Cong_Khong_Giong_Tong_Diem). (2) BoTieuChiSnapshot now serialized via JsonSerializer in LuuPhieuAsync."
+    notes: "Run-002-B1-scoring: TrungBinhCong fix + BoTieuChiSnapshot serialization. Run-002-B6: BoTieuChiSnapshot now includes DanhSachMucCongNhan (MucCongNhanDto). ChuyenDoiBoTieuChi filters by DaXoa/TrangThai, orders by DiemTu. Nullable default for backwards compatibility with old snapshots. DanhSachMucDiem DaXoa filter added. 6 unit tests (inclusion, filtering, ordering, JSON round-trip, backwards compat)."
 
   - id: REQ-35
     source_number: 35
