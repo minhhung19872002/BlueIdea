@@ -34,22 +34,102 @@ public sealed class HeThongController : ControllerBase
         KhoaCauHinh.DiaChi
     };
 
+    /// <summary>Chi hai khoa nay duoc phep doc anh an danh — xem chu thich o endpoint.</summary>
+    private static readonly Dictionary<string, string> AnhThuongHieu = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["logo"] = KhoaCauHinh.LogoId,
+        ["favicon"] = KhoaCauHinh.FaviconId
+    };
+
+    /// <summary>
+    /// Khong nhan SVG: tep SVG chua duoc ma script, va mo thang dia chi anh trong trinh duyet la
+    /// script do chay ngay trong goc cua ung dung. Logo dung PNG la du.
+    /// </summary>
+    private static readonly HashSet<string> AnhChoPhep =
+        new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico" };
+
     private readonly IAppDbContext _db;
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDichVuPhanQuyen _phanQuyen;
     private readonly DichVuQuanTriNguoiDung _quanTri;
     private readonly IDichVuNhatKy _nhatKy;
+    private readonly ILuuTruTep _luuTru;
 
     public HeThongController(
         IAppDbContext db, IDichVuCauHinh cauHinh, IDichVuPhanQuyen phanQuyen,
-        DichVuQuanTriNguoiDung quanTri, IDichVuNhatKy nhatKy)
+        DichVuQuanTriNguoiDung quanTri, IDichVuNhatKy nhatKy, ILuuTruTep luuTru)
     {
         _db = db;
         _cauHinh = cauHinh;
         _phanQuyen = phanQuyen;
         _quanTri = quanTri;
         _nhatKy = nhatKy;
+        _luuTru = luuTru;
     }
+
+    /// <summary>
+    /// Doc logo hoac favicon cua he thong — khong can dang nhap.
+    ///
+    /// Phai an danh vi trang dang nhap can hien logo truoc khi co ai dang nhap, va trinh duyet
+    /// tai favicon bang the &lt;link&gt; nen khong dinh kem duoc token.
+    ///
+    /// Chi phuc vu DUNG hai tep ma quan tri vien da chi dinh lam anh thuong hieu, tra id nao khac
+    /// deu bi tu choi — neu nhan id tuy y thi day thanh mot duong doc moi tep dinh kem cua moi ho
+    /// so ma khong can dang nhap.
+    /// </summary>
+    [HttpGet("anh-thuong-hieu/{loai}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> LayAnhThuongHieuAsync(string loai, CancellationToken ct)
+    {
+        if (!AnhThuongHieu.TryGetValue(loai, out var khoa))
+        {
+            return NotFound();
+        }
+
+        var giaTri = await _db.CauHinhHeThong.AsNoTracking()
+            .Where(x => x.Khoa == khoa)
+            .Select(x => x.GiaTri)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (!Guid.TryParse(giaTri, out var tepId))
+        {
+            // Chua cau hinh anh — khong phai loi, giao dien tu dung phuong an du phong.
+            return NoContent();
+        }
+
+        var tepTin = await _db.TepTin.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == tepId, ct)
+            .ConfigureAwait(false);
+
+        if (tepTin is null) return NoContent();
+
+        var phanMoRong = (tepTin.PhanMoRong ?? string.Empty).ToLowerInvariant();
+
+        if (!AnhChoPhep.Contains(phanMoRong))
+        {
+            return NoContent();
+        }
+
+        var luong = await _luuTru.TaiXuongAsync(tepTin.Bucket, tepTin.DuongDan, ct)
+            .ConfigureAwait(false);
+
+        // Chan trinh duyet tu doan lai kieu noi dung: mot tep .png chua ma HTML ma bi doan thanh
+        // text/html se duoc chay nhu trang web.
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers.CacheControl = "public, max-age=300";
+
+        return File(luong, MimeAnh(phanMoRong));
+    }
+
+    private static string MimeAnh(string phanMoRong) => phanMoRong switch
+    {
+        ".png" => "image/png",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".ico" => "image/x-icon",
+        _ => "image/jpeg",
+    };
 
     /// <summary>Cấu hình hiển thị công khai — không cần đăng nhập.</summary>
     [HttpGet("cau-hinh-cong-khai")]

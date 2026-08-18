@@ -16,6 +16,7 @@ import { apiSso } from '@/api/endpoints';
 import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
 import { batDauDangNhapSso } from '@/features/xac-thuc/sso';
+import { LogoHeThong } from '@/components/LogoHeThong';
 import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 import { batBuoc, tuyChon } from '@/components/bieu-mau/luat';
 
@@ -152,21 +153,8 @@ export default function TrangDangNhap() {
     <div className="trang-dang-nhap">
       <div className="the-dang-nhap">
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 10,
-              background: '#1677ff',
-              color: '#fff',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: 16,
-            }}
-          >
-            BI
+          <div style={{ display: 'inline-flex' }}>
+            <LogoHeThong kichThuoc={48} />
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, marginTop: 12, lineHeight: 1.4 }}>
             {tenHeThong}

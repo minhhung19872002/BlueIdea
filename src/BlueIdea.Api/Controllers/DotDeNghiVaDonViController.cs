@@ -1,9 +1,11 @@
 using BlueIdea.Api.Chung;
+using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhMuc;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.DanhMuc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BlueIdea.Api.Controllers;
 
@@ -176,6 +178,9 @@ public sealed class LuuDonViDto : LuuDanhMucDto
 
     public string? CapPheDuyet { get; set; }
 
+    /// <summary>Id tep logo rieng cua don vi (chuc nang 47).</summary>
+    public Guid? LogoId { get; set; }
+
     public string? TieuDeVanBan { get; set; }
 
     public string? NguoiKyMacDinh { get; set; }
@@ -194,7 +199,15 @@ public sealed class DonViController : ControllerBase
 {
     private readonly DichVuDonVi _dichVu;
 
-    public DonViController(DichVuDonVi dichVu) => _dichVu = dichVu;
+    private readonly IAppDbContext _db;
+    private readonly ILuuTruTep _luuTru;
+
+    public DonViController(DichVuDonVi dichVu, IAppDbContext db, ILuuTruTep luuTru)
+    {
+        _dichVu = dichVu;
+        _db = db;
+        _luuTru = luuTru;
+    }
 
     [HttpGet]
     public async Task<IActionResult> LayDanhSachAsync(
@@ -213,6 +226,50 @@ public sealed class DonViController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<DonVi>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
+
+    /// <summary>
+    /// Doc logo rieng cua mot don vi (chuc nang 47).
+    ///
+    /// Phai co duong rieng chu khong dung duoc endpoint xem truoc tep dung chung: tep khong gan
+    /// vao ho so nao thi chi NGUOI TAI LEN moi xem duoc, nen logo do quan tri vien A dat se vo
+    /// hinh voi quan tri vien B.
+    ///
+    /// Chi phuc vu dung tep ma don vi do dang chi dinh lam logo — truyen id khac deu khong ra.
+    /// </summary>
+    [HttpGet("{id:guid}/logo")]
+    public async Task<IActionResult> LayLogoAsync(Guid id, CancellationToken ct)
+    {
+        var donVi = await _dichVu.LayTheoIdAsync(id, ct).ConfigureAwait(false);
+
+        if (donVi.LogoId is null) return NoContent();
+
+        var tepTin = await _db.TepTin.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == donVi.LogoId.Value, ct)
+            .ConfigureAwait(false);
+
+        if (tepTin is null) return NoContent();
+
+        var phanMoRong = (tepTin.PhanMoRong ?? string.Empty).ToLowerInvariant();
+
+        if (!AnhDonViChoPhep.Contains(phanMoRong)) return NoContent();
+
+        var luong = await _luuTru.TaiXuongAsync(tepTin.Bucket, tepTin.DuongDan, ct)
+            .ConfigureAwait(false);
+
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        return File(luong, phanMoRong switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        });
+    }
+
+    /// <summary>Khong nhan SVG: tep SVG chua duoc ma script chay trong goc cua ung dung.</summary>
+    private static readonly HashSet<string> AnhDonViChoPhep =
+        new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
 
     [HttpPost]
     public async Task<IActionResult> ThemAsync([FromBody] LuuDonViDto duLieu, CancellationToken ct)
@@ -272,6 +329,7 @@ public sealed class DonViController : ControllerBase
         x.ChucVuNguoiDaiDien = d.ChucVuNguoiDaiDien;
         x.LaDonViPheDuyet = d.LaDonViPheDuyet;
         x.CapPheDuyet = d.CapPheDuyet;
+        x.LogoId = d.LogoId;
         x.TieuDeVanBan = d.TieuDeVanBan;
         x.NguoiKyMacDinh = d.NguoiKyMacDinh;
         x.ChucVuNguoiKyMacDinh = d.ChucVuNguoiKyMacDinh;

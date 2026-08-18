@@ -42,6 +42,7 @@ import {
 } from '@/components/bieu-mau/luat';
 import { apiDonVi, type NutCay } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
+import { ONhapAnhCauHinh } from '@/components/ONhapAnhCauHinh';
 
 interface DonVi {
   id: string;
@@ -61,6 +62,7 @@ interface DonVi {
   chucVuNguoiDaiDien?: string | null;
   laDonViPheDuyet: boolean;
   capPheDuyet?: string | null;
+  logoId?: string | null;
   tieuDeVanBan?: string | null;
   nguoiKyMacDinh?: string | null;
   chucVuNguoiKyMacDinh?: string | null;
@@ -419,6 +421,7 @@ const luatDonVi = z
     chucVuNguoiDaiDien: tuyChon(200),
     laDonViPheDuyet: z.boolean(),
     capPheDuyet: z.string().optional().nullable(),
+    logoId: z.string().optional().nullable(),
     tieuDeVanBan: tuyChon(300),
     nguoiKyMacDinh: tuyChon(200),
     chucVuNguoiKyMacDinh: tuyChon(200),
@@ -486,6 +489,7 @@ function FormDonVi({
       chucVuNguoiDaiDien: chiTiet.chucVuNguoiDaiDien ?? undefined,
       laDonViPheDuyet: chiTiet.laDonViPheDuyet,
       capPheDuyet: chiTiet.capPheDuyet ?? undefined,
+      logoId: chiTiet.logoId ?? undefined,
       tieuDeVanBan: chiTiet.tieuDeVanBan ?? undefined,
       nguoiKyMacDinh: chiTiet.nguoiKyMacDinh ?? undefined,
       chucVuNguoiKyMacDinh: chiTiet.chucVuNguoiKyMacDinh ?? undefined,
@@ -652,6 +656,22 @@ function FormDonVi({
         <Typography.Title level={5} style={{ fontSize: 13, marginTop: 8 }}>
           Cấu hình văn bản của đơn vị (chức năng 47)
         </Typography.Title>
+
+        <Truong<GiaTriFormDonVi>
+          ten="logoId"
+          label="Logo của đơn vị"
+          tooltip="Hiển thị ở màn hình đơn vị. Không in vào quyết định: thể thức văn bản hành chính theo Nghị định 30 không có logo ở phần tiêu đề."
+        >
+          {(o) => (
+            <ONhapAnhCauHinh
+              value={(o.value as string) ?? ''}
+              onChange={(v: string) => o.onChange(v || null)}
+              duongDanXem={
+                id ? `${import.meta.env.VITE_API_URL ?? ''}/api/v1/don-vi/${id}/logo` : undefined
+              }
+            />
+          )}
+        </Truong>
 
         <Truong<GiaTriFormDonVi>
           ten="tieuDeVanBan"

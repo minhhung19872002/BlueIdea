@@ -10,6 +10,7 @@ import { apiHeThong, type CauHinhMuc } from '@/api/endpoints';
 import { KhoiDangTai, KhoiKhongNhanRa, KhoiLoi } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { ONhapAnhCauHinh } from '@/components/ONhapAnhCauHinh';
 import { DS_TAB_CAU_HINH } from './cauHinhTab';
 
 const NHOM_THEO_DUONG_DAN: Record<string, { nhom?: string; tieuDe: string }> = {
@@ -105,6 +106,12 @@ function taoLuatCauHinh(layDsMuc: () => CauHinhMuc[]) {
 }
 
 type GiaTriCauHinh = Record<string, unknown>;
+
+/** Địa chỉ xem ảnh đang lưu, theo khoá cấu hình. */
+const DUONG_DAN_ANH: Record<string, string | undefined> = {
+  LOGO_ID: `${import.meta.env.VITE_API_URL ?? ''}/api/v1/he-thong/anh-thuong-hieu/logo`,
+  FAVICON_ID: `${import.meta.env.VITE_API_URL ?? ''}/api/v1/he-thong/anh-thuong-hieu/favicon`,
+};
 
 /** Chức năng 46, 51 — Cấu hình hệ thống theo nhóm. */
 export default function TrangCauHinhHeThong() {
@@ -229,6 +236,13 @@ export default function TrangCauHinhHeThong() {
                   value={o.value as number}
                   style={{ width: 220 }}
                   disabled={!m.choPhepSua}
+                />
+              ) : m.kieuDuLieu === 'TEP' ? (
+                <ONhapAnhCauHinh
+                  value={(o.value as string) ?? ''}
+                  onChange={o.onChange}
+                  disabled={!m.choPhepSua}
+                  duongDanXem={DUONG_DAN_ANH[m.khoa]}
                 />
               ) : m.kieuDuLieu === 'COLOR' ? (
                 <ColorPicker

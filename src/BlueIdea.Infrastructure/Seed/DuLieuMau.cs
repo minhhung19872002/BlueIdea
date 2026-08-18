@@ -296,6 +296,11 @@ public sealed partial class DuLieuMau
             ("CHUNG", KhoaCauHinh.EmailHoTro, "hotro@sangkien.gov.vn", "TEXT", "Email hỗ trợ"),
             ("CHUNG", KhoaCauHinh.DienThoaiHoTro, "0236.3888.999", "TEXT", "Điện thoại hỗ trợ"),
             ("GIAO_DIEN", KhoaCauHinh.MauChuDao, "#1677ff", "COLOR", "Màu chủ đạo"),
+
+            // Kieu TEP: gia tri la id cua tep da tai len, man hinh cau hinh hien o tai anh.
+            // De trong thi giao dien dung chu viet tat cua ten he thong nhu truoc.
+            ("GIAO_DIEN", KhoaCauHinh.LogoId, "", "TEP", "Logo hiển thị trên đầu trang"),
+            ("GIAO_DIEN", KhoaCauHinh.FaviconId, "", "TEP", "Biểu tượng trên thẻ trình duyệt"),
             ("HO_SO", KhoaCauHinh.MauMaHoSo, "SK-{NAM}-{STT:0000}", "TEXT", "Mẫu mã hồ sơ"),
             ("HO_SO", KhoaCauHinh.DungLuongTepToiDaMb, "20", "NUMBER", "Dung lượng tệp tối đa (MB)"),
             ("HO_SO", KhoaCauHinh.SoTepToiDa, "20", "NUMBER", "Số tệp tối đa mỗi hồ sơ"),
