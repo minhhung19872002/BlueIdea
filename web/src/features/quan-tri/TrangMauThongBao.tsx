@@ -4,7 +4,6 @@ import {
   Alert,
   Button,
   Card,
-  Form,
   Input,
   Modal,
   Select,
@@ -16,11 +15,44 @@ import {
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, maDanhMuc, trangThai, tuyChon } from '@/components/bieu-mau/luat';
 import { apiMauThongBao, type MauThongBao } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_CAU_HINH } from './cauHinhTab';
+
+/**
+ * Luật kiểm tra mẫu thông báo.
+ *
+ * Nội dung mẫu bắt buộc, tiêu đề thì không: tin SMS và thông báo trong ứng dụng không có tiêu đề,
+ * bắt nhập sẽ khiến người soạn phải gõ một câu vô nghĩa cho đủ thủ tục.
+ */
+const luatMauThongBao = z.object({
+  ma: maDanhMuc(),
+  ten: batBuoc('Tên mẫu'),
+  kenh: batBuoc('Kênh gửi'),
+  suKien: batBuoc('Sự kiện kích hoạt'),
+  tieuDe: tuyChon(300),
+  noiDung: batBuoc('Nội dung', 5000),
+  danhSachBien: z.array(z.string()),
+  trangThai: trangThai,
+});
+
+type GiaTriMauThongBao = z.infer<typeof luatMauThongBao>;
+
+const MAC_DINH_MAU: GiaTriMauThongBao = {
+  ma: '',
+  ten: '',
+  kenh: 'TAT_CA',
+  suKien: '',
+  noiDung: '',
+  danhSachBien: [],
+  trangThai: 1,
+};
 
 const KENH = [
   { value: 'TAT_CA', label: 'Tất cả kênh' },
@@ -42,7 +74,7 @@ export default function TrangMauThongBao() {
   const [locSuKien, setLocSuKien] = useState<string | undefined>();
   const [dangSua, setDangSua] = useState<MauThongBao | null>(null);
   const [moForm, setMoForm] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatMauThongBao, MAC_DINH_MAU);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['mau-thong-bao', locSuKien],
@@ -59,16 +91,16 @@ export default function TrangMauThongBao() {
   }
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriMauThongBao) => {
       const duLieu = {
-        ma: (giaTri.ma as string).trim().toUpperCase(),
-        ten: giaTri.ten as string,
-        kenh: giaTri.kenh as string,
-        suKien: giaTri.suKien as string,
-        tieuDe: (giaTri.tieuDe as string) ?? '',
-        noiDung: giaTri.noiDung as string,
-        danhSachBien: (giaTri.danhSachBien as string[]) ?? [],
-        trangThai: (giaTri.trangThai as number) ?? 1,
+        ma: giaTri.ma.trim().toUpperCase(),
+        ten: giaTri.ten,
+        kenh: giaTri.kenh,
+        suKien: giaTri.suKien,
+        tieuDe: giaTri.tieuDe ?? '',
+        noiDung: giaTri.noiDung,
+        danhSachBien: giaTri.danhSachBien,
+        trangThai: giaTri.trangThai,
       };
 
       return dangSua ? apiMauThongBao.sua(dangSua.id, duLieu) : apiMauThongBao.them(duLieu);
@@ -77,7 +109,7 @@ export default function TrangMauThongBao() {
       message.success(dangSua ? 'Đã cập nhật mẫu' : 'Đã thêm mẫu thông báo');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH_MAU);
       lamMoi();
     },
     onError: (loi) =>
@@ -141,7 +173,7 @@ export default function TrangMauThongBao() {
             icon={<PlusOutlined />}
             onClick={() => {
               setDangSua(null);
-              form.resetFields();
+              form.reset(MAC_DINH_MAU);
               setMoForm(true);
             }}
           >
@@ -239,7 +271,16 @@ export default function TrangMauThongBao() {
                   icon={<EditOutlined />}
                   onClick={() => {
                     setDangSua(dong);
-                    form.setFieldsValue(dong);
+                    form.reset({
+                      ma: dong.ma,
+                      ten: dong.ten,
+                      kenh: dong.kenh,
+                      suKien: dong.suKien,
+                      tieuDe: dong.tieuDe,
+                      noiDung: dong.noiDung,
+                      danhSachBien: dong.danhSachBien,
+                      trangThai: dong.trangThai as 0 | 1,
+                    });
                     setMoForm(true);
                   }}
                 />
@@ -270,87 +311,103 @@ export default function TrangMauThongBao() {
         title={dangSua ? `Sửa mẫu: ${dangSua.ten}` : 'Thêm mẫu thông báo'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-mau-thong-bao' }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ kenh: 'TAT_CA', trangThai: 1, danhSachBien: [] }}
-        >
+        <BieuMau id="form-mau-thong-bao" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item
-              name="ma"
-              label="Mã mẫu"
-              rules={[
-                { required: true, message: 'Nhập mã' },
-                { pattern: /^[A-Z0-9_-]+$/, message: 'Mã chỉ gồm chữ hoa, số, dấu _ và -' },
-              ]}
-            >
-              <Input style={{ width: 240 }} placeholder="VD: MAU_TIEP_NHAN_EMAIL" disabled={!!dangSua} />
-            </Form.Item>
-            <Form.Item name="ten" label="Tên mẫu" rules={[{ required: true, message: 'Nhập tên' }]}>
-              <Input style={{ width: 360 }} />
-            </Form.Item>
+            <Truong<GiaTriMauThongBao> ten="ma" label="Mã mẫu" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 240 }}
+                  placeholder="VD: MAU_TIEP_NHAN_EMAIL"
+                  disabled={!!dangSua}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriMauThongBao> ten="ten" label="Tên mẫu" required>
+              {(o) => <Input {...o} value={o.value as string} style={{ width: 360 }} />}
+            </Truong>
           </Space>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item
-              name="suKien"
-              label="Sự kiện kích hoạt"
-              rules={[{ required: true, message: 'Chọn sự kiện' }]}
-            >
-              <Select
-                style={{ width: 300 }}
-                options={(dsSuKien ?? []).map((x) => ({ value: x.ma, label: x.ten }))}
-              />
-            </Form.Item>
-            <Form.Item name="kenh" label="Kênh gửi">
-              <Select style={{ width: 200 }} options={KENH} />
-            </Form.Item>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                style={{ width: 160 }}
-                options={[
-                  { value: 1, label: 'Đang dùng' },
-                  { value: 0, label: 'Ngừng' },
-                ]}
-              />
-            </Form.Item>
+            <Truong<GiaTriMauThongBao> ten="suKien" label="Sự kiện kích hoạt" required>
+              {(o) => (
+                <Select
+                  {...o}
+                  value={(o.value as string) || undefined}
+                  style={{ width: 300 }}
+                  options={(dsSuKien ?? []).map((x) => ({ value: x.ma, label: x.ten }))}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriMauThongBao> ten="kenh" label="Kênh gửi">
+              {(o) => (
+                <Select {...o} value={o.value as string} style={{ width: 200 }} options={KENH} />
+              )}
+            </Truong>
+            <Truong<GiaTriMauThongBao> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 160 }}
+                  options={[
+                    { value: 1, label: 'Đang dùng' },
+                    { value: 0, label: 'Ngừng' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Space>
 
-          <Form.Item name="tieuDe" label="Tiêu đề (email / thông báo)">
-            <Input placeholder="VD: Hồ sơ {{ ma_ho_so }} đã được tiếp nhận" />
-          </Form.Item>
+          <Truong<GiaTriMauThongBao> ten="tieuDe" label="Tiêu đề (email / thông báo)">
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="VD: Hồ sơ {{ ma_ho_so }} đã được tiếp nhận"
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="noiDung"
-            label="Nội dung"
-            rules={[{ required: true, message: 'Nhập nội dung mẫu' }]}
-          >
-            <Input.TextArea rows={6} placeholder="Kính gửi {{ ho_ten }}, ..." />
-          </Form.Item>
+          <Truong<GiaTriMauThongBao> ten="noiDung" label="Nội dung" required>
+            {(o) => (
+              <Input.TextArea
+                {...o}
+                value={o.value as string}
+                rows={6}
+                placeholder="Kính gửi {{ ho_ten }}, ..."
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="danhSachBien"
+          <Truong<GiaTriMauThongBao>
+            ten="danhSachBien"
             label="Biến dùng trong mẫu"
             tooltip="Liệt kê tên biến để người sửa mẫu sau này biết dùng được những gì."
           >
-            <Select
-              mode="tags"
-              placeholder="ho_ten, ma_ho_so, ten_sang_kien, han_xu_ly…"
-              options={[
-                { value: 'ho_ten' },
-                { value: 'ma_ho_so' },
-                { value: 'ten_sang_kien' },
-                { value: 'han_xu_ly' },
-                { value: 'ten_don_vi' },
-                { value: 'ket_qua' },
-              ]}
-            />
-          </Form.Item>
-        </Form>
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string[]}
+                mode="tags"
+                placeholder="ho_ten, ma_ho_so, ten_sang_kien, han_xu_ly…"
+                options={[
+                  { value: 'ho_ten' },
+                  { value: 'ma_ho_so' },
+                  { value: 'ten_sang_kien' },
+                  { value: 'han_xu_ly' },
+                  { value: 'ten_don_vi' },
+                  { value: 'ket_qua' },
+                ]}
+              />
+            )}
+          </Truong>
+        </BieuMau>
       </Modal>
     </Card>
   );

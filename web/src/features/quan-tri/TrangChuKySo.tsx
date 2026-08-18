@@ -4,7 +4,6 @@ import {
   Alert,
   Button,
   Card,
-  Form,
   Input,
   Modal,
   Select,
@@ -17,7 +16,15 @@ import {
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import {
+  batBuoc,
+  trangThai as trangThaiDanhMuc,
+  tuyChon,
+} from '@/components/bieu-mau/luat';
 import { apiChuKySo, type CauHinhChuKySo } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
@@ -39,6 +46,39 @@ const LOAI_KY = [
   { value: 'SMART_CA', label: 'SmartCA' },
 ];
 
+/**
+ * Luật kiểm tra cấu hình chữ ký số.
+ *
+ * `clientSecret` để trống khi SỬA nghĩa là giữ nguyên bí mật đang lưu, nên không thể bắt buộc —
+ * máy chủ cũng không bao giờ trả bí mật cũ về giao diện để điền sẵn.
+ */
+const luatChuKySo = z.object({
+  nhaCungCap: batBuoc('Nhà cung cấp'),
+  loaiKy: batBuoc('Hình thức ký'),
+  chungThuSo: tuyChon(200),
+  endpoint: z
+    .string()
+    .trim()
+    .url('Phải là địa chỉ http/https tuyệt đối.')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  clientId: tuyChon(200),
+  clientSecret: tuyChon(500),
+  thuatToan: batBuoc('Thuật toán ký'),
+  trangThai: trangThaiDanhMuc,
+  laMacDinh: z.boolean(),
+});
+
+type GiaTriChuKySo = z.infer<typeof luatChuKySo>;
+
+const MAC_DINH_CHU_KY: GiaTriChuKySo = {
+  nhaCungCap: 'BAN_CO_YEU_CHINH_PHU',
+  loaiKy: 'USB_TOKEN',
+  thuatToan: 'SHA256withRSA',
+  trangThai: 1,
+  laMacDinh: true,
+};
+
 /** Chức năng 49 — Cấu hình chữ ký số dùng để ký quyết định và biên bản. */
 export default function TrangChuKySo() {
   const { message, modal } = App.useApp();
@@ -46,7 +86,7 @@ export default function TrangChuKySo() {
 
   const [dangSua, setDangSua] = useState<CauHinhChuKySo | null>(null);
   const [moForm, setMoForm] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatChuKySo, MAC_DINH_CHU_KY);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['cau-hinh-chu-ky-so'],
@@ -64,17 +104,17 @@ export default function TrangChuKySo() {
   }
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriChuKySo) => {
       const duLieu = {
-        nhaCungCap: giaTri.nhaCungCap as string,
-        loaiKy: giaTri.loaiKy as string,
-        endpoint: (giaTri.endpoint as string) || null,
-        clientId: (giaTri.clientId as string) || null,
-        clientSecret: (giaTri.clientSecret as string) || null,
-        chungThuSo: (giaTri.chungThuSo as string) || null,
-        thuatToan: (giaTri.thuatToan as string) ?? 'SHA256withRSA',
-        trangThai: (giaTri.trangThai as number) ?? 1,
-        laMacDinh: (giaTri.laMacDinh as boolean) ?? false,
+        nhaCungCap: giaTri.nhaCungCap,
+        loaiKy: giaTri.loaiKy,
+        endpoint: giaTri.endpoint ?? null,
+        clientId: giaTri.clientId ?? null,
+        clientSecret: giaTri.clientSecret ?? null,
+        chungThuSo: giaTri.chungThuSo ?? null,
+        thuatToan: giaTri.thuatToan,
+        trangThai: giaTri.trangThai,
+        laMacDinh: giaTri.laMacDinh,
       };
 
       return dangSua ? apiChuKySo.sua(dangSua.id, duLieu) : apiChuKySo.them(duLieu);
@@ -83,7 +123,7 @@ export default function TrangChuKySo() {
       message.success(dangSua ? 'Đã cập nhật cấu hình' : 'Đã thêm cấu hình chữ ký số');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH_CHU_KY);
       lamMoi();
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
@@ -109,7 +149,7 @@ export default function TrangChuKySo() {
           icon={<PlusOutlined />}
           onClick={() => {
             setDangSua(null);
-            form.resetFields();
+            form.reset(MAC_DINH_CHU_KY);
             setMoForm(true);
           }}
         >
@@ -217,7 +257,18 @@ export default function TrangChuKySo() {
                     icon={<EditOutlined />}
                     onClick={() => {
                       setDangSua(dong);
-                      form.setFieldsValue({ ...dong, clientSecret: undefined });
+                      form.reset({
+                        nhaCungCap: dong.nhaCungCap,
+                        loaiKy: dong.loaiKy,
+                        chungThuSo: dong.chungThuSo ?? undefined,
+                        endpoint: dong.endpoint ?? undefined,
+                        clientId: dong.clientId ?? undefined,
+                        // Bí mật không bao giờ được trả về giao diện — để trống = giữ nguyên.
+                        clientSecret: undefined,
+                        thuatToan: dong.thuatToan,
+                        trangThai: dong.trangThai as 0 | 1,
+                        laMacDinh: dong.laMacDinh,
+                      });
                       setMoForm(true);
                     }}
                   />
@@ -250,93 +301,116 @@ export default function TrangChuKySo() {
         title={dangSua ? 'Sửa cấu hình chữ ký số' : 'Thêm cấu hình chữ ký số'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-chu-ky-so' }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{
-            nhaCungCap: 'BAN_CO_YEU_CHINH_PHU',
-            loaiKy: 'USB_TOKEN',
-            thuatToan: 'SHA256withRSA',
-            trangThai: 1,
-            laMacDinh: true,
-          }}
-        >
+        <BieuMau id="form-chu-ky-so" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="nhaCungCap" label="Nhà cung cấp chứng thư">
-              <Select style={{ width: 260 }} options={NHA_CUNG_CAP} />
-            </Form.Item>
-            <Form.Item name="loaiKy" label="Hình thức ký">
-              <Select style={{ width: 260 }} options={LOAI_KY} />
-            </Form.Item>
+            <Truong<GiaTriChuKySo> ten="nhaCungCap" label="Nhà cung cấp chứng thư">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 260 }}
+                  options={NHA_CUNG_CAP}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriChuKySo> ten="loaiKy" label="Hình thức ký">
+              {(o) => (
+                <Select {...o} value={o.value as string} style={{ width: 260 }} options={LOAI_KY} />
+              )}
+            </Truong>
           </Space>
 
-          <Form.Item
-            name="chungThuSo"
+          <Truong<GiaTriChuKySo>
+            ten="chungThuSo"
             label="Serial chứng thư trên máy chủ"
             tooltip="Dùng khi ký bằng USB token hoặc HSM. Bỏ trống nếu máy chủ đã nạp tệp PFX."
           >
-            <Input placeholder="VD: 54010102030405060708090A0B0C0D0E" />
-          </Form.Item>
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="VD: 54010102030405060708090A0B0C0D0E"
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="endpoint"
-            label="Endpoint dịch vụ ký từ xa"
-            rules={[{ type: 'url', message: 'Phải là URL http/https tuyệt đối' }]}
-          >
-            <Input placeholder="https://ca.example.gov.vn/sign" />
-          </Form.Item>
+          <Truong<GiaTriChuKySo> ten="endpoint" label="Endpoint dịch vụ ký từ xa">
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="https://ca.example.gov.vn/sign"
+              />
+            )}
+          </Truong>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="clientId" label="Client ID">
-              <Input style={{ width: 260 }} />
-            </Form.Item>
-            <Form.Item
-              name="clientSecret"
+            <Truong<GiaTriChuKySo> ten="clientId" label="Client ID">
+              {(o) => <Input {...o} value={o.value as string} style={{ width: 260 }} />}
+            </Truong>
+            <Truong<GiaTriChuKySo>
+              ten="clientSecret"
               label="Client secret"
               tooltip={dangSua ? 'Để trống = giữ nguyên bí mật đang lưu.' : undefined}
             >
-              <Input.Password
-                style={{ width: 260 }}
-                placeholder={dangSua ? 'Để trống nếu không đổi' : ''}
-              />
-            </Form.Item>
+              {(o) => (
+                <Input.Password
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 260 }}
+                  placeholder={dangSua ? 'Để trống nếu không đổi' : ''}
+                />
+              )}
+            </Truong>
           </Space>
 
           <Space size="large" wrap>
-            <Form.Item name="thuatToan" label="Thuật toán ký">
-              <Select
-                style={{ width: 220 }}
-                options={[
-                  { value: 'SHA256withRSA', label: 'SHA256withRSA' },
-                  { value: 'SHA384withRSA', label: 'SHA384withRSA' },
-                  { value: 'SHA512withRSA', label: 'SHA512withRSA' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                style={{ width: 180 }}
-                options={[
-                  { value: 1, label: 'Hoạt động' },
-                  { value: 0, label: 'Ngừng' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="laMacDinh" label="Dùng làm mặc định" valuePropName="checked">
-              <Select
-                style={{ width: 150 }}
-                options={[
-                  { value: true, label: 'Có' },
-                  { value: false, label: 'Không' },
-                ]}
-              />
-            </Form.Item>
+            <Truong<GiaTriChuKySo> ten="thuatToan" label="Thuật toán ký">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 220 }}
+                  options={[
+                    { value: 'SHA256withRSA', label: 'SHA256withRSA' },
+                    { value: 'SHA384withRSA', label: 'SHA384withRSA' },
+                    { value: 'SHA512withRSA', label: 'SHA512withRSA' },
+                  ]}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriChuKySo> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 180 }}
+                  options={[
+                    { value: 1, label: 'Hoạt động' },
+                    { value: 0, label: 'Ngừng' },
+                  ]}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriChuKySo> ten="laMacDinh" label="Dùng làm mặc định">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as boolean}
+                  style={{ width: 150 }}
+                  options={[
+                    { value: true, label: 'Có' },
+                    { value: false, label: 'Không' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Space>
-        </Form>
+        </BieuMau>
       </Modal>
     </Card>
   );
