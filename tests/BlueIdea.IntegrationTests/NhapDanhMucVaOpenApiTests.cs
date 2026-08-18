@@ -90,6 +90,35 @@ public sealed class NhapDanhMucVaOpenApiTests
     }
 
     [Fact]
+    public async Task Bo_Trong_Thu_Tu_Va_Trang_Thai_Van_Them_Duoc_Danh_Muc()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var ma = $"KT{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+
+        // O "Thu tu" tren giao dien khong bat buoc nen client gui null. Neu DTO khai bao int
+        // khong nullable, tang model binding tra 400 TRUOC khi vao nghiep vu va nguoi dung chi
+        // thay "Request failed with status code 400" ma khong biet o nao sai.
+        var phanHoi = await admin.PostAsJsonAsync("/api/v1/danh-muc/linh-vuc", new
+        {
+            ma,
+            ten = "Lĩnh vực không nhập thứ tự",
+            moTa = (string?)null,
+            thuTu = (int?)null,
+            trangThai = (short?)null
+        });
+
+        phanHoi.EnsureSuccessStatusCode();
+
+        var them = (await LayDanhMucAsync(admin))
+            .Single(x => x.GetProperty("ma").GetString() == ma);
+
+        // Bo trong thu tu thi dich vu tu xep xuong cuoi danh sach (khong phai 0), va trang thai
+        // mac dinh la dang hoat dong.
+        them.GetProperty("thuTu").GetInt32().Should().BeGreaterThanOrEqualTo(0);
+        them.GetProperty("trangThai").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
     public async Task Tai_Lieu_Openapi_Cong_Khai_Tach_Rieng_Khoi_Tai_Lieu_Noi_Bo()
     {
         var client = _ungDung.CreateClient();

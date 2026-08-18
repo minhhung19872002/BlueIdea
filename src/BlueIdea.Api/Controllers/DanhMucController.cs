@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.DanhMuc;
 using BlueIdea.Domain.Chung;
@@ -17,9 +18,25 @@ public class LuuDanhMucDto
 
     public string? MoTa { get; set; }
 
-    public int ThuTu { get; set; }
+    /// <summary>
+    /// Thu tu hien thi. Nhan ca null.
+    ///
+    /// O nhap thu tu tren giao dien khong bat buoc, de trong thi client gui null. Neu khai bao
+    /// kieu int khong nullable thi tang model binding tra 400 TRUOC khi vao nghiep vu, va nguoi
+    /// dung chi thay "Request failed with status code 400" ma khong biet o nao sai.
+    /// </summary>
+    [JsonPropertyName("thuTu")]
+    public int? ThuTuNhap { get; set; }
 
-    public short TrangThai { get; set; } = TrangThaiDanhMuc.HoatDong;
+    [JsonIgnore]
+    public int ThuTu => ThuTuNhap ?? 0;
+
+    /// <summary>Trang thai. De trong = dang hoat dong.</summary>
+    [JsonPropertyName("trangThai")]
+    public short? TrangThaiNhap { get; set; }
+
+    [JsonIgnore]
+    public short TrangThai => TrangThaiNhap ?? TrangThaiDanhMuc.HoatDong;
 }
 
 public sealed class LuuLinhVucDto : LuuDanhMucDto

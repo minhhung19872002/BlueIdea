@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
@@ -21,7 +22,12 @@ public sealed class LuuMucMenuDto
 
     public Guid? MenuChaId { get; set; }
 
-    public int ThuTu { get; set; }
+    /// <summary>Thu tu hien thi; de trong thi coi la 0 thay vi tra 400 (xem LuuDanhMucDto).</summary>
+    [JsonPropertyName("thuTu")]
+    public int? ThuTuNhap { get; set; }
+
+    [JsonIgnore]
+    public int ThuTu => ThuTuNhap ?? 0;
 
     public string? QuyenMa { get; set; }
 
