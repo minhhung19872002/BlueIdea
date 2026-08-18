@@ -26,6 +26,7 @@ public sealed class DichVuKiemTraTrungLap
     private readonly IDichVuPhanQuyen _phanQuyen;
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly ILogger<DichVuKiemTraTrungLap> _logger;
+    private readonly IBoDayRealtime? _realtime;
 
     public DichVuKiemTraTrungLap(
         IAppDbContext db,
@@ -35,7 +36,8 @@ public sealed class DichVuKiemTraTrungLap
         IDongHoHeThong dongHo,
         IDichVuPhanQuyen phanQuyen,
         INguoiDungHienTai nguoiDung,
-        ILogger<DichVuKiemTraTrungLap> logger)
+        ILogger<DichVuKiemTraTrungLap> logger,
+        IBoDayRealtime? realtime = null)
     {
         _db = db;
         _phanTich = phanTich;
@@ -45,6 +47,29 @@ public sealed class DichVuKiemTraTrungLap
         _phanQuyen = phanQuyen;
         _nguoiDung = nguoiDung;
         _logger = logger;
+        _realtime = realtime;
+    }
+
+    /// <summary>
+    /// Bao cho man hinh dang mo ho so rang ket qua trung lap vua co.
+    ///
+    /// Chay SAU khi da luu va nuot loi: day realtime that bai chi lam man hinh cham mot nhip,
+    /// khong duoc phep lam hong ket qua kiem tra da ghi vao CSDL.
+    /// </summary>
+    private async Task DayKetQuaAsync(Guid sangKienId)
+    {
+        if (_realtime is null) return;
+
+        try
+        {
+            await _realtime.KetQuaTrungLapAsync(sangKienId, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Khong day duoc tin hieu ket qua trung lap cho ho so {SangKienId}", sangKienId);
+        }
     }
 
     /// <summary>
@@ -96,6 +121,7 @@ public sealed class DichVuKiemTraTrungLap
                 hoSoTracking.TrangThaiKiemTraTrungLap = TrangThaiKiemTraTrungLap.HoanThanh;
                 hoSoTracking.TyLeTrungLap = 0m;
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+                await DayKetQuaAsync(sangKienId).ConfigureAwait(false);
                 return null;
             }
 
@@ -147,6 +173,7 @@ public sealed class DichVuKiemTraTrungLap
             hoSoTracking.TrangThaiKiemTraTrungLap = TrangThaiKiemTraTrungLap.HoanThanh;
 
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await DayKetQuaAsync(sangKienId).ConfigureAwait(false);
             return ketQua;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -176,6 +203,10 @@ public sealed class DichVuKiemTraTrungLap
             }
 
             await _db.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
+
+            // Bao ca khi that bai: nguoi dung dang cho o tab Trung lap can biet la da chay xong
+            // va khong dat, thay vi ngoi cho mai mot ket qua khong bao gio toi.
+            await DayKetQuaAsync(sangKienId).ConfigureAwait(false);
             return null;
         }
     }

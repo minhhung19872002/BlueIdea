@@ -2,6 +2,7 @@ using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhMuc;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.HoiDong;
+using BlueIdea.Domain.QuanTri;
 using BlueIdea.Shared.KetQua;
 using BlueIdea.Shared.TiengViet;
 using Microsoft.EntityFrameworkCore;
@@ -13,14 +14,17 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 {
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IBoDayRealtime? _realtime;
+    private readonly IDichVuThongBao? _thongBao;
 
     public DichVuHoiDong(
         IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo,
-        INguoiDungHienTai nguoiDung, IBoDayRealtime? realtime = null)
+        INguoiDungHienTai nguoiDung, IBoDayRealtime? realtime = null,
+        IDichVuThongBao? thongBao = null)
         : base(db, phanQuyen, dongHo)
     {
         _nguoiDung = nguoiDung;
         _realtime = realtime;
+        _thongBao = thongBao;
     }
 
     /// <summary>
@@ -195,8 +199,75 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 
         Db.PhienHop.Add(phien);
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        await GuiGiayMoiAsync(phien, ct).ConfigureAwait(false);
         return phien;
     }
+
+    /// <summary>
+    /// Gui giay moi hop toi cac thanh vien hoi dong.
+    ///
+    /// Truoc day tao phien hop khong bao ai ca: mau thong bao MOI_HOP_HOI_DONG co san trong
+    /// he thong, quan tri sua duoc, xem truoc duoc — nhung khong noi nao phat, nen thanh vien
+    /// phai tu vao he thong mo ra xem moi biet minh co lich hop.
+    ///
+    /// Chi gui cho thanh vien da noi voi mot tai khoan (NguoiDungId): nguoi ngoai he thong
+    /// duoc moi bang van ban giay theo duong hanh chinh, khong qua kenh nay.
+    ///
+    /// Nuot loi: gui thong bao hong khong duoc phep lam mat phien hop vua tao.
+    /// </summary>
+    private async Task GuiGiayMoiAsync(PhienHopHoiDong phien, CancellationToken ct)
+    {
+        if (_thongBao is null) return;
+
+        try
+        {
+            var nguoiNhan = await Db.HoiDongThanhVien.AsNoTracking()
+                .Where(x => x.HoiDongId == phien.HoiDongId
+                            && x.TrangThai == TrangThaiDanhMuc.HoatDong
+                            && x.NguoiDungId != null)
+                .Select(x => x.NguoiDungId!.Value)
+                .Distinct()
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            if (nguoiNhan.Count == 0) return;
+
+            var tenHoiDong = await Db.HoiDong.AsNoTracking()
+                .Where(x => x.Id == phien.HoiDongId)
+                .Select(x => x.Ten)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            var soHoSo = phien.DanhSachHoSo.Count;
+
+            await _thongBao.GuiTheoSuKienAsync(
+                SuKienThongBao.MoiHopHoiDong,
+                nguoiNhan,
+                new Dictionary<string, object?>
+                {
+                    ["tenHoiDong"] = tenHoiDong,
+                    ["tenPhien"] = phien.TenPhien,
+                    ["maPhien"] = phien.MaPhien,
+                    ["thoiGianBatDau"] = phien.ThoiGianBatDau.ToString("HH:mm dd/MM/yyyy"),
+                    ["diaDiem"] = string.IsNullOrWhiteSpace(phien.DiaDiem) ? "chưa xác định" : phien.DiaDiem,
+                    ["hinhThuc"] = TenHinhThucHop(phien.HinhThuc),
+                    ["soHoSo"] = soHoSo
+                },
+                ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Khong co logger o lop nay; phien hop da luu thanh cong nen khong duoc nem tiep.
+        }
+    }
+
+    private static string TenHinhThucHop(string? ma) => ma switch
+    {
+        "TRUC_TUYEN" => "trực tuyến",
+        "KET_HOP" => "kết hợp trực tiếp và trực tuyến",
+        _ => "trực tiếp"
+    };
 
     public async Task<PhienHopHoiDong> LayPhienHopAsync(Guid phienHopId, CancellationToken ct = default)
     {

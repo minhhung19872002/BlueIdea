@@ -114,6 +114,23 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
         return ketQua;
     }
 
+    /// <summary>
+    /// Chon su kien thong bao theo trang thai tong cua ho so.
+    ///
+    /// Ho so khong dat phat dung su kien "bi tu choi": mau MTB_TU_CHOI neu ro ly do khong duoc
+    /// tiep nhan, con MTB_CO_KET_QUA chi noi chung chung "da co ket qua". Truoc day ca hai truong
+    /// hop deu dung mot mau nen tac gia bi loai khong biet vi sao ho so cua minh truot.
+    ///
+    /// CoKetQua van duoc phat, nhung o cho khac: khi cong bo quyet dinh (DichVuQuyetDinh).
+    /// </summary>
+    public static string SuKienTheoTrangThai(string? trangThaiTong) => trangThaiTong switch
+    {
+        TrangThaiTongHoSo.YeuCauBoSung => SuKienThongBao.YeuCauBoSung,
+        TrangThaiTongHoSo.DaPheDuyet => SuKienThongBao.DaPheDuyet,
+        TrangThaiTongHoSo.KhongDat => SuKienThongBao.HoSoBiTuChoi,
+        _ => SuKienThongBao.HoSoDuocTiepNhan
+    };
+
     /// <summary>Gui thong bao cho tac gia va cho tac nhan cua buoc tiep theo.</summary>
     private async Task GuiThongBaoAsync(Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)
     {
@@ -138,13 +155,7 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
             return;
         }
 
-        var maSuKien = hoSo.TrangThaiTong switch
-        {
-            TrangThaiTongHoSo.YeuCauBoSung => SuKienThongBao.YeuCauBoSung,
-            TrangThaiTongHoSo.DaPheDuyet => SuKienThongBao.DaPheDuyet,
-            TrangThaiTongHoSo.KhongDat => SuKienThongBao.CoKetQua,
-            _ => SuKienThongBao.HoSoDuocTiepNhan
-        };
+        var maSuKien = SuKienTheoTrangThai(hoSo.TrangThaiTong);
 
         await _thongBao.GuiTheoSuKienAsync(maSuKien, tacGiaIds, new Dictionary<string, object?>
         {

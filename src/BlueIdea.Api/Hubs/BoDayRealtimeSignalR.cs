@@ -30,4 +30,9 @@ public sealed class BoDayRealtimeSignalR : IBoDayRealtime
         => _hub.Clients
             .Group(ThongBaoHub.TenNhomPhienHop(phienHopId.ToString()))
             .SendAsync(ThongBaoHub.SuKien.CapNhatBangDiem, new { phienHopId }, ct);
+
+    public Task KetQuaTrungLapAsync(Guid sangKienId, CancellationToken ct = default)
+        => _hub.Clients
+            .Group(ThongBaoHub.TenNhomHoSo(sangKienId.ToString()))
+            .SendAsync(ThongBaoHub.SuKien.KetQuaKiemTraTrungLap, new { sangKienId }, ct);
 }

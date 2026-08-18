@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   App,
@@ -37,6 +37,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import { LoiApi, taiTep } from '@/api/client';
+import { theoDoiHoSo } from '@/api/realtime';
 import {
   apiDanhGia,
   apiHoiDong,
@@ -132,6 +133,27 @@ export default function TrangChiTietHoSo() {
     queryKey: ['sang-kien', id, 'trung-lap'],
     queryFn: () => apiSangKien.trungLap(id),
   });
+
+  /*
+   * Nghe tín hiệu realtime của hồ sơ đang mở.
+   *
+   * Kiểm tra trùng lặp chạy nền nên kết quả về sau khi trang đã dựng xong. Không nghe tín hiệu
+   * thì tab Trùng lặp đứng ở trạng thái "đang kiểm tra" cho tới khi người dùng tự tải lại trang
+   * — mà chẳng có gì trên màn hình gợi ý rằng phải làm vậy.
+   */
+  useEffect(() => {
+    if (!id) return;
+
+    return theoDoiHoSo(id, (suKien) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['sang-kien', id, suKien === 'trung-lap' ? 'trung-lap' : 'tien-do'],
+      });
+
+      if (suKien === 'trang-thai') {
+        void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
+      }
+    });
+  }, [id, queryClient]);
 
   const thucThi = useMutation({
     mutationFn: (duLieu: { truongHopId: string; yKien?: string }) =>
