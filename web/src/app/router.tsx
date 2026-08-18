@@ -49,6 +49,11 @@ const TrangCongKhai = lazy(() => import('@/features/cong-khai/TrangCongKhai'));
 const TrangQuenMatKhau = lazy(() => import('@/features/xac-thuc/TrangQuenMatKhau'));
 const TrangBaoMatTaiKhoan = lazy(() => import('@/features/xac-thuc/TrangBaoMatTaiKhoan'));
 const TrangKhoaApiNgoai = lazy(() => import('@/features/quan-tri/TrangKhoaApiNgoai'));
+const TrangHoiDong = lazy(() => import('@/features/hoi-dong/TrangHoiDong'));
+const TrangChiTietHoiDong = lazy(() => import('@/features/hoi-dong/TrangChiTietHoiDong'));
+const TrangLienThong = lazy(() => import('@/features/quan-tri/TrangLienThong'));
+const TrangBieuMauXuat = lazy(() => import('@/features/quan-tri/TrangBieuMauXuat'));
+const TrangSsoTraVe = lazy(() => import('@/features/xac-thuc/TrangSsoTraVe'));
 
 export const router = createBrowserRouter([
   {
@@ -56,6 +61,14 @@ export const router = createBrowserRouter([
     element: (
       <ChoTai>
         <TrangDangNhap />
+      </ChoTai>
+    ),
+  },
+  {
+    path: '/dang-nhap/sso',
+    element: (
+      <ChoTai>
+        <TrangSsoTraVe />
       </ChoTai>
     ),
   },
@@ -100,13 +113,18 @@ export const router = createBrowserRouter([
       { path: 'danh-gia', element: <ChoTai><TrangViecDanhGia /></ChoTai> },
       { path: 'danh-gia/:id/cham-diem', element: <ChoTai><TrangChamDiem /></ChoTai> },
 
+      { path: 'hoi-dong', element: <ChoTai><TrangHoiDong /></ChoTai> },
+      { path: 'hoi-dong/:id', element: <ChoTai><TrangChiTietHoiDong /></ChoTai> },
+
       { path: 'quyet-dinh', element: <ChoTai><TrangQuyetDinh /></ChoTai> },
 
       { path: 'tra-cuu', element: <ChoTai><TrangTraCuu /></ChoTai> },
       { path: 'bao-cao/tuy-bien', element: <ChoTai><TrangBaoCaoTuyBien /></ChoTai> },
       { path: 'bao-cao/:loai', element: <ChoTai><TrangBaoCao /></ChoTai> },
 
+      { path: 'quan-tri/danh-muc/bieu-mau-xuat', element: <ChoTai><TrangBieuMauXuat /></ChoTai> },
       { path: 'quan-tri/danh-muc/:ma', element: <ChoTai><TrangDanhMuc /></ChoTai> },
+      { path: 'quan-tri/lien-thong', element: <ChoTai><TrangLienThong /></ChoTai> },
       { path: 'quan-tri/quy-trinh', element: <ChoTai><TrangQuyTrinh /></ChoTai> },
       { path: 'quan-tri/quy-trinh/:id/thiet-ke', element: <ChoTai><TrangThietKeQuyTrinh /></ChoTai> },
       { path: 'quan-tri/tieu-chi', element: <ChoTai><TrangTieuChi /></ChoTai> },

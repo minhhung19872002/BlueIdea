@@ -56,6 +56,33 @@ curl http://localhost:8080/health                  # phải trả Healthy
 
 Lần khởi động đầu tiên tự chạy migration và nạp dữ liệu mẫu.
 
+### Bật đăng nhập một lần (SSO) — tuỳ chọn
+
+Để trống thì hệ thống chỉ dùng đăng nhập nội bộ và trang đăng nhập tự ẩn nút SSO. Muốn bật, điền
+vào `.env`:
+
+```env
+SSO_ISSUER=https://sso.thanhpho.gov.vn/realms/canbo
+SSO_CLIENT_ID=blueidea
+SSO_CLIENT_SECRET=<bi-mat-do-ben-SSO-cap>
+SSO_SCOPE=openid profile email
+```
+
+rồi khởi động lại API:
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d --force-recreate api
+curl http://localhost:8080/api/v1/xac-thuc/sso/trang-thai   # phải trả daCauHinh: true
+```
+
+Đăng ký với bên cung cấp SSO **redirect URI** đúng dạng `<địa-chỉ-web>/dang-nhap/sso`
+(ví dụ `https://blueidea.thanhpho.gov.vn/dang-nhap/sso`). Sai địa chỉ này thì nhà cung cấp từ
+chối ngay ở bước chuyển hướng.
+
+Hệ thống đọc `openid-configuration` của nhà cung cấp nên không phải khai báo từng endpoint. Nếu
+nhà cung cấp có công bố `end_session_endpoint` thì nút Đăng xuất sẽ kết thúc luôn phiên bên đó
+(single logout); không có thì chỉ đăng xuất cục bộ.
+
 ### Chuyển sang chế độ vận hành thật
 
 Sau khi nghiệm thu xong, sửa `.env`:

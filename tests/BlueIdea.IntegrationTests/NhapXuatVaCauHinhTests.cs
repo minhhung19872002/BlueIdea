@@ -293,6 +293,71 @@ public sealed class NhapXuatVaCauHinhTests
         phanHoi.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
+    [Fact]
+    public async Task Bieu_Mau_Xuat_Luu_Duoc_Tep_Mau_Va_Anh_Xa_Placeholder()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+
+        // 1. Tai tep mau len kho dung chung — man hinh Bieu mau xuat lam dung viec nay.
+        var docx = TaoDocx("Số quyết định {{ soQuyetDinh }}", "Hồ sơ {{ maHoSo }}");
+
+        using var form = new MultipartFormDataContent();
+        var noiDungTep = new ByteArrayContent(docx);
+        noiDungTep.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        form.Add(noiDungTep, "tep", "mau-quyet-dinh.docx");
+
+        var taiLen = await admin.PostAsync("/api/v1/tep-tin/tai-len", form);
+        taiLen.EnsureSuccessStatusCode();
+
+        var tepTinId = (await taiLen.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetProperty("id").GetString()!;
+
+        // 2. Luu bieu mau kem anh xa placeholder -> nguon du lieu.
+        var tao = await admin.PostAsJsonAsync("/api/v1/danh-muc/bieu-mau-xuat", new
+        {
+            ma = "BM_KIEM_THU_ANH_XA",
+            ten = "Biểu mẫu kiểm thử ánh xạ",
+            thuTu = 99,
+            trangThai = 1,
+            loai = "QUYET_DINH",
+            dinhDang = "DOCX",
+            fileTemplateId = tepTinId,
+            cauHinhTruong = new[]
+            {
+                new { placeholder = "soQuyetDinh", nguon = "soQuyetDinh", kieu = "text" },
+                new { placeholder = "maHoSo", nguon = "maHoSo", kieu = "text" }
+            }
+        });
+
+        tao.EnsureSuccessStatusCode();
+
+        var bieuMauId = (await tao.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetProperty("id").GetString()!;
+
+        try
+        {
+            var chiTiet = await admin.GetAsync($"/api/v1/danh-muc/bieu-mau-xuat/{bieuMauId}");
+            chiTiet.EnsureSuccessStatusCode();
+
+            var duLieu = (await chiTiet.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("duLieu");
+
+            duLieu.GetProperty("fileTemplateId").GetString().Should().Be(tepTinId);
+            duLieu.GetProperty("dinhDang").GetString().Should().Be("DOCX");
+
+            var anhXa = duLieu.GetProperty("cauHinhTruong").EnumerateArray().ToList();
+
+            anhXa.Should().HaveCount(2);
+            anhXa.Select(x => x.GetProperty("placeholder").GetString())
+                .Should().BeEquivalentTo(new[] { "soQuyetDinh", "maHoSo" });
+        }
+        finally
+        {
+            await admin.DeleteAsync($"/api/v1/danh-muc/bieu-mau-xuat/{bieuMauId}");
+        }
+    }
+
     // ----------------------------------------------- Chuc nang 50: cau hinh gui tin
 
     [Fact]

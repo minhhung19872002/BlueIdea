@@ -398,6 +398,66 @@ public sealed class XacThucNangCaoTests
         phanHoi.StatusCode.Should().NotBe(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task Luu_Trung_Ten_Thi_Ghi_De_Va_Chi_Mot_Bo_Loc_Mac_Dinh()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        const string manHinh = "KIEM_THU_GHI_DE";
+
+        var mot = await LuuBoLocAsync(admin, manHinh, "Hồ sơ quá hạn", """{"chiQuaHan":"true"}""", true);
+        var hai = await LuuBoLocAsync(admin, manHinh, "Hồ sơ quá hạn",
+            """{"chiQuaHan":"true","trangThaiTong":"DANG_XU_LY"}""", true);
+
+        try
+        {
+            // Trung ten = cap nhat chinh bo loc cu, khong tao them ban ghi thu hai.
+            hai.Should().Be(mot);
+
+            var ba = await LuuBoLocAsync(admin, manHinh, "Chờ tiếp nhận", """{"trangThaiTong":"DA_NOP"}""", true);
+
+            try
+            {
+                var phanHoi = await admin.GetAsync($"/api/v1/bo-loc-yeu-thich?manHinh={manHinh}");
+                phanHoi.EnsureSuccessStatusCode();
+
+                var danhSach = (await phanHoi.Content.ReadFromJsonAsync<JsonElement>())
+                    .GetProperty("duLieu").EnumerateArray().ToList();
+
+                danhSach.Should().HaveCount(2);
+
+                // Dat mac dinh bo loc moi phai BO mac dinh cua bo loc cu.
+                danhSach.Count(x => x.GetProperty("macDinh").GetBoolean()).Should().Be(1);
+
+                danhSach.Single(x => x.GetProperty("macDinh").GetBoolean())
+                    .GetProperty("ten").GetString().Should().Be("Chờ tiếp nhận");
+
+                // Tham so cua lan luu sau phai duoc giu lai.
+                danhSach.Single(x => x.GetProperty("id").GetGuid() == mot)
+                    .GetProperty("thamSo").GetString().Should().Contain("DANG_XU_LY");
+            }
+            finally
+            {
+                await admin.DeleteAsync($"/api/v1/bo-loc-yeu-thich/{ba}");
+            }
+        }
+        finally
+        {
+            await admin.DeleteAsync($"/api/v1/bo-loc-yeu-thich/{mot}");
+        }
+    }
+
+    private static async Task<Guid> LuuBoLocAsync(
+        HttpClient client, string manHinh, string ten, string thamSo, bool macDinh)
+    {
+        var phanHoi = await client.PostAsJsonAsync(
+            "/api/v1/bo-loc-yeu-thich", new { manHinh, ten, thamSo, macDinh });
+
+        phanHoi.EnsureSuccessStatusCode();
+
+        return (await phanHoi.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetGuid();
+    }
+
     // ------------------------------------------------------------------------ Ham phu tro
 
     private async Task<(HttpClient Client, string BiMat)> BatMfaAsync(string tenDangNhap)

@@ -46,8 +46,11 @@ export function BangSangKien({
       render: (giaTri: string, dong) => <Link to={`/sang-kien/${dong.id}`}>{giaTri}</Link>,
     },
     {
+      // Có width: các cột còn lại đều cố định, cột này không đặt width thì phần dư có thể
+      // âm và tên sáng kiến bị bóp thành một ký tự mỗi dòng.
       title: 'Tên sáng kiến',
       dataIndex: 'tenSangKien',
+      width: 320,
       sorter: true,
       render: (giaTri: string, dong) => (
         <div>
@@ -127,7 +130,7 @@ export function BangSangKien({
         columns={cot}
         dataSource={duLieu}
         loading={dangTai}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1460 }}
         rowSelection={
           chonNhieu && {
             selectedRowKeys: chonNhieu.khoaDaChon,

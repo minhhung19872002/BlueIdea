@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { App, Alert, Button, Form, Input, Typography } from 'antd';
-import { LockOutlined, ReloadOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons';
+import { App, Alert, Button, Divider, Form, Input, Typography } from 'antd';
+import {
+  LockOutlined,
+  LoginOutlined,
+  ReloadOutlined,
+  SafetyOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 
 import { layDuLieu, LoiApi } from '@/api/client';
+import { apiSso } from '@/api/endpoints';
 import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
+import { batDauDangNhapSso } from '@/features/xac-thuc/sso';
 
 interface FormDangNhap {
   tenDangNhap: string;
@@ -31,6 +40,16 @@ export default function TrangDangNhap() {
   const [soLanSai, setSoLanSai] = useState(0);
   const [canMfa, setCanMfa] = useState(false);
   const [captcha, setCaptcha] = useState<ThuThachCaptcha | null>(null);
+  const [dangChuyenSso, setDangChuyenSso] = useState(false);
+
+  // Chỉ hiện nút SSO khi máy chủ báo đã cấu hình nhà cung cấp — tránh dẫn người dùng vào
+  // một luồng chắc chắn lỗi.
+  const { data: trangThaiSso } = useQuery({
+    queryKey: ['sso-trang-thai'],
+    queryFn: apiSso.trangThai,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     void napCauHinhCongKhai();
@@ -192,6 +211,33 @@ export default function TrangDangNhap() {
             Đăng nhập
           </Button>
         </Form>
+
+        {trangThaiSso?.daCauHinh && (
+          <>
+            <Divider plain style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+              hoặc
+            </Divider>
+            <Button
+              block
+              size="large"
+              icon={<LoginOutlined />}
+              loading={dangChuyenSso}
+              onClick={async () => {
+                setDangChuyenSso(true);
+                try {
+                  await batDauDangNhapSso(thamSo.get('tiepTuc') ?? '/');
+                } catch (loi) {
+                  setDangChuyenSso(false);
+                  message.error(
+                    loi instanceof LoiApi ? loi.message : 'Không mở được đăng nhập một lần.',
+                  );
+                }
+              }}
+            >
+              Đăng nhập một lần (SSO)
+            </Button>
+          </>
+        )}
 
         <div style={{ textAlign: 'center', marginTop: 14 }}>
           <Link to="/quen-mat-khau" style={{ fontSize: 13 }}>

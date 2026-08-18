@@ -15,6 +15,7 @@ import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore, type MucMenu } from '@/app/store/cauHinhStore';
 import { kichThuoc, mauSac } from '@/app/giaoDien';
 import { layPhanTrang } from '@/api/client';
+import { layDiaChiDangXuatSso } from '@/features/xac-thuc/sso';
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -241,7 +242,16 @@ export function BoCucChinh() {
                   label: 'Đăng xuất',
                   danger: true,
                   onClick: async () => {
+                    // Lấy địa chỉ kết thúc phiên bên nhà cung cấp TRƯỚC khi xoá token —
+                    // endpoint đó yêu cầu đăng nhập (chức năng 41, single logout).
+                    const diaChiSso = await layDiaChiDangXuatSso();
                     await dangXuat();
+
+                    if (diaChiSso) {
+                      window.location.href = diaChiSso;
+                      return;
+                    }
+
                     dieuHuong('/dang-nhap');
                   },
                 },

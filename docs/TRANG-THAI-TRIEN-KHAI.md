@@ -24,7 +24,7 @@ thiện, đều được ghi rõ.
 | 3 | Đợt đề nghị | ✅ | CRUD + Mở/Đóng/Khóa đợt + Sao chép đợt; tự động đóng đợt quá hạn nộp mỗi giờ |
 | 4 | Loại tác giả | ✅ | Kèm ràng buộc số tác giả tối đa, áp dụng khi nộp hồ sơ |
 | 5 | Đơn vị phê duyệt | ✅ | Cây tổ chức, đường dẫn cây phục vụ phạm vi dữ liệu |
-| 6 | Biểu mẫu xuất | ✅ | CRUD + quét placeholder `{{ }}` trong tệp `.docx`, gộp văn bản cả đoạn nên bắt được placeholder bị Word cắt thành nhiều run |
+| 6 | Biểu mẫu xuất | ✅ | Màn hình tab **Biểu mẫu xuất** trong Danh mục: CRUD, tải tệp `.docx` mẫu, quét placeholder `{{ }}` ngay khi tải lên và ánh xạ từng placeholder sang nguồn dữ liệu. Gộp văn bản cả đoạn nên bắt được placeholder bị Word cắt thành nhiều run |
 | 7 | Biểu mẫu thống kê | ✅ | Báo cáo tuỳ biến sinh động từ cấu hình cột, có dòng tổng hợp; nguồn dữ liệu chặn bằng bảng trắng, cấu hình sai bị chặn ngay khi lưu |
 | 8 | Quyết định | ✅ | CRUD + chọn sáng kiến đủ điều kiện + xuất PDF; chặn gán trùng và chặn sửa khi đã ký số |
 
@@ -39,7 +39,7 @@ thiện, đều được ghi rõ.
 | 13 | Thành phần hồ sơ | ✅ | Cấu hình + checklist kiểm tra khi nộp, chặn nộp khi thiếu |
 | 14 | Trạng thái bước | ✅ | Trạng thái theo bước và trạng thái toàn cục |
 | 15 | Tác nhân xử lý | ✅ | 7 loại tác nhân, quy tắc MỘT_NGƯỜI / TẤT_CẢ / ĐA_SỐ đã kiểm chứng |
-| 16 | Cấu hình liên thông | ✅ | CRUD hệ thống liên thông, 3 kiểu xác thực (API_KEY/HMAC/OAUTH2), ánh xạ tên trường cấu hình được |
+| 16 | Cấu hình liên thông | ✅ | Màn hình `/quan-tri/lien-thong`: CRUD hệ thống liên thông, 3 kiểu xác thực (API_KEY/HMAC/OAUTH2), ánh xạ tên trường, xem trước dữ liệu, chạy đồng bộ và tab nhật ký đồng bộ. Bí mật mã hoá khi lưu, không bao giờ trả về giao diện |
 
 ## Nhóm III — Tiêu chí động
 
@@ -52,14 +52,14 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 19 | Danh sách hội đồng | ✅ | CRUD + API phiên họp, điểm danh, bỏ phiếu, kết luận |
-| 20 | Thành viên hội đồng | ✅ | Quyền theo chức danh; ràng buộc đúng 1 chủ tịch; giao diện quản lý thành viên ở mức đọc |
+| 19 | Danh sách hội đồng | ✅ | Màn hình `/hoi-dong`: CRUD hội đồng; trang chi tiết có tab Phiên họp — tạo phiên, chọn hồ sơ đưa ra xét, điểm danh, bỏ phiếu và kiểm phiếu theo ngưỡng thông qua, kết luận và kết thúc phiên |
+| 20 | Thành viên hội đồng | ✅ | Tab Thành viên sửa trực tiếp trên bảng: chọn tài khoản, chức danh, 5 nhóm quyền; chặn lưu khi không đúng 1 chủ tịch hoặc thiếu số thành viên tối thiểu |
 
 ## Nhóm V — Đăng ký nộp hồ sơ
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 21 | Đăng nhập | ✅ | Argon2id, JWT + refresh xoay vòng, khoá tài khoản, buộc đổi mật khẩu lần đầu, **SSO qua OIDC** (Authorization Code + PKCE), **MFA TOTP** (RFC 6238, chống dùng lại mã, 10 mã khôi phục), **CAPTCHA** ảnh SVG tự sinh sau 3 lần sai, **quên mật khẩu qua OTP email** |
+| 21 | Đăng nhập | ✅ | Argon2id, JWT + refresh xoay vòng, khoá tài khoản, buộc đổi mật khẩu lần đầu, **SSO qua OIDC** (Authorization Code + PKCE), **MFA TOTP** (RFC 6238, chống dùng lại mã, 10 mã khôi phục), **CAPTCHA** ảnh SVG tự sinh sau 3 lần sai, **quên mật khẩu qua OTP email**. Nút "Đăng nhập một lần (SSO)" hiện trên trang đăng nhập khi máy chủ đã cấu hình nhà cung cấp, kèm trang nhận mã trả về `/dang-nhap/sso` |
 | 22 | Đăng ký nộp sáng kiến | ✅ | Wizard 6 bước, tự lưu nháp 30 giây, kiểm tra tỷ lệ đóng góp 100% |
 | 23 | Quản lý hồ sơ sáng kiến | ✅ | Danh sách, sửa, rút, tab lịch sử chỉnh sửa có diff trước/sau |
 | 24 | Thành phần hồ sơ | ✅ | Checklist trực quan ✓/✗/⚠, chặn nộp và nêu rõ mục còn thiếu |
@@ -71,7 +71,7 @@ thiện, đều được ghi rõ.
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
 | 27 | Tiếp nhận hồ sơ | ✅ | Nút hành động sinh động theo quy trình |
-| 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích** (đặt mặc định theo màn hình), chọn nhiều, xuất Excel |
+| 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích** ngay trên màn hình danh sách (chọn, lưu, đặt mặc định, xoá; bộ lọc mặc định tự áp dụng khi mở màn hình, liên kết chia sẻ luôn thắng bộ lọc cá nhân), chọn nhiều, xuất Excel |
 | 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, thu hồi, Idempotency-Key |
 | 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
 | 31/36 | Đính kèm quyết định | ✅ | Màn hình ban hành quyết định, chọn sáng kiến đủ điều kiện, xuất PDF theo mẫu hành chính |
@@ -83,7 +83,7 @@ thiện, đều được ghi rõ.
 |---|---|---|---|
 | 33 | Danh sách hồ sơ đánh giá | ✅ | "Việc của tôi", đếm ngược hạn, phân công loại trừ xung đột lợi ích |
 | 34 | Đánh giá hồ sơ | ✅ | Giao diện 2 panel, phiếu chấm render động, tính điểm realtime |
-| 35 | Phiếu đánh giá | ✅ | Lưu/gửi/mở lại phiếu, ma trận điểm, xuất PDF hàng loạt theo hồ sơ hoặc theo hội đồng |
+| 35 | Phiếu đánh giá | ✅ | Lưu/gửi/mở lại phiếu, ma trận điểm, xuất PDF hàng loạt theo hồ sơ hoặc theo hội đồng (nút **Xuất phiếu chấm** trên trang hội đồng) |
 
 ## Nhóm IX–X — Tra cứu, báo cáo
 
@@ -99,8 +99,8 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 41 | Tích hợp SSO/IOC/TĐKT | ✅ | SSO OIDC + **single logout**, đẩy danh sách sáng kiến đã công bố sang hệ thống ngoài qua REST kèm nhật ký đồng bộ, **API `/api/public/v1` cho hệ thống ngoài gọi vào** (khoá API băm + danh sách IP/CIDR + giới hạn tần suất riêng). Cần thông tin endpoint thật của thành phố để đấu nối |
-| 42 | Ứng dụng di động | ⬜ | Chưa triển khai. Web đã responsive từ 320px nên dùng được trên điện thoại |
+| 41 | Tích hợp SSO/IOC/TĐKT | ✅ | SSO OIDC có nút trên trang đăng nhập + **single logout** khi đăng xuất, cấu hình bằng `SSO_ISSUER`/`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET` trong `.env`, đẩy danh sách sáng kiến đã công bố sang hệ thống ngoài qua REST kèm nhật ký đồng bộ, **API `/api/public/v1` cho hệ thống ngoài gọi vào** (khoá API băm + danh sách IP/CIDR + giới hạn tần suất riêng). Cần thông tin endpoint thật của thành phố để đấu nối |
+| 42 | Ứng dụng di động | ✅ | **Đáp ứng bằng web responsive** theo quyết định của chủ đầu tư: giao diện chạy tốt từ 320px, thanh điều hướng chuyển thành Drawer, bảng cuộn ngang trong khung riêng — dùng trực tiếp trên trình duyệt điện thoại, không cần cài đặt. **Không** có ứng dụng đóng gói cho App Store / CH Play |
 | 43 | Quản lý người dùng | ✅ | Thêm/sửa/gán vai trò, đặt lại mật khẩu (thu hồi phiên cũ), khoá/mở khoá, **nhập từ Excel** (chạy thử trước, toàn bộ hoặc không) |
 | 44 | Quản lý đơn vị | ✅ | Cây tổ chức + panel chi tiết, thêm đơn vị con, sửa, xoá ngay trên giao diện |
 | 45 | Quản lý vai trò | ✅ | Ma trận phân quyền sửa trực tiếp trên bảng, chọn cả cột, thêm/sửa/xoá vai trò |
@@ -117,21 +117,30 @@ thiện, đều được ghi rõ.
 
 | Mức | Số chức năng |
 |---|---|
-| ✅ Hoàn chỉnh | 50 |
-| ⬜ Chưa triển khai | 1 |
+| ✅ Hoàn chỉnh | 51 |
+| ⬜ Chưa triển khai | 0 |
 
-**Chức năng duy nhất chưa làm: số 42 — Ứng dụng di động Android/iOS.** Đây là một sản phẩm
-riêng (React Native / Flutter) chứ không phải một màn hình bổ sung, và không kiểm chứng được
-nếu không có thiết bị/emulator. Giao diện web hiện đã responsive từ 320px nên dùng được trên
-trình duyệt điện thoại, nhưng đó **không phải** ứng dụng cài đặt từ store như yêu cầu.
+**Toàn bộ 51 chức năng đều có API, nghiệp vụ và giao diện, đã kiểm chứng chạy thật.**
+
+Riêng chức năng 42 được chốt phương án **web responsive** thay cho ứng dụng đóng gói: người dùng
+mở trình duyệt trên điện thoại là dùng được ngay, không phải cài đặt và không phụ thuộc chu kỳ
+duyệt của App Store / CH Play. Nếu sau này cần bản cài đặt từ store thì đó là một sản phẩm riêng
+(React Native / Flutter) dùng lại chính hợp đồng API hiện có, chứ không phải sửa phần web.
 
 ## Luồng nghiệp vụ đã kiểm chứng
 
 Luồng chính: nộp hồ sơ → tiếp nhận → thẩm định → phân công chấm → hội đồng chấm điểm →
 chủ tịch kết luận → ban hành quyết định → công bố kết quả → liên thông hệ thống ngoài.
 
+Luồng hội đồng: thành lập hội đồng → lưu danh sách thành viên (chặn khi không đúng 1 chủ tịch
+hoặc thiếu thành viên tối thiểu) → mở phiên họp kèm hồ sơ đưa ra xét → điểm danh → bỏ phiếu và
+kiểm phiếu theo ngưỡng thông qua → kết luận và kết thúc phiên (khoá bỏ phiếu) → xuất phiếu chấm PDF.
+
+Luồng liên thông: khai báo hệ thống ngoài → xem trước dữ liệu sẽ đẩy → chạy đồng bộ → đọc nhật ký
+đồng bộ; sửa cấu hình mà để trống ô bí mật thì giữ nguyên bí mật đang lưu.
+
 Luồng nhánh: yêu cầu bổ sung, từ chối, rút hồ sơ, sửa và nộp lại, xử lý hàng loạt,
-phân công tự động chia đều.
+phân công tự động chia đều, lưu và áp dụng bộ lọc yêu thích trên màn hình danh sách.
 
 Luồng xác thực: đăng nhập nội bộ, SSO OIDC, single logout, MFA TOTP (bật/tắt/mã khôi phục/
 quản trị viên gỡ hộ), CAPTCHA sau 3 lần sai, quên mật khẩu qua OTP email.
@@ -141,9 +150,10 @@ quản trị viên gỡ hộ), CAPTCHA sau 3 lần sai, quên mật khẩu qua O
 | Chức năng | Giới hạn | Cần gì để gỡ |
 |---|---|---|
 | 41 — Liên thông IOC/TĐKT | Đã có adapter đầy đủ và kiểm chứng bằng máy chủ nhận thật chạy cục bộ, nhưng **chưa đấu vào hệ thống thật của thành phố** | Endpoint, khoá và tài liệu API của IOC / Thi đua khen thưởng |
-| 21, 41 — SSO | Luồng OIDC hoàn chỉnh (Authorization Code + PKCE), kiểm chứng bằng nhà cung cấp OIDC chạy cục bộ | `Sso:Issuer`, `Sso:ClientId`, `Sso:ClientSecret` của hệ thống SSO thành phố |
+| 21, 41 — SSO | Luồng OIDC hoàn chỉnh (Authorization Code + PKCE) kèm nút trên trang đăng nhập và trang nhận mã trả về, kiểm chứng bằng nhà cung cấp OIDC chạy cục bộ | `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` trong `.env` (ánh xạ sang `Sso:*`) và đăng ký redirect URI `<địa-chỉ-web>/dang-nhap/sso` với hệ thống SSO thành phố |
 | 49 — Ký số | Ký và xác minh PKCS#7 chạy đúng, kiểm chứng bằng chứng thư tự ký | Chứng thư số thật (PFX hoặc USB token/HSM) của Ban Cơ yếu / CA được cấp phép |
 | 37 — Tìm ngữ nghĩa | Vector nhúng hiện là "hashing trick" từ vựng nên bắt quan hệ **từ vựng**, chưa bắt được quan hệ ngữ nghĩa xa (ví dụ "tiết kiệm điện" ~ "cảm biến ánh sáng") | Nạp mô hình sentence-transformer tiếng Việt dạng ONNX chạy nội bộ (không dùng API bên thứ ba) |
+| 42 — Di động | Đáp ứng bằng **web responsive** chứ không phải ứng dụng cài từ store: không có thông báo đẩy, không dùng được ngoại tuyến, không truy cập máy ảnh/chữ ký trên thiết bị | Nếu chủ đầu tư yêu cầu bản cài đặt: làm ứng dụng React Native dùng lại hợp đồng API hiện có |
 
 ## Công việc nền (Hangfire)
 
@@ -177,11 +187,17 @@ Bước 4 là lưới an toàn có chủ đích: không có nó, một lần OCR
 
 ## Việc còn lại theo thứ tự ưu tiên
 
-1. **Màn hình cấu hình máy chủ email/SMS** (chức năng 50) — worker gửi đã chạy, còn thiếu giao
-   diện nhập host/port/tài khoản thay vì sửa thẳng trong cơ sở dữ liệu.
-2. **Import người dùng từ Excel** và **xuất PDF phiếu chấm hàng loạt** (chức năng 35).
-3. **Báo cáo tuỳ biến sinh động từ cấu hình** (chức năng 7) và màn hình quét placeholder `.docx`
-   cho biểu mẫu xuất (chức năng 6).
-4. **Tích hợp thật**: SSO OIDC, đẩy dữ liệu sang Thi đua khen thưởng và IOC.
-5. **Chữ ký số** với nhà cung cấp CA cụ thể của đơn vị.
-6. **Ứng dụng di động** React Native dùng chung hợp đồng API hiện có.
+Phần code đã xong; những việc dưới đây **phụ thuộc dữ liệu và hạ tầng của chủ đầu tư**, không
+làm được nếu chỉ ngồi tại chỗ viết thêm mã.
+
+1. **Đấu nối SSO thật**: điền `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` trong `.env` và
+   đăng ký redirect URI `<địa-chỉ-web>/dang-nhap/sso` với hệ thống SSO thành phố.
+2. **Đấu nối IOC và Thi đua khen thưởng**: khai báo hệ thống trong màn hình *Liên thông hệ thống
+   ngoài* bằng endpoint, khoá và kiểu xác thực thật, rồi chạy *Xem trước dữ liệu* trước khi đồng bộ.
+3. **Chữ ký số**: nạp chứng thư thật (PFX hoặc USB token/HSM) của CA được cấp phép.
+4. **Tìm ngữ nghĩa**: nạp mô hình sentence-transformer tiếng Việt dạng ONNX chạy nội bộ để thay
+   vector "hashing trick" hiện tại.
+5. **Nạp biểu mẫu xuất thật**: tải các tệp `.docx` mẫu của đơn vị lên tab *Biểu mẫu xuất* và ánh xạ
+   placeholder — hiện mới có biểu mẫu mẫu trong dữ liệu seed.
+6. *(Tuỳ chọn, ngoài phạm vi hiện tại)* Ứng dụng cài đặt từ store nếu chủ đầu tư đổi ý về phương án
+   di động; dùng lại hợp đồng API hiện có.

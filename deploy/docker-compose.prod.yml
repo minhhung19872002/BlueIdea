@@ -172,6 +172,17 @@ services:
       # Nginx la diem cuoi TLS. Bao ASP.NET tin X-Forwarded-* tu mang Docker, neu khong
       # rate limiter se gop MOI nguoi dung vao chung mot xo theo IP cua Nginx.
       ForwardedHeaders__BatTin: "true"
+
+      # Chuc nang 21, 41 - Dang nhap mot lan qua OIDC cua he thong SSO thanh pho.
+      #
+      # De TRONG Sso__Issuer hoac Sso__ClientId = tat SSO: trang dang nhap tu an nut
+      # "Dang nhap mot lan (SSO)" thay vi hien mot nut chac chan loi.
+      #
+      # Redirect URI dang ky voi nha cung cap: https://${TEN_MIEN}/dang-nhap/sso
+      Sso__Issuer: "${SSO_ISSUER:-}"
+      Sso__ClientId: "${SSO_CLIENT_ID:-}"
+      Sso__ClientSecret: "${SSO_CLIENT_SECRET:-}"
+      Sso__Scope: "${SSO_SCOPE:-openid profile email}"
     ports:
       # Nginx chay trong HDH cua may chu (khong trong mang Docker) nen bat buoc phai
       # publish cong ra 127.0.0.1, neu khong `proxy_pass http://127.0.0.1:8080` se bao

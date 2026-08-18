@@ -29,6 +29,7 @@ import {
 } from '@/api/endpoints';
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
+import { DS_TAB_DANH_MUC } from '@/features/quan-tri/danhMucTab';
 
 /** Tập hàm tối thiểu mà mọi API danh mục đều có (một số danh mục có thêm hàm riêng). */
 interface ApiDanhMucCoBan {
@@ -50,13 +51,6 @@ const CAU_HINH: Record<
   'dot-de-nghi': { tieuDe: 'Danh mục đợt đề nghị', api: apiDotDeNghi, truongThem: 'DOT' },
 };
 
-/** Các nhánh con của trang — thiết kế gộp thành một mục ở thanh điều hướng. */
-const DS_TAB = [
-  { ma: 'linh-vuc', ten: 'Lĩnh vực', duongDan: '/quan-tri/danh-muc/linh-vuc' },
-  { ma: 'doi-tuong', ten: 'Đối tượng', duongDan: '/quan-tri/danh-muc/doi-tuong' },
-  { ma: 'loai-tac-gia', ten: 'Loại tác giả', duongDan: '/quan-tri/danh-muc/loai-tac-gia' },
-  { ma: 'dot-de-nghi', ten: 'Đợt đề nghị', duongDan: '/quan-tri/danh-muc/dot-de-nghi' },
-];
 
 /** Chức năng 1–4 — Màn hình quản trị danh mục dùng chung. */
 export default function TrangDanhMuc() {
@@ -136,7 +130,7 @@ export default function TrangDanhMuc() {
         </Space>
       }
     >
-      <DaiTabTrang danhSach={DS_TAB} dangChon={ma} />
+      <DaiTabTrang danhSach={DS_TAB_DANH_MUC} dangChon={ma} />
 
       <Table<DanhMucDto>
         rowKey="id"

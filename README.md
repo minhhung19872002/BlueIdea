@@ -10,6 +10,10 @@ Quy trình xử lý, tiêu chí chấm điểm, thành phần hồ sơ, biểu m
 > **AI chạy hoàn toàn nội bộ.** Chức năng OCR và kiểm tra trùng lặp/đạo văn không gọi bất kỳ
 > API AI bên thứ ba nào. Xem [`docs/ADR/0001-ai-noi-bo.md`](docs/ADR/0001-ai-noi-bo.md).
 
+> **Dùng trên điện thoại không cần cài ứng dụng.** Giao diện responsive từ 320px, mở cùng địa chỉ
+> web là dùng được. Trạng thái thực tế của cả 51 chức năng xem
+> [`docs/TRANG-THAI-TRIEN-KHAI.md`](docs/TRANG-THAI-TRIEN-KHAI.md).
+
 ---
 
 ## 1. Chạy nhanh bằng Docker
@@ -72,7 +76,7 @@ cd web && npm install && npm run dev
 ## 3. Kiểm thử
 
 ```bash
-# Unit test toàn bộ business rule (Mục 11 đặc tả)
+# Unit test + integration test (267 + 72 test, Mục 11 đặc tả)
 dotnet test
 
 # Kiểm thử luồng nghiệp vụ end-to-end qua API thật

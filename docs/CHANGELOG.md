@@ -4,6 +4,87 @@
 
 ---
 
+## [1.2.0] — 2026-08-18
+
+Hoàn thiện phần giao diện cho các chức năng trước đây mới có API, và chốt phương án cho chức năng
+ứng dụng di động. Sau bản này cả 51 chức năng đều có đủ API + nghiệp vụ + giao diện.
+
+### Hội đồng sáng kiến (chức năng 19–20)
+
+- Màn hình `/hoi-dong`: danh sách, thành lập, sửa, xoá hội đồng kèm cấp xét duyệt, đợt, lĩnh vực
+  phụ trách, số thành viên tối thiểu và tỷ lệ thông qua.
+- Trang chi tiết có ba tab: Thông tin chung, Thành viên, Phiên họp.
+- Tab **Thành viên** sửa trực tiếp trên bảng: chọn tài khoản có sẵn hoặc nhập tay người ngoài hệ
+  thống, đặt chức danh và 5 nhóm quyền. Nút Lưu bị khoá khi danh sách chưa hợp lệ (không đúng một
+  chủ tịch, hoặc ít hơn số thành viên tối thiểu) — chặn ngay trên giao diện thay vì để người dùng
+  bấm rồi mới nhận lỗi từ máy chủ.
+- Tab **Phiên họp**: tạo phiên kèm hồ sơ đưa ra xét, điểm danh, bỏ phiếu (đồng ý / không đồng ý /
+  ý kiến khác, hỗ trợ phiếu kín), kiểm phiếu realtime so với ngưỡng thông qua của hội đồng, nhập
+  kết luận và kết thúc phiên. Phiên đã kết thúc khoá toàn bộ thao tác bỏ phiếu và điểm danh.
+- Nút **Xuất phiếu chấm** xuất PDF gộp toàn bộ phiếu chấm của hội đồng (chức năng 35) — trước đây
+  endpoint đã có nhưng không màn hình nào gọi tới.
+
+### Đăng nhập một lần SSO trên giao diện (chức năng 21, 41)
+
+- Trang đăng nhập hỏi máy chủ `sso/trang-thai` và chỉ hiện nút **Đăng nhập một lần (SSO)** khi đã
+  cấu hình nhà cung cấp — không dẫn người dùng vào một luồng chắc chắn lỗi.
+- Trang `/dang-nhap/sso` nhận mã trả về, so `state` với giá trị đã lưu (chống CSRF), đổi mã lấy
+  token rồi đưa người dùng về đúng trang họ định vào. Effect chạy hai lần trong StrictMode được
+  chặn vì authorization code chỉ đổi được một lần.
+- Đăng xuất kiểm tra phiên có phải đăng nhập bằng SSO không; nếu đúng thì lấy `end_session_endpoint`
+  **trước** khi xoá token (endpoint này cần đăng nhập) rồi chuyển hướng sang nhà cung cấp.
+- Bổ sung `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `SSO_SCOPE` vào `.env.example` và cả
+  hai tệp compose — trước đây bản triển khai Docker không có chỗ nào để bật SSO.
+
+### Liên thông hệ thống ngoài (chức năng 16, 41)
+
+- Màn hình `/quan-tri/lien-thong`: khai báo hệ thống (mã, endpoint, kiểu xác thực, client id/secret,
+  scope, tần suất), ánh xạ tên trường sang tên mà hệ thống ngoài yêu cầu.
+- Ô bí mật để trống khi sửa = giữ nguyên giá trị đang lưu; giao diện chỉ hiển thị "Đã đặt bí mật"
+  chứ không bao giờ nhận lại giá trị thật.
+- **Xem trước dữ liệu** trước khi đẩy đi, chạy **đồng bộ** theo đợt/năm, và tab **Nhật ký đồng bộ**
+  hiển thị số bản ghi thành công/thất bại kèm thông báo lỗi của hệ thống ngoài.
+
+### Biểu mẫu xuất (chức năng 6)
+
+- Thêm tab **Biểu mẫu xuất** vào màn hình Danh mục: CRUD biểu mẫu, tải tệp `.docx` mẫu và quét
+  placeholder ngay khi tải lên, ánh xạ từng placeholder sang nguồn dữ liệu kèm kiểu và định dạng
+  hiển thị.
+- Đổi tệp mẫu giữ nguyên ánh xạ đã cấu hình cho các placeholder trùng tên.
+
+### Bộ lọc yêu thích (chức năng 28)
+
+- Thanh bộ lọc yêu thích dùng chung cho màn hình danh sách: chọn bộ lọc đã lưu, lưu bộ lọc hiện
+  tại, đặt mặc định, xoá.
+- Bộ lọc mặc định chỉ tự áp dụng khi mở màn hình mà URL **chưa** có tiêu chí nào — liên kết chia sẻ
+  luôn thắng bộ lọc cá nhân.
+- Máy chủ lưu tiêu chí dưới dạng đối tượng JSON còn màn hình làm việc bằng chuỗi query, nên thanh
+  lọc chuyển đổi hai chiều; thêm tiêu chí lọc mới cho màn hình không phải sửa thanh lọc.
+
+### Ứng dụng di động (chức năng 42)
+
+- Chốt phương án **web responsive** thay cho ứng dụng đóng gói: giao diện chạy tốt từ 320px, thanh
+  điều hướng chuyển thành Drawer, bảng cuộn ngang trong khung riêng. Ghi rõ giới hạn kèm theo
+  (không có thông báo đẩy, không dùng ngoại tuyến) trong `TRANG-THAI-TRIEN-KHAI.md`.
+
+### Sửa lỗi
+
+- Bảng danh sách hồ sơ: cột "Tên sáng kiến" không đặt bề rộng nên khi tổng bề rộng các cột cố định
+  vượt khung, phần dư còn lại âm và tên sáng kiến bị bóp thành một ký tự mỗi dòng.
+- Menu điều hướng có sẵn mục "Hội đồng sáng kiến" trỏ tới `/hoi-dong` nhưng không có route tương
+  ứng, bấm vào ra trang 404. Bổ sung mục "Liên thông hệ thống ngoài" vào nhóm Quản trị.
+
+### Kiểm thử
+
+- Thêm `HoiDongTests`: ràng buộc đúng một chủ tịch, số thành viên tối thiểu, luồng phiên họp đầy đủ
+  (tạo phiên → điểm danh → bỏ phiếu → kiểm phiếu → kết luận → khoá bỏ phiếu), chặn người ngoài hội
+  đồng bỏ phiếu, xuất phiếu chấm PDF.
+- Thêm kiểm thử lưu bộ lọc trùng tên (ghi đè, giữ đúng một bộ lọc mặc định) và vòng lưu–đọc biểu
+  mẫu xuất kèm tệp mẫu và bảng ánh xạ placeholder.
+- Tổng: 267 unit test + 72 integration test, tất cả đều pass.
+
+---
+
 ## [1.1.0] — 2026-08-17
 
 Bổ sung bốn nhóm chức năng còn thiếu sau bản 1.0.0.

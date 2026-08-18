@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { App, Alert, Button, Card, Col, Input, Modal, Row, Select, Space } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { LoiApi } from '@/api/client';
 import { apiDotDeNghi, apiLinhVuc, apiSangKien, apiXuLy } from '@/api/endpoints';
 import { BangSangKien } from '@/features/sang-kien/BangSangKien';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
+import { ThanhBoLocYeuThich } from '@/components/BoLocYeuThich';
 
 const TRANG_THAI = [
   { value: 'DA_NOP', label: 'Đã nộp (chờ tiếp nhận)' },
@@ -90,10 +91,25 @@ export default function TrangDanhSachXuLy() {
     setTrang(1);
   }
 
+  // Áp một bộ lọc đã lưu = thay toàn bộ chuỗi query của màn hình.
+  const apBoLocDaLuu = useCallback(
+    (chuoiThamSo: string) => {
+      datThamSoUrl(new URLSearchParams(chuoiThamSo));
+      setTrang(1);
+    },
+    [datThamSoUrl],
+  );
+
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
 
   return (
     <Card title={laTiepNhan ? 'Hồ sơ chờ tiếp nhận' : 'Việc cần xử lý'}>
+      <ThanhBoLocYeuThich
+        manHinh={laTiepNhan ? 'TIEP_NHAN' : 'XU_LY'}
+        thamSoHienTai={thamSoUrl.toString()}
+        onApDung={apBoLocDaLuu}
+      />
+
       <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
         <Col xs={24} md={8}>
           <Input.Search

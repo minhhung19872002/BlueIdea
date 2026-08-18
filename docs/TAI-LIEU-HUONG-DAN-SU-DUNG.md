@@ -24,7 +24,26 @@ không được trùng 3 mật khẩu gần nhất.
 - **Ô tìm kiếm** trong các danh sách hỗ trợ gõ **không dấu**: gõ `sang kien` vẫn ra `sáng kiến`.
 - Bộ lọc được lưu trong địa chỉ trang, nên bạn có thể **sao chép liên kết gửi cho đồng nghiệp**
   và họ mở ra thấy đúng bộ lọc đó.
-- Trên điện thoại, menu thu vào nút ☰ ở góc trái.
+
+### Lưu bộ lọc hay dùng
+
+Ở các màn hình danh sách (*Chờ tiếp nhận*, *Việc cần xử lý*), sau khi đặt xong tiêu chí lọc:
+
+1. Bấm **Lưu bộ lọc hiện tại**, đặt tên dễ nhớ.
+2. Tích *Đặt làm bộ lọc mặc định* nếu muốn lần sau mở màn hình là tự áp dụng luôn.
+
+Chọn lại bộ lọc đã lưu ở ô **Bộ lọc đã lưu**; bấm ★ để đổi bộ lọc mặc định, biểu tượng thùng rác để
+xoá. Bộ lọc là **của riêng bạn**, người khác không nhìn thấy. Khi mở màn hình bằng liên kết có sẵn
+tiêu chí lọc, hệ thống giữ nguyên tiêu chí trên liên kết chứ không đè bằng bộ lọc mặc định.
+
+### Dùng trên điện thoại
+
+Hệ thống chạy trực tiếp trên trình duyệt điện thoại, **không cần cài đặt ứng dụng**: mở cùng địa
+chỉ web là dùng được, giao diện tự co theo màn hình từ 320px trở lên.
+
+- Menu thu vào nút ☰ ở góc trái.
+- Bảng dữ liệu cuộn ngang trong khung riêng, không làm vỡ bố cục trang.
+- Nên thêm địa chỉ vào màn hình chính của điện thoại để mở nhanh như một ứng dụng.
 
 ---
 
@@ -120,6 +139,32 @@ kết quả đạt/không đạt và mức công nhận.
 Nếu bộ tiêu chí bật *loại điểm cao/thấp* và có từ 5 phiếu trở lên, hệ thống tự loại 1 điểm cao
 nhất và 1 điểm thấp nhất trước khi tính trung bình.
 
+### Thành lập hội đồng và quản lý thành viên
+
+Vào **Xử lý & đánh giá → Hội đồng sáng kiến**.
+
+- Bấm **Thành lập hội đồng** để tạo mới: mã, tên, cấp xét duyệt, đợt, lĩnh vực phụ trách, số thành
+  viên tối thiểu và tỷ lệ thông qua.
+- Mở hội đồng rồi sang tab **Thành viên**: bấm *Thêm thành viên*, chọn tài khoản có sẵn (hoặc nhập
+  tay họ tên với người ngoài hệ thống), đặt **chức danh** và tích các quyền: chấm điểm, nhận xét,
+  bỏ phiếu, ký biên bản, kết luận.
+- Nút **Lưu danh sách** chỉ bật khi danh sách hợp lệ: đúng **một** chủ tịch và đủ số thành viên tối
+  thiểu của hội đồng.
+
+### Mở phiên họp hội đồng
+
+Trong hội đồng, sang tab **Phiên họp** → **Tạo phiên họp**:
+
+1. Nhập tên phiên, thời gian, địa điểm, hình thức (trực tiếp / trực tuyến / kết hợp).
+2. Chọn **chủ trì**, **thư ký** và **các hồ sơ đưa ra xét** trong phiên.
+3. Bấm *Tạo phiên* — hệ thống tự sinh mã phiên và tạo sẵn danh sách điểm danh cho mọi thành viên.
+
+Bấm **Điều hành** trên dòng phiên họp để mở màn hình điều hành, gồm ba tab: Điểm danh, Hồ sơ và
+bỏ phiếu, Kết luận.
+
+Nút **Xuất phiếu chấm** ở đầu trang hội đồng tải về một tệp PDF gộp toàn bộ phiếu chấm đã gửi của
+hội đồng — dùng khi in hồ sơ phiên họp.
+
 ### Bảng ma trận điểm
 
 Xem toàn cảnh: hàng là hồ sơ, cột là thành viên. Điểm chỉ hiện sau khi thành viên đã **gửi**
@@ -155,6 +200,19 @@ Tiêu chí có nhãn *bắt buộc nhận xét* thì phải ghi nhận xét mớ
 
 Nếu bạn là tác giả của hồ sơ, hệ thống sẽ chặn không cho chấm.
 
+### Bỏ phiếu trong phiên họp
+
+Vào **Hội đồng sáng kiến**, mở hội đồng của bạn, sang tab **Phiên họp** rồi bấm **Điều hành**.
+
+Ở tab *Hồ sơ và bỏ phiếu*, mỗi hồ sơ có một thẻ riêng: nhập ý kiến kèm theo (tuỳ chọn), tích
+**Phiếu kín** nếu cần, rồi bấm **Đồng ý** / **Không đồng ý** / **Ý kiến khác**.
+
+Khối kiểm phiếu bên trái cập nhật ngay: tổng phiếu, số phiếu đồng ý, tỷ lệ đồng ý và nhãn cho biết
+đã **đạt ngưỡng thông qua** của hội đồng hay chưa.
+
+Chỉ thành viên hội đồng **có quyền bỏ phiếu** mới thao tác được; phiên họp đã kết thúc thì mọi nút
+bỏ phiếu bị khoá.
+
 ---
 
 ## 5. Chủ tịch hội đồng
@@ -164,7 +222,9 @@ Ngoài quyền như thành viên, chủ tịch còn:
 - **Kết luận hồ sơ** ở bước Họp hội đồng. Các nhánh kết luận chỉ mở khi điều kiện thỏa mãn —
   ví dụ nhánh *Đạt* chỉ bật khi tổng điểm ≥ ngưỡng cấu hình.
 - **Ký biên bản** phiên họp.
-- **Kết thúc phiên họp** và ghi kết luận chung.
+- **Kết thúc phiên họp**: trong màn hình điều hành phiên, sang tab **Kết luận**, nhập kết luận
+  chung rồi bấm **Kết thúc phiên**. Sau khi kết thúc, phiên bị khoá — không ai bỏ phiếu hay điểm
+  danh thêm được, và kết luận được lưu vào phiên.
 
 ---
 
@@ -197,11 +257,52 @@ thống kê theo đơn vị, kết quả sáng kiến. Mọi báo cáo đều xu
 
 ### Cấu hình danh mục
 
-**Quản trị hệ thống → Danh mục**: lĩnh vực, đối tượng, đợt đề nghị, loại tác giả, biểu mẫu,
-quyết định.
+**Quản trị hệ thống → Danh mục**: các tab lĩnh vực, đối tượng, loại tác giả, đợt đề nghị và
+**biểu mẫu xuất**. Quyết định nằm ở mục *Quyết định* riêng trên thanh điều hướng.
 
 Lưu ý: **không xóa được bản ghi đang được sử dụng** — hệ thống báo rõ đang bị tham chiếu ở đâu
 và bao nhiêu bản ghi. Muốn ngừng dùng thì chuyển trạng thái sang *Ngừng hoạt động*.
+
+### Biểu mẫu xuất và ánh xạ placeholder
+
+Tab **Biểu mẫu xuất** trong màn hình Danh mục:
+
+1. Bấm **Thêm biểu mẫu**, nhập mã, tên, loại (phiếu tiếp nhận / phiếu đánh giá / biên bản họp /
+   quyết định / tổng hợp) và định dạng xuất.
+2. Bấm **Tải tệp mẫu và quét placeholder**, chọn tệp `.docx` có các chỗ trống dạng
+   `{{ ten_truong }}`. Hệ thống liệt kê ngay toàn bộ placeholder tìm được — kể cả placeholder bị
+   Word cắt vụn thành nhiều đoạn.
+3. Với mỗi placeholder, chọn **nguồn dữ liệu** tương ứng, kiểu (văn bản/số/ngày/bảng) và định dạng
+   hiển thị nếu cần, rồi bấm **Lưu**.
+
+Đổi tệp mẫu về sau vẫn giữ nguyên ánh xạ của những placeholder trùng tên, không phải cấu hình lại
+từ đầu.
+
+### Liên thông hệ thống ngoài
+
+**Quản trị → Liên thông hệ thống ngoài** dùng để đẩy danh sách sáng kiến **đã công bố** sang IOC,
+Thi đua khen thưởng hoặc hệ thống khác:
+
+1. **Thêm hệ thống**: mã, tên, endpoint gốc, kiểu xác thực (API Key / HMAC / OAuth2), client id và
+   client secret, tần suất đồng bộ.
+2. Phần **Ánh xạ tên trường** dùng khi hệ thống ngoài đặt tên trường khác, ví dụ
+   `maHoSo → ma_sang_kien`.
+3. Bấm **Xem trước dữ liệu** để kiểm tra danh sách sẽ đẩy đi (lọc được theo đợt và năm) — thao tác
+   này **không** gửi gì cho hệ thống ngoài.
+4. Bấm **Đồng bộ** trên hệ thống muốn đẩy. Kết quả và phản hồi của hệ thống ngoài ghi lại ở tab
+   **Nhật ký đồng bộ**.
+
+Client secret được mã hoá khi lưu và **không bao giờ** hiển thị lại; giao diện chỉ cho biết
+"Đã đặt bí mật". Khi sửa cấu hình, để trống ô bí mật nghĩa là giữ nguyên giá trị đang dùng.
+
+### Bật đăng nhập một lần (SSO)
+
+Điền `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` trong tệp `.env` rồi khởi động lại dịch vụ
+`api`. Đăng ký với nhà cung cấp SSO địa chỉ trả về đúng dạng `<địa-chỉ-web>/dang-nhap/sso`.
+
+Khi đã cấu hình, trang đăng nhập tự hiện nút **Đăng nhập một lần (SSO)**; để trống cấu hình thì nút
+tự ẩn. Người đăng nhập bằng SSO khi bấm Đăng xuất sẽ được kết thúc luôn phiên bên nhà cung cấp
+(nếu nhà cung cấp có hỗ trợ).
 
 ### Quản lý đợt đề nghị
 

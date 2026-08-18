@@ -241,4 +241,5 @@ Luồng nghiệp vụ được kiểm chứng đầy đủ: nộp hồ sơ → t
 | Chịu lỗi | Suy giảm mềm | OCR hoặc kiểm tra trùng lặp lỗi thì hồ sơ vẫn nộp được, chỉ đánh dấu chưa kiểm tra |
 | Giám sát | Health check, log tập trung | `/health`, `/health/ready`, Seq |
 | Trình duyệt | Chrome, Edge, Firefox, Safari | React 18 + Ant Design 5, build theo ES2022 |
-| Responsive | Từ 320 px | Bố cục lưới, menu Drawer trên di động, bảng cuộn ngang |
+| Responsive | Từ 320 px | Bố cục lưới, menu Drawer trên di động, bảng cuộn ngang trong khung riêng |
+| Truy cập trên thiết bị di động (chức năng 42) | Dùng được trên điện thoại | Đáp ứng bằng **web responsive**: mở trình duyệt là dùng, không phải cài ứng dụng và không phụ thuộc chu kỳ duyệt của kho ứng dụng. Đổi lại là không có thông báo đẩy và không dùng được ngoại tuyến |

@@ -598,12 +598,112 @@ export const apiTieuChi = {
     capNhatDuLieu(`/api/v1/tieu-chi/${id}/muc-cong-nhan`, danhSach),
 };
 
+// --- Hội đồng (chức năng 19–20) --------------------------------------------
+
+export interface ThanhVienHoiDong {
+  id: string;
+  nguoiDungId?: string | null;
+  hoTenHienThi: string;
+  chucVuCongTac?: string | null;
+  donViCongTac?: string | null;
+  /** CHU_TICH | PHO_CHU_TICH | UY_VIEN_THU_KY | UY_VIEN | THU_KY */
+  chucDanh: string;
+  quyenChamDiem: boolean;
+  quyenNhanXet: boolean;
+  quyenBoPhieu: boolean;
+  quyenKyBienBan: boolean;
+  quyenKetLuan: boolean;
+  thuTu: number;
+  trangThai: number;
+}
+
+export interface PhienHopHoSoDto {
+  id: string;
+  sangKienId: string;
+  thuTu: number;
+  ketQua?: string | null;
+  ketLuanRieng?: string | null;
+}
+
+export interface PhienHopDiemDanhDto {
+  id: string;
+  thanhVienId: string;
+  coMat: boolean;
+  lyDoVang?: string | null;
+  thoiGianDiemDanh?: string | null;
+}
+
+export interface PhieuBoPhieuDto {
+  id: string;
+  sangKienId: string;
+  thanhVienId: string;
+  yKien: string;
+  ghiChu?: string | null;
+  laPhieuKin: boolean;
+  thoiGian: string;
+}
+
+export interface PhienHop {
+  id: string;
+  hoiDongId: string;
+  maPhien: string;
+  tenPhien: string;
+  thoiGianBatDau: string;
+  thoiGianKetThuc?: string | null;
+  diaDiem?: string | null;
+  /** TRUC_TIEP | TRUC_TUYEN | KET_HOP */
+  hinhThuc: string;
+  chuTriId?: string | null;
+  thuKyId?: string | null;
+  noiDung?: string | null;
+  ketLuan?: string | null;
+  /** DU_KIEN | DANG_DIEN_RA | DA_KET_THUC | DA_HUY */
+  trangThaiPhien: string;
+  danhSachHoSo: PhienHopHoSoDto[];
+  diemDanh: PhienHopDiemDanhDto[];
+  phieuBoPhieu: PhieuBoPhieuDto[];
+}
+
+export interface HoiDongChiTiet extends DanhMucDto {
+  cap: string;
+  dotDeNghiId?: string | null;
+  donViId?: string | null;
+  soQuyetDinhThanhLap?: string | null;
+  ngayQuyetDinh?: string | null;
+  thoiGianHoatDongTu?: string | null;
+  thoiGianHoatDongDen?: string | null;
+  linhVucPhuTrach: string[];
+  soThanhVienToiThieu: number;
+  tyLeThongQua: number;
+  /** DANG_HOAT_DONG | DA_KET_THUC */
+  trangThaiHoatDong: string;
+  thanhVien: ThanhVienHoiDong[];
+  phienHop: PhienHop[];
+}
+
+export interface KetQuaBoPhieu {
+  tongPhieu: number;
+  dongY: number;
+  khongDongY: number;
+  yKienKhac: number;
+  tyLeDongY: number;
+}
+
 export const apiHoiDong = {
-  ...taoApiDanhMuc('/api/v1/hoi-dong'),
+  ...taoApiDanhMuc<HoiDongChiTiet>('/api/v1/hoi-dong'),
   luuThanhVien: (id: string, danhSach: unknown[]) =>
     capNhatDuLieu(`/api/v1/hoi-dong/${id}/thanh-vien`, danhSach),
-  taoPhienHop: (duLieu: unknown) => guiDuLieu('/api/v1/hoi-dong/phien-hop', duLieu),
+  taoPhienHop: (duLieu: unknown) => guiDuLieu<PhienHop>('/api/v1/hoi-dong/phien-hop', duLieu),
+  phienHop: (id: string) => layDuLieu<PhienHop>(`/api/v1/hoi-dong/phien-hop/${id}`),
+  diemDanh: (phienHopId: string, duLieu: { thanhVienId: string; coMat: boolean; lyDoVang?: string }) =>
+    guiDuLieu(`/api/v1/hoi-dong/phien-hop/${phienHopId}/diem-danh`, duLieu),
   boPhieu: (duLieu: unknown) => guiDuLieu('/api/v1/hoi-dong/phien-hop/bo-phieu', duLieu),
+  ketQuaBoPhieu: (phienHopId: string, sangKienId: string) =>
+    layDuLieu<KetQuaBoPhieu>(`/api/v1/hoi-dong/phien-hop/${phienHopId}/ket-qua-bo-phieu`, {
+      params: { sangKienId },
+    }),
+  ketThucPhienHop: (phienHopId: string, ketLuan?: string) =>
+    guiDuLieu(`/api/v1/hoi-dong/phien-hop/${phienHopId}/ket-thuc`, { ketLuan }),
 };
 
 // --- Hệ thống --------------------------------------------------------------
@@ -892,3 +992,206 @@ export const apiNhapXuat = {
 };
 
 export type { PhanHoiPhanTrang };
+
+// --- Liên thông hệ thống ngoài (chức năng 16, 41) --------------------------
+
+export interface HeThongTichHop {
+  id: string;
+  ma: string;
+  ten: string;
+  endpointBase?: string | null;
+  /** API_KEY | HMAC | OAUTH2 */
+  loaiXacThuc: string;
+  clientId?: string | null;
+  daDatBiMat: boolean;
+  scope?: string | null;
+  /** THU_CONG | HANG_NGAY | HANG_TUAN */
+  tanSuatDongBo: string;
+  lanDongBoCuoi?: string | null;
+  trangThai: number;
+  cauHinhMapping?: Record<string, string> | null;
+}
+
+export interface LuuHeThongTichHop {
+  ma: string;
+  ten: string;
+  endpointBase?: string | null;
+  loaiXacThuc: string;
+  clientId?: string | null;
+  /** Bỏ trống khi sửa = giữ nguyên bí mật đang lưu. */
+  clientSecret?: string | null;
+  scope?: string | null;
+  tanSuatDongBo: string;
+  trangThai: number;
+  cauHinhMapping?: Record<string, string> | null;
+}
+
+export interface BanGhiDongBo {
+  maHoSo: string;
+  tenSangKien: string;
+  tacGiaChinh?: string | null;
+  donVi?: string | null;
+  linhVuc?: string | null;
+  tongDiem?: number | null;
+  mucCongNhan?: string | null;
+  soQuyetDinh?: string | null;
+  ngayCongNhan?: string | null;
+  nam?: number | null;
+}
+
+export interface KetQuaDongBo {
+  nhatKyId: string;
+  tenHeThong: string;
+  tongBanGhi: number;
+  thanhCong: number;
+  thatBai: number;
+  trangThai: string;
+  thongBaoLoi?: string | null;
+}
+
+export interface NhatKyDongBo {
+  id: string;
+  heThongTichHopId: string;
+  chieu: string;
+  loaiDuLieu?: string | null;
+  tongBanGhi: number;
+  thanhCong: number;
+  thatBai: number;
+  trangThaiDongBo: string;
+  thongBaoLoi?: string | null;
+  thoiGianBatDau: string;
+  thoiGianKetThuc?: string | null;
+}
+
+export const apiTichHop = {
+  danhSach: () => layDuLieu<HeThongTichHop[]>('/api/v1/tich-hop/he-thong'),
+  them: (duLieu: LuuHeThongTichHop) => guiDuLieu<string>('/api/v1/tich-hop/he-thong', duLieu),
+  sua: (id: string, duLieu: LuuHeThongTichHop) =>
+    capNhatDuLieu(`/api/v1/tich-hop/he-thong/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/tich-hop/he-thong/${id}`),
+  xemTruoc: (thamSo?: { dotDeNghiId?: string; nam?: number }) =>
+    layDuLieu<BanGhiDongBo[]>('/api/v1/tich-hop/xem-truoc', { params: thamSo }),
+  dongBo: (id: string, thamSo?: { dotDeNghiId?: string; nam?: number }) =>
+    guiDuLieu<KetQuaDongBo>(
+      `/api/v1/tich-hop/he-thong/${id}/dong-bo`,
+      undefined,
+      { params: thamSo },
+    ),
+  nhatKyDongBo: (heThongId?: string, soDong = 50) =>
+    layDuLieu<NhatKyDongBo[]>('/api/v1/tich-hop/nhat-ky-dong-bo', {
+      params: { heThongId, soDong },
+    }),
+};
+
+// --- Biểu mẫu xuất (chức năng 6) -------------------------------------------
+
+export interface TruongBieuMau {
+  placeholder: string;
+  nguon: string;
+  /** text | number | date | table */
+  kieu: string;
+  cot?: string[] | null;
+  dinhDangHienThi?: string | null;
+}
+
+export interface BieuMauXuat extends DanhMucDto {
+  /** PHIEU_TIEP_NHAN | PHIEU_DANH_GIA | BIEN_BAN_HOP | QUYET_DINH | TONG_HOP | KHAC */
+  loai: string;
+  /** DOCX | XLSX | PDF */
+  dinhDang: string;
+  fileTemplateId?: string | null;
+  cauHinhTruong: TruongBieuMau[];
+}
+
+export interface LuuBieuMauXuat {
+  ma: string;
+  ten: string;
+  moTa?: string | null;
+  thuTu: number;
+  trangThai: number;
+  loai: string;
+  dinhDang: string;
+  fileTemplateId?: string | null;
+  cauHinhTruong: TruongBieuMau[];
+}
+
+export const apiBieuMauXuat = taoApiDanhMuc<BieuMauXuat, LuuBieuMauXuat>(
+  '/api/v1/danh-muc/bieu-mau-xuat',
+);
+
+export interface TepTinDaTaiLen {
+  id: string;
+  tenGoc: string;
+  kichThuoc: number;
+  mimeType?: string | null;
+  phanMoRong: string;
+  hashSha256: string;
+  ngayTaiLen: string;
+}
+
+/** Tải một tệp lên kho dùng chung (không gắn vào hồ sơ nào). */
+export async function taiTepLen(tep: File): Promise<TepTinDaTaiLen> {
+  const form = new FormData();
+  form.append('tep', tep);
+
+  const { data } = await http.post<{ duLieu: TepTinDaTaiLen }>('/api/v1/tep-tin/tai-len', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  return data.duLieu;
+}
+
+// --- Bộ lọc yêu thích (chức năng 28) ---------------------------------------
+
+export interface BoLocYeuThich {
+  id: string;
+  manHinh: string;
+  ten: string;
+  /** Chuỗi query đã lưu, ví dụ "trangThaiTong=DA_NOP&linhVucId=..." */
+  thamSo: string;
+  macDinh: boolean;
+  ngayTao: string;
+}
+
+export const apiBoLoc = {
+  danhSach: (manHinh: string) =>
+    layDuLieu<BoLocYeuThich[]>('/api/v1/bo-loc-yeu-thich', { params: { manHinh } }),
+  luu: (duLieu: { manHinh: string; ten: string; thamSo: string; macDinh: boolean }) =>
+    guiDuLieu<string>('/api/v1/bo-loc-yeu-thich', duLieu),
+  datMacDinh: (id: string) => guiDuLieu(`/api/v1/bo-loc-yeu-thich/${id}/mac-dinh`),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/bo-loc-yeu-thich/${id}`),
+};
+
+// --- Đăng nhập một lần SSO (chức năng 21, 41) ------------------------------
+
+export const apiSso = {
+  trangThai: () => layDuLieu<{ daCauHinh: boolean }>('/api/v1/xac-thuc/sso/trang-thai'),
+  batDau: (duongDanTraVe: string) =>
+    layDuLieu<{ diaChi: string; state: string; codeVerifier: string }>(
+      '/api/v1/xac-thuc/sso/bat-dau',
+      { params: { duongDanTraVe } },
+    ),
+  doiMa: (duLieu: { code: string; codeVerifier: string; duongDanTraVe: string }) =>
+    guiDuLieu<KetQuaDangNhapSso>('/api/v1/xac-thuc/sso/doi-ma', duLieu),
+  diaChiDangXuat: (duLieu: { idToken?: string | null; duongDanTraVe: string }) =>
+    guiDuLieu<{ diaChi: string | null }>('/api/v1/xac-thuc/sso/dia-chi-dang-xuat', duLieu),
+};
+
+export interface KetQuaDangNhapSso {
+  accessToken: string;
+  refreshToken: string;
+  hetHanSau: number;
+  nguoiDung: {
+    id: string;
+    tenDangNhap: string;
+    hoTen: string;
+    email?: string | null;
+    chucVu?: string | null;
+    donViId?: string | null;
+    tenDonVi?: string | null;
+    vaiTro: string[];
+    quyen: string[];
+    mfaEnabled: boolean;
+  };
+  buocDoiMatKhau: boolean;
+}

@@ -26,6 +26,10 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | A6 | 43 | Gọi API bất kỳ khi chưa đăng nhập | HTTP 401 kèm mã lỗi `CHUA_XAC_THUC` | IT |
 | A7 | 45 | Đăng nhập `gv.lan` (tác giả), mở `/quan-tri/quy-trinh` | HTTP 403 `KHONG_CO_QUYEN`; menu Quản trị không hiển thị | IT |
 | A8 | 48 | So sánh menu của `admin` và `gv.lan` | Menu lọc theo quyền, tác giả chỉ thấy các mục được phép | KB |
+| A9 | 21, 41 | Để trống `SSO_ISSUER` trong `.env` rồi mở `/dang-nhap` | **Không** hiện nút "Đăng nhập một lần (SSO)" — không dẫn người dùng vào luồng chắc chắn lỗi | — |
+| A10 | 21, 41 | Khai báo `SSO_ISSUER`, `SSO_CLIENT_ID` rồi mở lại `/dang-nhap` | Hiện nút SSO; bấm vào chuyển sang nhà cung cấp kèm `state` và `code_challenge` (PKCE S256), `redirect_uri` = `<web>/dang-nhap/sso` | UT |
+| A11 | 21, 41 | Mở `/dang-nhap/sso?code=abc&state=sai-lech` | Báo "Phiên đăng nhập SSO không khớp" và không cấp token (chống CSRF) | — |
+| A12 | 41 | Đăng nhập bằng SSO rồi bấm Đăng xuất | Thu hồi phiên nội bộ, sau đó chuyển sang `end_session_endpoint` của nhà cung cấp (single logout); nhà cung cấp không công bố endpoint này thì chỉ đăng xuất cục bộ | UT |
 
 ## B. Danh mục hệ thống
 
@@ -67,6 +71,15 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | D7 | 34 | Thành viên hội đồng đồng thời là tác giả hồ sơ | Bị loại khỏi phân công; nếu cố chấm thì báo `XUNG_DOT_LOI_ICH` | — |
 | D8 | 35 | Thư ký mở bảng ma trận điểm | Hàng = hồ sơ, cột = thành viên; điểm chỉ hiện sau khi phiếu đã gửi | — |
 | D9 | 18 | Bộ tiêu chí bật "loại điểm cao/thấp", 5 phiếu | Loại 1 điểm cao nhất + 1 thấp nhất, trung bình 3 phiếu còn lại | UT |
+| D10 | 19 | Mở Xử lý & đánh giá → Hội đồng sáng kiến, bấm **Thành lập hội đồng** | Tạo được hội đồng kèm cấp, đợt, lĩnh vực phụ trách, số thành viên tối thiểu, tỷ lệ thông qua | IT |
+| D11 | 20 | Tab **Thành viên**, đặt hai người cùng chức danh Chủ tịch rồi Lưu | Nút Lưu bị khoá, cảnh báo "Hội đồng phải có đúng 1 Chủ tịch"; nếu gọi thẳng API thì trả `HOI_DONG_DA_CO_CHU_TICH` | UT |
+| D12 | 20 | Xoá bớt thành viên còn ít hơn số tối thiểu rồi Lưu | Bị chặn, nêu rõ số thành viên tối thiểu của hội đồng | UT |
+| D13 | 19 | Tab **Phiên họp** → Tạo phiên họp, chọn hồ sơ đưa ra xét | Phiên ở trạng thái Dự kiến, tự sinh mã phiên và tạo sẵn dòng điểm danh cho mọi thành viên | IT |
+| D14 | 19 | Trong phiên họp, tick **Có mặt** cho một thành viên | Điểm danh lưu ngay, tiêu đề tab đổi thành `Điểm danh (1/7)` | IT |
+| D15 | 19 | Thành viên có quyền bỏ phiếu bấm **Đồng ý** cho một hồ sơ | Ghi nhận phiếu, khối kiểm phiếu cập nhật tổng phiếu / đồng ý / tỷ lệ và nhãn Đạt–Chưa đạt ngưỡng thông qua | IT |
+| D16 | 19 | Người không thuộc hội đồng bỏ phiếu | Bị chặn: "Bạn không phải thành viên của hội đồng này" | UT |
+| D17 | 19 | Chủ tịch nhập kết luận rồi bấm **Kết thúc phiên** | Phiên chuyển Đã kết thúc, lưu kết luận; bỏ phiếu tiếp bị chặn "Phiên họp đã kết thúc" | IT |
+| D18 | 35 | Trong trang hội đồng bấm **Xuất phiếu chấm** | Tải về một tệp PDF gộp toàn bộ phiếu chấm của hội đồng | IT |
 
 ## E. Nộp và xử lý hồ sơ
 
@@ -110,13 +123,23 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | G6 | 40 | Mở Báo cáo → Theo đơn vị | Có tỷ lệ đạt từng đơn vị và dòng tổng cộng | KB |
 | G7 | 38 | Bấm Xuất Excel và Xuất PDF | Tệp tải về đúng định dạng, PDF theo mẫu văn bản hành chính | IT |
 | G8 | — | Mở Trang chủ | 4 chỉ số + 3 biểu đồ + top đơn vị + cảnh báo trùng lặp | KB |
+| G9 | 28 | Ở `/xu-ly` đặt bộ lọc, bấm **Lưu bộ lọc hiện tại**, tick "Đặt làm mặc định" | Bộ lọc xuất hiện trong danh sách kèm dấu ★ | IT |
+| G10 | 28 | Rời khỏi màn hình rồi mở lại `/xu-ly` không kèm tham số | Bộ lọc mặc định tự áp dụng, URL được điền lại đúng tiêu chí đã lưu | — |
+| G11 | 28 | Mở `/xu-ly?trangThaiTong=DA_NOP` (liên kết chia sẻ) | Giữ nguyên tiêu chí trên liên kết, **không** bị bộ lọc mặc định ghi đè | — |
+| G12 | 28 | Lưu bộ lọc trùng tên đã có | Ghi đè bộ lọc cũ thay vì báo lỗi trùng | UT |
+| G13 | 6 | Vào Quản trị → Danh mục → tab **Biểu mẫu xuất**, thêm biểu mẫu và tải tệp `.docx` mẫu | Hệ thống liệt kê placeholder `{{ }}` tìm được, kể cả placeholder bị Word cắt thành nhiều đoạn | UT |
+| G14 | 6 | Ánh xạ từng placeholder sang nguồn dữ liệu rồi Lưu | Mở lại biểu mẫu thấy đúng tệp mẫu và bảng ánh xạ đã lưu | IT |
+| G15 | 16 | Vào Quản trị → Liên thông hệ thống ngoài, thêm hệ thống kèm client secret | Danh sách hiện "Đã đặt bí mật"; giá trị bí mật **không** bao giờ trả về giao diện | IT |
+| G16 | 16 | Sửa hệ thống nhưng để trống ô bí mật | Bí mật cũ được giữ nguyên (vẫn "Đã đặt bí mật") | IT |
+| G17 | 41 | Bấm **Xem trước dữ liệu** | Bảng liệt kê sáng kiến đã công bố sẽ được đẩy đi, lọc được theo đợt và năm; không gửi gì cho hệ thống ngoài | IT |
+| G18 | 41 | Bấm **Đồng bộ** trên một hệ thống đang hoạt động | Báo số bản ghi thành công/thất bại và ghi một dòng vào tab Nhật ký đồng bộ | IT |
 
 ## H. Phi chức năng
 
 | # | Yêu cầu | Các bước kiểm chứng | Kết quả mong đợi |
 |---|---|---|---|
 | H1 | Tiếng Việt | Kiểm tra toàn bộ nhãn, thông báo lỗi | 100 % tiếng Việt có dấu, chuẩn NFC |
-| H2 | Responsive | Thu cửa sổ xuống 320px | Menu chuyển thành Drawer, bảng cuộn ngang, không vỡ bố cục |
+| H2 | Responsive (chức năng 42) | Mở trên điện thoại hoặc thu cửa sổ xuống 320px | Menu chuyển thành Drawer, bảng cuộn ngang trong khung riêng, không vỡ bố cục — đây là cách hệ thống đáp ứng yêu cầu dùng trên thiết bị di động |
 | H3 | Hiệu năng | Gọi API danh sách hồ sơ | P95 < 500 ms |
 | H4 | Hiệu năng | Tải trang lần đầu | < 3 s nhờ chia nhỏ gói theo route |
 | H5 | Bảo mật | Xem header phản hồi | Có đủ `X-Content-Type-Options`, `X-Frame-Options`, `CSP`, `Referrer-Policy` |

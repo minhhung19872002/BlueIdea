@@ -187,6 +187,18 @@ services:
       GioiHanTruyCap__SoRequestMoiPhut: "${GIOI_HAN_REQUEST:-100}"
       GioiHanTruyCap__SoLanDangNhapMoiPhut: "${GIOI_HAN_DANG_NHAP:-5}"
 
+      # Chuc nang 21, 41 - Dang nhap mot lan qua OIDC.
+      #
+      # De TRONG Sso__Issuer hoac Sso__ClientId = tat SSO: API bao "chua cau hinh" va trang
+      # dang nhap tu an nut "Dang nhap mot lan (SSO)". Nho vay ban trien khai chua co he thong
+      # SSO khong hien mot nut bam chac chan loi.
+      #
+      # Redirect URI phai dang ky voi nha cung cap dung dia chi: <dia-chi-web>/dang-nhap/sso
+      Sso__Issuer: "${SSO_ISSUER:-}"
+      Sso__ClientId: "${SSO_CLIENT_ID:-}"
+      Sso__ClientSecret: "${SSO_CLIENT_SECRET:-}"
+      Sso__Scope: "${SSO_SCOPE:-openid profile email}"
+
       # Quet ma doc tep tai len.
       QuetVirus__Bat: "${QUET_VIRUS:-true}"
       QuetVirus__Host: clamav
