@@ -1,15 +1,15 @@
 {
     "status":  "RUNNING",
-    "iteration":  15,
-    "currentRequirement":  "REQ-21, REQ-43",
-    "currentBacklogItem":  "REQ-21/REQ-43 SEC MEDIUM: GoMfaChoNguoiKhacAsync + DatLaiMatKhauAsync cross-tenant IDOR",
+    "iteration":  16,
+    "currentRequirement":  "REQ-12",
+    "currentBacklogItem":  "REQ-12: HanhDongCanChay full dispatch loop — centralized DichVuDieuPhaiHanhDong",
     "phase":  "committing",
-    "lastCompletedItem":  "REQ-21/REQ-43 SEC MEDIUM: GoMfaChoNguoiKhacAsync + DatLaiMatKhauAsync cross-tenant IDOR",
-    "lastQualityGateResult":  "PASS (7/7, 309 unit tests, 165 integration tests, 0 warnings)",
+    "lastCompletedItem":  "REQ-12: HanhDongCanChay full dispatch loop — centralized DichVuDieuPhaiHanhDong",
+    "lastQualityGateResult":  "PASS (7/7, 319 unit tests, 165 integration tests, 0 warnings)",
     "readyForDeploy":  false,
-    "lastSession":  "ee80d6b8-e08c-4761-b683-04f217105751",
-    "lastUpdated":  "2026-08-18T22:30:00+07:00",
-    "lastCommit":  "e0b6943",
+    "lastSession":  "13059f4b-ca33-41a0-b3b3-079e568515b0",
+    "lastUpdated":  "2026-08-18T23:30:00+07:00",
+    "lastCommit":  "1c1537b",
     "lastPush":  null,
     "consecutiveInfraFailures":  0,
     "history":  [
@@ -127,7 +127,7 @@
                         "items":  [
                                       "REQ-21 SEC LOW (MFA recovery codes SHA-256 → Argon2id upgrade)",
                                       "REQ-21 SEC HIGH (TatAsync null-MfaSecret bypass — undecryptable secret skipped MFA check)",
-                                      "REQ-21 SEC MEDIUM (DungMaKhoiPhuc format guard — prevent TOTP fallthrough to 10× Argon2id)"
+                                      "REQ-21 SEC MEDIUM (DungMaKhoiPhuc format guard — prevent TOTP fallthrough to 10x Argon2id)"
                                   ],
                         "result":  "PASS",
                         "phase":  "committing"
@@ -137,6 +137,14 @@
                         "items":  [
                                       "REQ-21 SEC MEDIUM (GoMfaChoNguoiKhacAsync cross-tenant IDOR — org-scope + self-reset block + session revocation + audit log)",
                                       "REQ-43 SEC MEDIUM (DatLaiMatKhauAsync cross-tenant IDOR — org-scope enforcement)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  16,
+                        "items":  [
+                                      "REQ-12 (HanhDongCanChay full dispatch loop — centralized DichVuDieuPhaiHanhDong replacing duplicated DieuPhaiLienThongAsync)"
                                   ],
                         "result":  "PASS",
                         "phase":  "committing"

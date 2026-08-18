@@ -1,86 +1,44 @@
-# Iteration 15 — REQ-21/REQ-43 SEC: Cross-Tenant IDOR in Admin MFA Reset + Password Reset
+# Iteration 16 — REQ-12: HanhDongCanChay Full Dispatch Loop
 
 ## What Was Worked On
 
-Two tightly related cross-tenant IDOR vulnerabilities in admin user management:
-
-1. **SEC MEDIUM: GoMfaChoNguoiKhacAsync IDOR** (REQ-21) — Any admin with `NGUOI_DUNG.DAT_LAI_MAT_KHAU` could strip MFA from users in other organizations via `POST /api/v1/xac-thuc/mfa/go/{guid}`. No org-scope check, no audit log, no session revocation.
-2. **SEC MEDIUM: DatLaiMatKhauAsync IDOR** (REQ-43) — Same permission allowed cross-org password resets via `POST /api/v1/he-thong/nguoi-dung/{id}/dat-lai-mat-khau`. No org-scope check.
+REQ-12 gap: 7 of 10 configured workflow action types (HanhDongCanChay) were silently dropped after workflow transitions. Both `ThucThiBuocCommandHandler` and `ThucThiHangLoatCommandHandler` had duplicated `DieuPhaiLienThongAsync` methods that only handled `DONG_BO_LIEN_THONG` and ignored the other 7 non-notification actions.
 
 ## What Was Accomplished
 
-### Fix 1: GoMfaChoNguoiKhacAsync (DichVuMfa)
+1. **Created `DichVuDieuPhaiHanhDong`** — centralized dispatch service that routes all 10 action types:
+   - `DONG_BO_LIEN_THONG`: Implemented (absorbed from handlers)
+   - `KIEM_TRA_TRUNG_LAP`: Implemented (schedules background similarity check)
+   - `CAP_NHAT_KET_QUA`: Recognized but deferred — `BoMayQuyTrinh.ChuyenBuoc` already writes `hoSo.KetQua` at engine level (lines 328/332), making a dispatch handler redundant
+   - `GUI_EMAIL`/`GUI_SMS`: Skipped (handled via `GuiThongBaoAsync` + `ChucNangBat` channel gating)
+   - 5 remaining actions log warnings for manual handling
 
-- Added `IDichVuPhanQuyen` and `IDichVuNhatKy` as constructor dependencies
-- Self-reset guard: `nguoiDungId == _nguoiDungHienTai.Id` throws `DuLieuKhongHopLe` (admin must use TatAsync with password+TOTP to disable own MFA)
-- Defense-in-depth: `BatBuocCoQuyenAsync(NguoiDungDatLaiMatKhau, nguoiDungId)` — permission check at service level (controller also checks via policy)
-- Org-scope: `BatBuocNguoiDungTrongPhamViAsync` — verifies target user's `DonViId` is in caller's `PhamViTruyCap.DonViIds`. `ToanHeThong` passes, `ChiCaNhan` and null `DonViId` are denied. Throws `KhongTimThay` (404) to avoid leaking existence.
-- Session revocation: all active refresh tokens for target user are revoked (matching `DatLaiMatKhauAsync` pattern)
-- Audit log: `GO_MFA_NGUOI_KHAC` action logged via `IDichVuNhatKy.GhiAsync` with before-state (MfaEnabled, MfaNgayBat)
+2. **Removed duplicated code** — deleted `DieuPhaiLienThongAsync` from both handlers (~106 lines of duplication), replaced with single `_dieuPhai.DieuPhaiAsync()` call
 
-### Fix 2: DatLaiMatKhauAsync (DichVuQuanTriNguoiDung)
+3. **Error isolation** — per-action try/catch ensures one failure cannot block others
 
-- Added `INguoiDungHienTai` as constructor dependency
-- Added `BatBuocNguoiDungTrongPhamViAsync` call after loading target user — same org-scope enforcement pattern
-- Throws `KhongTimThayException` (404) for out-of-scope targets
+4. **Removed redundant CAP_NHAT_KET_QUA handler** — security review discovered that `BoMayQuyTrinh.ChuyenBuoc` already writes `hoSo.KetQua` before the dispatch runs. The handler would have produced a misleading audit trail (before=DAT, after=DAT). Converted to a debug log.
 
-### Fix 3: Controller comment (MfaController)
-
-- Corrected misleading Swagger comment that falsely claimed audit logging
-
-## Code Review Findings
-
-- **MAJOR (no audit log)**: FIXED — added `IDichVuNhatKy` and `GhiAsync` call
-- **MAJOR (no integration test)**: Acknowledged — env lacks Docker for Testcontainers. Documented as gap.
-- **MINOR (discarded doiTuongId)**: Known (TD-005). Keeping for audit context.
-- **MINOR (null DonViId)**: Correct — org-unbound users managed only by ToanHeThong admins.
-- **SUGGESTION (DatLaiMatKhauAsync)**: FIXED in this iteration.
-
-## Security Review Findings
-
-- **HIGH (missing audit log)**: FIXED — GO_MFA_NGUOI_KHAC action with before-state
-- **HIGH (self-bypass)**: FIXED — self-reset blocked, must use TatAsync with password+TOTP
-- **HIGH (missing session revocation)**: FIXED — refresh tokens revoked matching DatLaiMatKhauAsync pattern
-- **MEDIUM (MediatR bypass)**: Pre-existing architecture — DichVuMfa is a DI service, not MediatR handler. Mitigated by service-level checks. Noted for backlog.
-- **MEDIUM (code duplication)**: BatBuocNguoiDungTrongPhamViAsync duplicated in two services. Noted for backlog extraction.
-- **LOW (timing side-channel)**: Response timing differs for non-existent vs out-of-scope users. Accepted — requires network-level precision.
-- **LOW (stale permission cache)**: 2-minute cache TTL is system-wide tradeoff. Accepted.
-- **INFO (misleading comment)**: FIXED — updated MfaController Swagger comment
-- **INFO (doiTuongId discarded)**: Known (TD-005), pre-existing
-
-## Quality Gate Result
-
-PASS — 7/7 checks, 309 unit tests, 165 integration tests, 0 warnings, frontend typecheck + build clean.
+5. **10 unit tests** verify constant values, action routing, and dispatch filtering logic
 
 ## Files Changed
 
-- `src/BlueIdea.Application/XacThuc/DichVuMfa.cs` — org-scope, self-reset guard, session revocation, audit log
-- `src/BlueIdea.Application/QuanTri/DichVuQuanTriNguoiDung.cs` — org-scope for password reset
-- `src/BlueIdea.Api/Controllers/MfaController.cs` — corrected Swagger comment
-- `docs/requirements/traceability.yaml` — REQ-21 and REQ-43 notes updated
-- `docs/autopilot/STATE.json` — iteration 15
-- `docs/autopilot/LAST-ITERATION.md` — this file
+- `src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs` (NEW)
+- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` (MODIFIED — removed duplication, wired dispatch)
+- `src/BlueIdea.Application/Chung/DangKyDichVuUngDung.cs` (MODIFIED — DI registration)
+- `tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs` (NEW)
+- `docs/requirements/traceability.yaml` (MODIFIED — updated REQ-12 evidence and gaps)
 
-## Commit Hash
+## Quality Gate
 
-e0b6943 (security fix), state commit pending
+PASS (7/7, 319 unit tests + 165 integration tests, 0 warnings)
 
-## Next Priority Items
+## Commit
 
-1. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong + GuiThongBao)
-2. TD-005: DoiTuongId object-level scope checking in KiemTraQuyenAsync (MEDIUM, systemic)
-3. NguoiDung UseXminAsConcurrencyToken — concurrent recovery code race condition
-4. BatBuocNguoiDungTrongPhamViAsync extraction into shared service (code duplication)
-5. GoMfaChoNguoiKhacAsync refactor to MediatR Command (pipeline compliance)
+`1c1537b` — `feat: centralize HanhDongCanChay dispatch loop (REQ-12)`
 
-## Known Limitations
+## Remaining Gaps
 
-- No integration test for admin MFA reset IDOR fix (env lacks Docker for Testcontainers)
-- No integration test for password reset IDOR fix (same constraint)
-- BatBuocNguoiDungTrongPhamViAsync duplicated across DichVuMfa and DichVuQuanTriNguoiDung
-- GoMfaChoNguoiKhacAsync bypasses MediatR pipeline (pre-existing, mitigated by service-level checks)
-- 2-minute permission cache TTL could allow brief window after role demotion (system-wide tradeoff)
-
-## Blockers Discovered
-
-None.
+- 5 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, TAO_BIEN_BAN, PHAN_CONG_CHAM, CONG_BO_KET_QUA) log warnings — require future implementation when business logic is defined
+- No runtime integration test for feature toggles affecting live workflow execution
+- Change tracker pollution between dispatch actions sharing scoped DbContext (pre-existing architectural pattern)
