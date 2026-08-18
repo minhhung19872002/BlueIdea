@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { App, Button, Card, ColorPicker, Input, InputNumber, Space, Switch } from 'antd';
+import { Alert, App, Button, Card, ColorPicker, Input, InputNumber, Space, Switch } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -214,6 +214,16 @@ export default function TrangCauHinhHeThong() {
       }
     >
       <DaiTabTrang danhSach={DS_TAB_CAU_HINH} dangChon={nhom} />
+
+      {dsMuc.length === 0 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginTop: 12 }}
+          message="Nhóm này chưa có mục cấu hình nào"
+          description="Không phải lỗi — nhóm được khai báo nhưng chưa có khoá nào thuộc về nó. Chọn một tab khác ở trên."
+        />
+      )}
 
       <BieuMau
         id="form-cau-hinh"

@@ -42,6 +42,7 @@ import {
 } from '@/components/bieu-mau/luat';
 import { apiDonVi, type NutCay } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
+import { useParams } from 'react-router-dom';
 import { ONhapAnhCauHinh } from '@/components/ONhapAnhCauHinh';
 
 interface DonVi {
@@ -86,7 +87,14 @@ export default function TrangDonVi() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
 
-  const [chonId, setChonId] = useState<string | null>(null);
+  /*
+   * Nhận đơn vị cần mở từ địa chỉ (chức năng 47 — `/quan-tri/don-vi/:id/cau-hinh`).
+   *
+   * Đặc tả trỏ thẳng tới địa chỉ có id, nên vào đó phải mở sẵn đúng đơn vị ấy chứ không bắt người
+   * dùng tự tìm lại trên cây; đây cũng là địa chỉ mà tài liệu nghiệm thu dẫn tới.
+   */
+  const { id: idTuDiaChi } = useParams<{ id: string }>();
+  const [chonId, setChonId] = useState<string | null>(idTuDiaChi ?? null);
   const [moForm, setMoForm] = useState(false);
   const [suaId, setSuaId] = useState<string | null>(null);
   const [chaMacDinh, setChaMacDinh] = useState<string | null>(null);
