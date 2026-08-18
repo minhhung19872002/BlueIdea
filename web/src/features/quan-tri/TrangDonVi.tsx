@@ -1,10 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   App,
   Button,
   Card,
   Col,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -29,7 +28,18 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DataNode } from 'antd/es/tree';
 
+import { z } from 'zod';
+
 import { LoiApi, layDuLieu } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import {
+  batBuoc,
+  dienThoai,
+  email,
+  maDanhMuc,
+  soNguyen,
+  tuyChon,
+} from '@/components/bieu-mau/luat';
 import { apiDonVi, type NutCay } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
 
@@ -387,25 +397,43 @@ function chuyenDoi(danhSach: NutCay[]): DataNode[] {
 
 // ---------------------------------------------------------------------------
 
-interface GiaTriFormDonVi {
-  ma: string;
-  ten: string;
-  tenVietTat?: string;
-  donViChaId?: string;
-  loai: string;
-  moTa?: string;
-  thuTu: number;
-  diaChi?: string;
-  dienThoai?: string;
-  email?: string;
-  nguoiDaiDien?: string;
-  chucVuNguoiDaiDien?: string;
-  laDonViPheDuyet: boolean;
-  capPheDuyet?: string;
-  tieuDeVanBan?: string;
-  nguoiKyMacDinh?: string;
-  chucVuNguoiKyMacDinh?: string;
-}
+/**
+ * Luật kiểm tra đơn vị.
+ *
+ * Bật "Đơn vị phê duyệt" thì bắt buộc chọn cấp phê duyệt: thiếu cấp thì đơn vị đó không bao giờ
+ * được xếp vào luồng xét duyệt nào, mà giao diện lại hiện như đã cấu hình xong.
+ */
+const luatDonVi = z
+  .object({
+    ma: maDanhMuc(),
+    ten: batBuoc('Tên đơn vị'),
+    tenVietTat: tuyChon(100),
+    donViChaId: z.string().uuid().optional().nullable(),
+    loai: z.string(),
+    moTa: tuyChon(),
+    thuTu: soNguyen('Thứ tự', 0, 9999),
+    diaChi: tuyChon(500),
+    dienThoai: dienThoai,
+    email: email,
+    nguoiDaiDien: tuyChon(200),
+    chucVuNguoiDaiDien: tuyChon(200),
+    laDonViPheDuyet: z.boolean(),
+    capPheDuyet: z.string().optional().nullable(),
+    tieuDeVanBan: tuyChon(300),
+    nguoiKyMacDinh: tuyChon(200),
+    chucVuNguoiKyMacDinh: tuyChon(200),
+  })
+  .superRefine((v, ctx) => {
+    if (v.laDonViPheDuyet && !v.capPheDuyet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['capPheDuyet'],
+        message: 'Đơn vị phê duyệt phải có cấp phê duyệt.',
+      });
+    }
+  });
+
+type GiaTriFormDonVi = z.infer<typeof luatDonVi>;
 
 function FormDonVi({
   id,
@@ -419,13 +447,53 @@ function FormDonVi({
   onXong: () => void;
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm<GiaTriFormDonVi>();
-
   const { data: chiTiet, isLoading } = useQuery({
     queryKey: ['don-vi-chi-tiet', id],
     queryFn: () => layDuLieu<DonVi>(`/api/v1/don-vi/${id}`),
     enabled: !!id,
   });
+
+  const form = useBieuMau(luatDonVi, {
+    ma: '',
+    ten: '',
+    donViChaId: donViChaMacDinh ?? undefined,
+    loai: 'DON_VI',
+    thuTu: 0,
+    laDonViPheDuyet: false,
+  } as GiaTriFormDonVi);
+
+  /**
+   * Nạp lại form khi chi tiết đơn vị về.
+   *
+   * `useForm` chốt giá trị mặc định ngay lần dựng đầu, lúc đó truy vấn chi tiết còn chạy — không
+   * nạp lại thì mở "Sửa" sẽ ra form trắng.
+   */
+  useEffect(() => {
+    if (!chiTiet) return;
+
+    form.reset({
+      ma: chiTiet.ma,
+      ten: chiTiet.ten,
+      tenVietTat: chiTiet.tenVietTat ?? undefined,
+      donViChaId: chiTiet.donViChaId ?? undefined,
+      loai: chiTiet.loai,
+      moTa: chiTiet.moTa ?? undefined,
+      thuTu: chiTiet.thuTu,
+      diaChi: chiTiet.diaChi ?? undefined,
+      dienThoai: chiTiet.dienThoai ?? undefined,
+      email: chiTiet.email ?? undefined,
+      nguoiDaiDien: chiTiet.nguoiDaiDien ?? undefined,
+      chucVuNguoiDaiDien: chiTiet.chucVuNguoiDaiDien ?? undefined,
+      laDonViPheDuyet: chiTiet.laDonViPheDuyet,
+      capPheDuyet: chiTiet.capPheDuyet ?? undefined,
+      tieuDeVanBan: chiTiet.tieuDeVanBan ?? undefined,
+      nguoiKyMacDinh: chiTiet.nguoiKyMacDinh ?? undefined,
+      chucVuNguoiKyMacDinh: chiTiet.chucVuNguoiKyMacDinh ?? undefined,
+    } as GiaTriFormDonVi);
+  }, [chiTiet, form]);
+
+  // Ô "Cấp phê duyệt" chỉ hiện khi bật công tắc — đọc thẳng từ form thay vì giữ state song song.
+  const laDonViPheDuyet = form.watch('laDonViPheDuyet');
 
   const { data: cacDonVi } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
 
@@ -439,10 +507,8 @@ function FormDonVi({
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
 
-  async function xacNhan() {
-    const giaTri = await form.validateFields();
-
-    luu.mutate({
+  function xacNhan(giaTri: GiaTriFormDonVi) {
+    return luu.mutateAsync({
       ...giaTri,
       trangThai: chiTiet?.trangThai ?? 1,
       capPheDuyet: giaTri.laDonViPheDuyet ? giaTri.capPheDuyet : null,
@@ -467,157 +533,157 @@ function FormDonVi({
       title={id ? `Sửa đơn vị ${chiTiet?.ma ?? ''}` : 'Thêm đơn vị'}
       okText={id ? 'Lưu thay đổi' : 'Thêm'}
       cancelText="Huỷ"
-      confirmLoading={luu.isPending}
-      onOk={xacNhan}
+      confirmLoading={luu.isPending || form.formState.isSubmitting}
+      okButtonProps={{ htmlType: 'submit', form: 'form-don-vi' }}
       onCancel={onDong}
       destroyOnClose
     >
-      <Form<GiaTriFormDonVi>
-        form={form}
-        layout="vertical"
-        initialValues={{
-          ma: chiTiet?.ma ?? '',
-          ten: chiTiet?.ten ?? '',
-          tenVietTat: chiTiet?.tenVietTat ?? undefined,
-          donViChaId: chiTiet?.donViChaId ?? donViChaMacDinh ?? undefined,
-          loai: chiTiet?.loai ?? 'DON_VI',
-          moTa: chiTiet?.moTa ?? undefined,
-          thuTu: chiTiet?.thuTu ?? 0,
-          diaChi: chiTiet?.diaChi ?? undefined,
-          dienThoai: chiTiet?.dienThoai ?? undefined,
-          email: chiTiet?.email ?? undefined,
-          nguoiDaiDien: chiTiet?.nguoiDaiDien ?? undefined,
-          chucVuNguoiDaiDien: chiTiet?.chucVuNguoiDaiDien ?? undefined,
-          laDonViPheDuyet: chiTiet?.laDonViPheDuyet ?? false,
-          capPheDuyet: chiTiet?.capPheDuyet ?? undefined,
-          tieuDeVanBan: chiTiet?.tieuDeVanBan ?? undefined,
-          nguoiKyMacDinh: chiTiet?.nguoiKyMacDinh ?? undefined,
-          chucVuNguoiKyMacDinh: chiTiet?.chucVuNguoiKyMacDinh ?? undefined,
-        }}
-      >
+      <BieuMau id="form-don-vi" form={form} onGui={xacNhan}>
         <Row gutter={12}>
           <Col xs={24} md={8}>
-            <Form.Item name="ma" label="Mã" rules={[{ required: true, message: 'Nhập mã đơn vị' }]}>
-              <Input placeholder="VD: PGD-01" />
-            </Form.Item>
+            <Truong<GiaTriFormDonVi> ten="ma" label="Mã" required>
+              {(o) => <Input {...o} value={o.value as string} placeholder="VD: PGD-01" />}
+            </Truong>
           </Col>
           <Col xs={24} md={10}>
-            <Form.Item name="ten" label="Tên" rules={[{ required: true, message: 'Nhập tên' }]}>
-              <Input placeholder="Phòng Giáo dục và Đào tạo" />
-            </Form.Item>
+            <Truong<GiaTriFormDonVi> ten="ten" label="Tên" required>
+              {(o) => (
+                <Input {...o} value={o.value as string} placeholder="Phòng Giáo dục và Đào tạo" />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={6}>
-            <Form.Item name="tenVietTat" label="Tên viết tắt">
-              <Input placeholder="PGDĐT" />
-            </Form.Item>
+            <Truong<GiaTriFormDonVi> ten="tenVietTat" label="Tên viết tắt">
+              {(o) => <Input {...o} value={o.value as string} placeholder="PGDĐT" />}
+            </Truong>
           </Col>
         </Row>
 
         <Row gutter={12}>
           <Col xs={24} md={10}>
-            <Form.Item name="donViChaId" label="Đơn vị cấp trên">
+            <Truong<GiaTriFormDonVi> ten="donViChaId" label="Đơn vị cấp trên">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Không có (đơn vị gốc)"
+                  options={donViCha.map((x) => ({ value: x.id, label: x.ten }))}
+                />
+              )}
+            </Truong>
+          </Col>
+          <Col xs={24} md={8}>
+            <Truong<GiaTriFormDonVi> ten="loai" label="Loại">
+              {(o) => <Select {...o} value={o.value as string} options={LOAI_DON_VI} />}
+            </Truong>
+          </Col>
+          <Col xs={24} md={6}>
+            <Truong<GiaTriFormDonVi> ten="thuTu" label="Thứ tự">
+              {(o) => (
+                <InputNumber<number>
+                  {...o}
+                  value={o.value as number}
+                  min={0}
+                  style={{ width: '100%' }}
+                />
+              )}
+            </Truong>
+          </Col>
+        </Row>
+
+        <Row gutter={12}>
+          <Col xs={24} md={12}>
+            <Truong<GiaTriFormDonVi> ten="nguoiDaiDien" label="Người đại diện">
+              {(o) => <Input {...o} value={o.value as string} />}
+            </Truong>
+          </Col>
+          <Col xs={24} md={12}>
+            <Truong<GiaTriFormDonVi> ten="chucVuNguoiDaiDien" label="Chức vụ người đại diện">
+              {(o) => <Input {...o} value={o.value as string} />}
+            </Truong>
+          </Col>
+        </Row>
+
+        <Truong<GiaTriFormDonVi> ten="diaChi" label="Địa chỉ">
+          {(o) => <Input {...o} value={o.value as string} />}
+        </Truong>
+
+        <Row gutter={12}>
+          <Col xs={24} md={8}>
+            <Truong<GiaTriFormDonVi> ten="dienThoai" label="Điện thoại">
+              {(o) => <Input {...o} value={o.value as string} />}
+            </Truong>
+          </Col>
+          <Col xs={24} md={8}>
+            <Truong<GiaTriFormDonVi> ten="email" label="Email">
+              {(o) => <Input {...o} value={o.value as string} />}
+            </Truong>
+          </Col>
+          <Col xs={24} md={8}>
+            <Truong<GiaTriFormDonVi> ten="laDonViPheDuyet" label="Đơn vị phê duyệt">
+              {(o) => (
+                <Switch
+                  checked={!!o.value}
+                  onChange={o.onChange}
+                  checkedChildren="Có"
+                  unCheckedChildren="Không"
+                />
+              )}
+            </Truong>
+          </Col>
+        </Row>
+
+        {laDonViPheDuyet && (
+          <Truong<GiaTriFormDonVi> ten="capPheDuyet" label="Cấp phê duyệt" required>
+            {(o) => (
               <Select
+                {...o}
+                value={o.value as string | undefined}
                 allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="Không có (đơn vị gốc)"
-                options={donViCha.map((x) => ({ value: x.id, label: x.ten }))}
+                options={CAP_PHE_DUYET}
               />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="loai" label="Loại">
-              <Select options={LOAI_DON_VI} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="thuTu" label="Thứ tự">
-              <InputNumber<number> min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={12}>
-          <Col xs={24} md={12}>
-            <Form.Item name="nguoiDaiDien" label="Người đại diện">
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="chucVuNguoiDaiDien" label="Chức vụ người đại diện">
-              <Input />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item name="diaChi" label="Địa chỉ">
-          <Input />
-        </Form.Item>
-
-        <Row gutter={12}>
-          <Col xs={24} md={8}>
-            <Form.Item name="dienThoai" label="Điện thoại">
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item
-              name="email"
-              label="Email"
-              rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
-            >
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="laDonViPheDuyet" label="Đơn vị phê duyệt" valuePropName="checked">
-              <Switch checkedChildren="Có" unCheckedChildren="Không" />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item
-          noStyle
-          shouldUpdate={(truoc, sau) => truoc.laDonViPheDuyet !== sau.laDonViPheDuyet}
-        >
-          {({ getFieldValue }) =>
-            getFieldValue('laDonViPheDuyet') ? (
-              <Form.Item name="capPheDuyet" label="Cấp phê duyệt">
-                <Select allowClear options={CAP_PHE_DUYET} />
-              </Form.Item>
-            ) : null
-          }
-        </Form.Item>
+            )}
+          </Truong>
+        )}
 
         <Typography.Title level={5} style={{ fontSize: 13, marginTop: 8 }}>
           Cấu hình văn bản của đơn vị (chức năng 47)
         </Typography.Title>
 
-        <Form.Item
-          name="tieuDeVanBan"
+        <Truong<GiaTriFormDonVi>
+          ten="tieuDeVanBan"
           label="Tiêu đề văn bản"
           tooltip="Dòng cơ quan chủ quản in ở đầu quyết định và các biểu mẫu xuất ra."
         >
-          <Input placeholder="ỦY BAN NHÂN DÂN THÀNH PHỐ ..." />
-        </Form.Item>
+          {(o) => (
+            <Input
+              {...o}
+              value={o.value as string}
+              placeholder="ỦY BAN NHÂN DÂN THÀNH PHỐ ..."
+            />
+          )}
+        </Truong>
 
         <Row gutter={12}>
           <Col xs={24} md={12}>
-            <Form.Item name="nguoiKyMacDinh" label="Người ký mặc định">
-              <Input />
-            </Form.Item>
+            <Truong<GiaTriFormDonVi> ten="nguoiKyMacDinh" label="Người ký mặc định">
+              {(o) => <Input {...o} value={o.value as string} />}
+            </Truong>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="chucVuNguoiKyMacDinh" label="Chức vụ người ký mặc định">
-              <Input />
-            </Form.Item>
+            <Truong<GiaTriFormDonVi> ten="chucVuNguoiKyMacDinh" label="Chức vụ người ký mặc định">
+              {(o) => <Input {...o} value={o.value as string} />}
+            </Truong>
           </Col>
         </Row>
 
-        <Form.Item name="moTa" label="Ghi chú">
-          <Input.TextArea rows={2} />
-        </Form.Item>
-      </Form>
+        <Truong<GiaTriFormDonVi> ten="moTa" label="Ghi chú">
+          {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+        </Truong>
+      </BieuMau>
     </Modal>
   );
 }
