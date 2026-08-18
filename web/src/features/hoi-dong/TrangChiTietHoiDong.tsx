@@ -33,9 +33,11 @@ import dayjs from 'dayjs';
 
 import { layPhanTrang, LoiApi, taiTep } from '@/api/client';
 import {
+  apiDanhGia,
   apiHoiDong,
   apiNhapXuat,
   apiSangKien,
+  type DongMaTranDiem,
   type PhienHop,
   type ThanhVienHoiDong,
 } from '@/api/endpoints';
@@ -357,6 +359,11 @@ export default function TrangChiTietHoiDong() {
                 )}
               </>
             ),
+          },
+          {
+            key: 'ma-tran-diem',
+            label: 'Ma trận điểm',
+            children: <BangMaTranDiem hoiDongId={id} dotDeNghiId={hoiDong.dotDeNghiId} />,
           },
         ]}
       />
@@ -1067,5 +1074,145 @@ function TheHoSoBoPhieu({
         </Col>
       </Row>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+const TRANG_THAI_PHIEU: Record<string, { mau: string; ten: string }> = {
+  CHUA_CHAM: { mau: 'default', ten: 'Chưa chấm' },
+  NHAP: { mau: 'processing', ten: 'Đang chấm' },
+  DA_GUI: { mau: 'success', ten: 'Đã gửi' },
+  DA_KY: { mau: 'success', ten: 'Đã ký' },
+};
+
+/**
+ * Chức năng 35 — Bảng ma trận điểm: hàng là hồ sơ, cột là thành viên.
+ *
+ * Điểm chỉ hiện sau khi phiếu đã gửi (nguyên tắc chấm điểm độc lập). Thư ký mở lại được phiếu
+ * đã gửi ngay trên bảng khi thành viên chấm nhầm.
+ */
+function BangMaTranDiem({
+  hoiDongId,
+  dotDeNghiId,
+}: {
+  hoiDongId: string;
+  dotDeNghiId?: string | null;
+}) {
+  const { message, modal } = App.useApp();
+  const queryClient = useQueryClient();
+  const duocMoLai = useAuthStore((s) => s.coQuyen('DANH_GIA.MO_LAI_PHIEU'));
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['ma-tran-diem', hoiDongId, dotDeNghiId],
+    queryFn: () => apiDanhGia.maTranDiem(hoiDongId, dotDeNghiId ?? undefined),
+  });
+
+  const moLai = useMutation({
+    mutationFn: (phieuId: string) => apiDanhGia.moLaiPhieu(phieuId),
+    onSuccess: () => {
+      message.success('Đã mở lại phiếu — thành viên sửa và gửi lại được');
+      void queryClient.invalidateQueries({ queryKey: ['ma-tran-diem', hoiDongId] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không mở lại được.'),
+  });
+
+  if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
+
+  const thanhVien = data?.[0]?.diemThanhVien ?? [];
+
+  return (
+    <>
+      <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+        Điểm chỉ hiển thị sau khi thành viên đã <strong>gửi</strong> phiếu — bảo đảm nguyên tắc chấm
+        điểm độc lập.
+        {duocMoLai && ' Bấm vào ô đã gửi để mở lại phiếu cho thành viên sửa.'}
+      </Typography.Paragraph>
+
+      <Table<DongMaTranDiem>
+        rowKey="sangKienId"
+        size="small"
+        loading={isLoading}
+        dataSource={data ?? []}
+        scroll={{ x: 400 + thanhVien.length * 150 }}
+        locale={{
+          emptyText: (
+            <KhoiRong moTa="Hội đồng chưa được phân công chấm hồ sơ nào (hoặc chưa có hồ sơ thuộc đợt này)." />
+          ),
+        }}
+        columns={[
+          {
+            title: 'Hồ sơ',
+            dataIndex: 'maHoSo',
+            width: 260,
+            fixed: 'left',
+            render: (v: string, dong) => (
+              <Space direction="vertical" size={0}>
+                <Link to={`/sang-kien/${dong.sangKienId}`}>{v}</Link>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {dong.tenSangKien}
+                </Typography.Text>
+              </Space>
+            ),
+          },
+          ...thanhVien.map((tv, viTri) => ({
+            title: tv.tenThanhVien,
+            key: tv.thanhVienId,
+            width: 150,
+            align: 'center' as const,
+            render: (_v: unknown, dong: DongMaTranDiem) => {
+              const o = dong.diemThanhVien[viTri];
+              if (!o) return '—';
+
+              const nhan = TRANG_THAI_PHIEU[o.trangThai] ?? { mau: 'default', ten: o.trangThai };
+              const daGui = o.trangThai === 'DA_GUI' || o.trangThai === 'DA_KY';
+
+              return (
+                <Space direction="vertical" size={2}>
+                  <Typography.Text strong>{o.diem?.toFixed(2) ?? '—'}</Typography.Text>
+                  <Tag color={nhan.mau} style={{ marginInlineEnd: 0 }}>
+                    {nhan.ten}
+                  </Tag>
+                  {duocMoLai && daGui && o.phieuId && (
+                    <Button
+                      size="small"
+                      type="link"
+                      loading={moLai.isPending && moLai.variables === o.phieuId}
+                      onClick={() =>
+                        modal.confirm({
+                          title: 'Mở lại phiếu đã gửi?',
+                          content: `Phiếu của ${o.tenThanhVien} sẽ mở khoá để sửa và gửi lại. Điểm tổng hợp cũ không còn đúng cho tới khi tổng hợp lại.`,
+                          okText: 'Mở lại phiếu',
+                          cancelText: 'Huỷ',
+                          onOk: () => moLai.mutateAsync(o.phieuId!),
+                        })
+                      }
+                    >
+                      Mở lại
+                    </Button>
+                  )}
+                </Space>
+              );
+            },
+          })),
+          {
+            title: 'Trung bình',
+            dataIndex: 'diemTrungBinh',
+            width: 110,
+            align: 'right',
+            fixed: 'right',
+            render: (v?: number | null, dong?: DongMaTranDiem) => (
+              <Space direction="vertical" size={0}>
+                <Typography.Text strong>{v?.toFixed(2) ?? '—'}</Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {dong?.soPhieuDaCham}/{dong?.soPhieuPhanCong} phiếu
+                </Typography.Text>
+              </Space>
+            ),
+          },
+        ]}
+        pagination={false}
+      />
+    </>
   );
 }

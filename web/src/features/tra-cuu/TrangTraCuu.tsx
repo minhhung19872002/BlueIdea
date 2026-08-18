@@ -1,10 +1,32 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Button, Card, Col, Collapse, DatePicker, Input, InputNumber, Row, Select, Space } from 'antd';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Collapse,
+  DatePicker,
+  Input,
+  InputNumber,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 import { ClearOutlined, SearchOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { apiDonVi, apiDotDeNghi, apiLinhVuc, apiSangKien } from '@/api/endpoints';
+import { LoiApi } from '@/api/client';
+import {
+  apiDonVi,
+  apiDotDeNghi,
+  apiLinhVuc,
+  apiSangKien,
+  type KetQuaTimNguNghia,
+} from '@/api/endpoints';
 import { BangSangKien } from '@/features/sang-kien/BangSangKien';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
 
@@ -74,6 +96,11 @@ export default function TrangTraCuu() {
       <Collapse
         style={{ marginBottom: 12 }}
         items={[
+          {
+            key: 'ngu-nghia',
+            label: 'Tìm theo ý nghĩa (không cần trùng từ khoá)',
+            children: <KhoiTimNguNghia cacLinhVuc={cacLinhVuc ?? []} />,
+          },
           {
             key: 'nang-cao',
             label: 'Tìm kiếm nâng cao',
@@ -203,5 +230,129 @@ export default function TrangTraCuu() {
         />
       )}
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Chức năng 37 — Tìm ngữ nghĩa.
+ *
+ * Khác ô tìm kiếm phía trên: câu hỏi được so bằng vector nội bộ nên hồ sơ không chứa đúng từ
+ * khoá vẫn ra, miễn nội dung nói về cùng một việc. Kết quả kèm độ tương đồng và đoạn khớp nhất
+ * để người dùng tự đánh giá — chứ không trộn lẫn vào bảng kết quả tìm từ khoá.
+ */
+function KhoiTimNguNghia({ cacLinhVuc }: { cacLinhVuc: { id: string; ten: string }[] }) {
+  const { message } = App.useApp();
+
+  const [cauHoi, setCauHoi] = useState('');
+  const [linhVucId, setLinhVucId] = useState<string | undefined>();
+  const [nam, setNam] = useState<number | undefined>();
+  const [ketQua, setKetQua] = useState<KetQuaTimNguNghia[] | null>(null);
+
+  const tim = useMutation({
+    mutationFn: () => apiSangKien.timNguNghia({ cauHoi, soKetQua: 20, linhVucId, nam }),
+    onSuccess: (kq) => {
+      setKetQua(kq);
+      if (kq.length === 0) message.info('Không tìm thấy sáng kiến nào gần với nội dung câu hỏi.');
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không tìm được.'),
+  });
+
+  return (
+    <>
+      <Row gutter={[8, 8]}>
+        <Col xs={24} md={12}>
+          <Input.TextArea
+            rows={2}
+            value={cauHoi}
+            placeholder="Mô tả nội dung cần tìm, ví dụ: giải pháp tiết kiệm điện chiếu sáng công cộng"
+            onChange={(e) => setCauHoi(e.target.value)}
+          />
+        </Col>
+        <Col xs={12} md={5}>
+          <Select
+            style={{ width: '100%' }}
+            allowClear
+            placeholder="Lĩnh vực"
+            value={linhVucId}
+            options={cacLinhVuc.map((x) => ({ value: x.id, label: x.ten }))}
+            onChange={setLinhVucId}
+          />
+        </Col>
+        <Col xs={12} md={4}>
+          <InputNumber
+            style={{ width: '100%' }}
+            min={2000}
+            max={2100}
+            placeholder="Năm công nhận"
+            value={nam}
+            onChange={(v) => setNam(v ?? undefined)}
+          />
+        </Col>
+        <Col xs={24} md={3}>
+          <Button
+            type="primary"
+            block
+            icon={<SearchOutlined />}
+            loading={tim.isPending}
+            disabled={cauHoi.trim().length < 3}
+            onClick={() => tim.mutate()}
+          >
+            Tìm
+          </Button>
+        </Col>
+      </Row>
+
+      {ketQua && ketQua.length > 0 && (
+        <Table<KetQuaTimNguNghia>
+          rowKey="sangKienId"
+          size="small"
+          style={{ marginTop: 12 }}
+          dataSource={ketQua}
+          pagination={false}
+          scroll={{ x: 800 }}
+          columns={[
+            { title: 'Mã hồ sơ', dataIndex: 'maHoSo', width: 130 },
+            {
+              title: 'Sáng kiến',
+              dataIndex: 'tenSangKien',
+              render: (v: string, dong) => (
+                <Space direction="vertical" size={0}>
+                  <Link to={`/sang-kien/${dong.sangKienId}`}>{v}</Link>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {[dong.tenTacGiaChinh, dong.tenDonVi, dong.tenLinhVuc]
+                      .filter(Boolean)
+                      .join(' — ')}
+                  </Typography.Text>
+                </Space>
+              ),
+            },
+            {
+              title: 'Độ tương đồng',
+              dataIndex: 'doTuongDong',
+              width: 130,
+              align: 'right',
+              render: (v: number) => (
+                <Tag color={v >= 70 ? 'success' : v >= 40 ? 'processing' : 'default'}>
+                  {v.toFixed(1)}%
+                </Tag>
+              ),
+            },
+            {
+              title: 'Đoạn khớp nhất',
+              dataIndex: 'doanKhopNhat',
+              width: 320,
+              responsive: ['lg'],
+              render: (v: string) => (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {v}
+                </Typography.Text>
+              ),
+            },
+          ]}
+        />
+      )}
+    </>
   );
 }

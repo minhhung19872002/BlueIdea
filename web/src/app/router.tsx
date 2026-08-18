@@ -53,6 +53,8 @@ const TrangHoiDong = lazy(() => import('@/features/hoi-dong/TrangHoiDong'));
 const TrangChiTietHoiDong = lazy(() => import('@/features/hoi-dong/TrangChiTietHoiDong'));
 const TrangLienThong = lazy(() => import('@/features/quan-tri/TrangLienThong'));
 const TrangBieuMauXuat = lazy(() => import('@/features/quan-tri/TrangBieuMauXuat'));
+const TrangDotDeNghi = lazy(() => import('@/features/quan-tri/TrangDotDeNghi'));
+const TrangChuKySo = lazy(() => import('@/features/quan-tri/TrangChuKySo'));
 const TrangSsoTraVe = lazy(() => import('@/features/xac-thuc/TrangSsoTraVe'));
 
 export const router = createBrowserRouter([
@@ -123,8 +125,10 @@ export const router = createBrowserRouter([
       { path: 'bao-cao/:loai', element: <ChoTai><TrangBaoCao /></ChoTai> },
 
       { path: 'quan-tri/danh-muc/bieu-mau-xuat', element: <ChoTai><TrangBieuMauXuat /></ChoTai> },
+      { path: 'quan-tri/danh-muc/dot-de-nghi', element: <ChoTai><TrangDotDeNghi /></ChoTai> },
       { path: 'quan-tri/danh-muc/:ma', element: <ChoTai><TrangDanhMuc /></ChoTai> },
       { path: 'quan-tri/lien-thong', element: <ChoTai><TrangLienThong /></ChoTai> },
+      { path: 'quan-tri/chu-ky-so', element: <ChoTai><TrangChuKySo /></ChoTai> },
       { path: 'quan-tri/quy-trinh', element: <ChoTai><TrangQuyTrinh /></ChoTai> },
       { path: 'quan-tri/quy-trinh/:id/thiet-ke', element: <ChoTai><TrangThietKeQuyTrinh /></ChoTai> },
       { path: 'quan-tri/tieu-chi', element: <ChoTai><TrangTieuChi /></ChoTai> },

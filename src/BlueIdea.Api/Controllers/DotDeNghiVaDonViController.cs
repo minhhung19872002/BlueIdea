@@ -52,6 +52,16 @@ public sealed class DotDeNghiController : ControllerBase
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
 
+    /// <summary>
+    /// Danh sách đợt kèm trạng thái vòng đời — màn hình quản trị đợt dùng để bật/tắt nút
+    /// Mở / Đóng / Khoá đợt.
+    /// </summary>
+    [HttpGet("quan-ly")]
+    public async Task<IActionResult> LayDanhSachQuanLyAsync(
+        [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
+        => Ok(PhanHoiPhanTrang<DotDeNghiQuanLyDto>.Tu(
+            await _dichVu.LayDanhSachQuanLyAsync(thamSo, ct)));
+
     /// <summary>Các đợt đang mở và còn hạn nộp — dùng ở bước 1 của wizard nộp hồ sơ.</summary>
     [HttpGet("dang-mo")]
     public async Task<IActionResult> LayDotDangMoAsync(CancellationToken ct)

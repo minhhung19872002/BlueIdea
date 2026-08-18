@@ -23,7 +23,7 @@ const DS_TAB = [
   { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/cau-hinh/he-thong' },
   { ma: 'sang-kien', ten: 'Thông tin sáng kiến', duongDan: '/quan-tri/cau-hinh/sang-kien' },
   { ma: 'email-sms', ten: 'Email & SMS', duongDan: '/quan-tri/gui-tin' },
-  { ma: 'chu-ky-so', ten: 'Chữ ký số', duongDan: '/quan-tri/cau-hinh/chu-ky-so' },
+  { ma: 'chu-ky-so', ten: 'Chữ ký số', duongDan: '/quan-tri/chu-ky-so' },
   { ma: 'tich-hop', ten: 'Tích hợp', duongDan: '/quan-tri/cau-hinh/tich-hop' },
   { ma: 'menu', ten: 'Menu', duongDan: '/quan-tri/cau-hinh/menu' },
 ];

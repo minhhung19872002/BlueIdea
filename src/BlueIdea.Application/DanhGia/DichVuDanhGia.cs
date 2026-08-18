@@ -566,7 +566,7 @@ public sealed class DichVuDanhGia
 
         var phieus = await _db.PhieuDanhGia.AsNoTracking()
             .Where(x => x.HoiDongId == hoiDongId && sangKienIds.Contains(x.SangKienId))
-            .Select(x => new { x.SangKienId, x.ThanhVienId, x.TongDiem, x.TrangThaiPhieu })
+            .Select(x => new { x.Id, x.SangKienId, x.ThanhVienId, x.TongDiem, x.TrangThaiPhieu })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -587,7 +587,7 @@ public sealed class DichVuDanhGia
                     ? phieu.TongDiem
                     : (decimal?)null;
 
-                return new ODiemMaTran(tv.Id, tv.HoTenHienThi, diem, trangThai);
+                return new ODiemMaTran(tv.Id, tv.HoTenHienThi, diem, trangThai, phieu?.Id);
             }).ToList();
 
             var diemDaCham = o.Where(x => x.Diem.HasValue).Select(x => x.Diem!.Value).ToList();

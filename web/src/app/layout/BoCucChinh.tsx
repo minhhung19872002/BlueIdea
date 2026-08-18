@@ -1,20 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Badge, Breadcrumb, Button, Drawer, Dropdown, Grid, Layout, Typography } from 'antd';
+import { Avatar, Breadcrumb, Button, Drawer, Dropdown, Grid, Layout, Typography } from 'antd';
 import {
-  BellOutlined,
   KeyOutlined,
   LogoutOutlined,
   MenuOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import * as Icons from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore, type MucMenu } from '@/app/store/cauHinhStore';
 import { kichThuoc, mauSac } from '@/app/giaoDien';
-import { layPhanTrang } from '@/api/client';
+import { HopThongBao } from '@/components/HopThongBao';
 import { layDiaChiDangXuatSso } from '@/features/xac-thuc/sso';
 
 const { Header, Sider, Content } = Layout;
@@ -65,12 +63,6 @@ export function BoCucChinh() {
 
   const { nguoiDung, dangXuat } = useAuthStore();
   const { menu, tenHeThong, tenDonVi } = useCauHinhStore();
-
-  const { data: thongBao } = useQuery({
-    queryKey: ['thong-bao-chua-doc'],
-    queryFn: () => layPhanTrang('/api/v1/he-thong/thong-bao', { chuaDoc: true, soDong: 1 }),
-    refetchInterval: 60_000,
-  });
 
   const duongDanHienTai = viTri.pathname;
 
@@ -212,9 +204,7 @@ export function BoCucChinh() {
             </Typography.Text>
           </div>
 
-          <Badge count={thongBao?.tongSo ?? 0} size="small" overflowCount={99}>
-            <Button type="text" icon={<BellOutlined />} aria-label="Thông báo" />
-          </Badge>
+          <HopThongBao />
 
           <Dropdown
             menu={{

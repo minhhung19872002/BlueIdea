@@ -328,12 +328,20 @@ public sealed class HeThongController : ControllerBase
         });
     }
 
-    /// <summary>Đánh dấu đã đọc thông báo.</summary>
+    /// <summary>
+    /// Đánh dấu đã đọc thông báo.
+    ///
+    /// Truy vấn lọc luôn theo người nhận: chỉ tìm theo Id rồi kiểm tra chủ sở hữu sau thì người
+    /// dùng vẫn đánh dấu được thông báo của người khác, và thông báo lỗi còn để lộ Id nào có thật.
+    /// </summary>
     [HttpPost("thong-bao/{id:guid}/da-doc")]
     [Authorize]
     public async Task<IActionResult> DanhDauDaDocAsync(Guid id, CancellationToken ct)
     {
-        var thongBao = await _db.ThongBao.FirstOrDefaultAsync(x => x.Id == id, ct)
+        var nguoiDungId = LayNguoiDungHienTaiId();
+
+        var thongBao = await _db.ThongBao
+                           .FirstOrDefaultAsync(x => x.Id == id && x.NguoiNhanId == nguoiDungId, ct)
                        ?? throw new KhongTimThayException("thông báo", id);
 
         thongBao.DaDoc = true;
@@ -341,6 +349,39 @@ public sealed class HeThongController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         return Ok(PhanHoiApi.Ok("Đã đánh dấu đã đọc"));
+    }
+
+    /// <summary>Đánh dấu đã đọc TẤT CẢ thông báo chưa đọc của người đăng nhập.</summary>
+    [HttpPost("thong-bao/doc-tat-ca")]
+    [Authorize]
+    public async Task<IActionResult> DanhDauDocTatCaAsync(CancellationToken ct)
+    {
+        var nguoiDungId = LayNguoiDungHienTaiId();
+
+        var danhSach = await _db.ThongBao
+            .Where(x => x.NguoiNhanId == nguoiDungId && !x.DaDoc)
+            .ToListAsync(ct);
+
+        var bayGio = DateTimeOffset.UtcNow;
+
+        foreach (var muc in danhSach)
+        {
+            muc.DaDoc = true;
+            muc.NgayDoc = bayGio;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(PhanHoiApi.Ok($"Đã đánh dấu đã đọc {danhSach.Count} thông báo"));
+    }
+
+    private Guid LayNguoiDungHienTaiId()
+    {
+        var giaTri = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        return Guid.TryParse(giaTri, out var id)
+            ? id
+            : throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
     }
 
     // ------------------------------------------------------ Chức năng 43 — Quản lý người dùng

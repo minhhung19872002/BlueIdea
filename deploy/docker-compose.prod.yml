@@ -173,6 +173,11 @@ services:
       # rate limiter se gop MOI nguoi dung vao chung mot xo theo IP cua Nginx.
       ForwardedHeaders__BatTin: "true"
 
+      # Chuc nang 49 - Ky so. Gan tep PFX vao container qua volume roi tro duong dan vao day;
+      # khong bao gio luu khoa bi mat trong CSDL.
+      KySo__DuongDanPfx: "${KYSO_PFX:-}"
+      KySo__MatKhauPfx: "${KYSO_MAT_KHAU_PFX:-}"
+
       # Chuc nang 21, 41 - Dang nhap mot lan qua OIDC cua he thong SSO thanh pho.
       #
       # De TRONG Sso__Issuer hoac Sso__ClientId = tat SSO: trang dang nhap tu an nut

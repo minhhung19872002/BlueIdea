@@ -169,7 +169,7 @@ export default function TrangLienThong() {
                 size="middle"
                 loading={isLoading}
                 dataSource={data ?? []}
-                scroll={{ x: 1000 }}
+                scroll={{ x: 1360 }}
                 pagination={false}
                 locale={{ emptyText: <KhoiRong moTa="Chưa khai báo hệ thống liên thông nào." /> }}
                 columns={[

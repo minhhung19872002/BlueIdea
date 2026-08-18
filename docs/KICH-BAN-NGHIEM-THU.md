@@ -133,6 +133,34 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | G16 | 16 | Sửa hệ thống nhưng để trống ô bí mật | Bí mật cũ được giữ nguyên (vẫn "Đã đặt bí mật") | IT |
 | G17 | 41 | Bấm **Xem trước dữ liệu** | Bảng liệt kê sáng kiến đã công bố sẽ được đẩy đi, lọc được theo đợt và năm; không gửi gì cho hệ thống ngoài | IT |
 | G18 | 41 | Bấm **Đồng bộ** trên một hệ thống đang hoạt động | Báo số bản ghi thành công/thất bại và ghi một dòng vào tab Nhật ký đồng bộ | IT |
+| G19 | 37 | Trên trang Tra cứu mở khối *Tìm theo ý nghĩa*, mô tả nội dung cần tìm rồi bấm Tìm | Ra danh sách kèm **độ tương đồng** và **đoạn khớp nhất**, không cần trùng từ khoá | — |
+| G20 | 1 | Vào Danh mục → Lĩnh vực, bấm mũi tên lên/xuống trên một dòng | Thứ tự đổi và lưu ngay; mở lại trang vẫn giữ thứ tự mới | — |
+
+## I. Ký số, thông báo và vòng đời đợt
+
+| # | Chức năng | Các bước kiểm chứng | Kết quả mong đợi | Tự động |
+|---|---|---|---|---|
+| I1 | 49 | Vào Quản trị → Chữ ký số khi chưa khai báo gì | Thẻ trạng thái báo "Chưa ký số được", nêu rõ thiếu cấu hình hay thiếu chứng thư trên máy chủ | — |
+| I2 | 49 | Thêm cấu hình chữ ký số kèm client secret rồi mở lại danh sách | Chỉ hiện "Đã đặt bí mật"; giá trị bí mật **không** bao giờ trả về giao diện | IT |
+| I3 | 49 | Đặt cấu hình thứ hai làm mặc định | Cấu hình trước tự bỏ mặc định — luôn chỉ một cấu hình mặc định | IT |
+| I4 | 49 | Sửa quyết định, tải tệp văn bản lên rồi lưu | Mở lại thấy đúng tệp; nút **Ký số** chuyển sang dùng được | IT |
+| I5 | 49 | Bấm **Ký số** trên quyết định đã có tệp | Báo đã ký; quyết định hiện nhãn *Đã ký số* và không sửa/xoá được nữa | — |
+| I6 | 49 | Mở **Lịch sử ký số** rồi bấm **Xác minh** | Hiện serial chứng thư, người ký, thời gian ký và kết luận **Chữ ký hợp lệ** | — |
+| I7 | 49 | Sửa nội dung tệp gốc rồi xác minh lại | Báo chữ ký **không hợp lệ** — phát hiện văn bản đã bị thay đổi | UT |
+| I8 | — | Đăng nhập tài khoản có thông báo, xem chuông trên thanh trên | Badge hiện đúng số chưa đọc; bấm vào mở danh sách thông báo | — |
+| I9 | — | Bấm vào một thông báo chưa đọc | Đánh dấu đã đọc (badge giảm) và mở thẳng hồ sơ liên quan nếu có | — |
+| I10 | — | Bấm **Đọc tất cả** | Badge về 0; chỉ ảnh hưởng thông báo của chính mình | IT |
+| I11 | — | Người A gọi API đánh dấu đã đọc thông báo của người B | HTTP 404 — thông báo của người khác coi như không tồn tại | IT |
+| I12 | 3 | Vào Danh mục → Đợt đề nghị | Bảng hiện trạng thái vòng đời và cảnh báo *Thiếu quy trình / Thiếu bộ tiêu chí* | — |
+| I13 | 3 | Bấm **Mở đợt** khi đợt chưa gán quy trình hoặc bộ tiêu chí | Bị chặn, nêu rõ phải gán trước | — |
+| I14 | 3 | Bấm **Sao chép** một đợt, đặt mã và năm mới | Đợt mới giữ nguyên quy trình, bộ tiêu chí, đơn vị áp dụng; trạng thái **Nháp** | — |
+| I15 | 9 | Bấm **Sao chép thành quy trình mới** trên một quy trình | Quy trình mới ở trạng thái nháp, giữ nguyên bước và tác nhân | — |
+| I16 | 18 | Trong bộ tiêu chí, thêm hai mức công nhận có khoảng điểm chồng lấn rồi lưu | Bị chặn với mã `KHOANG_DIEM_CHONG_LAN` | UT |
+| I17 | 33 | Trên hồ sơ, bấm **Phân công chấm điểm**, chọn hội đồng và hạn | Các thành viên được phân công nhận thông báo; thành viên là tác giả bị loại | IT |
+| I18 | 32 | Bấm **Tổng hợp điểm**, chọn hội đồng | Hiện bảng: số phiếu dùng, cao/thấp nhất, trung bình, điểm cuối, kết quả đạt và mức công nhận | IT |
+| I19 | 29 | Bấm **Thu hồi bước** và bỏ trống lý do | Bị chặn cho tới khi nhập lý do; thu hồi xong hồ sơ quay lại bước trước | — |
+| I20 | 35 | Mở tab **Ma trận điểm** của hội đồng | Hàng = hồ sơ, cột = thành viên; điểm chỉ hiện ở ô **Đã gửi** | — |
+| I21 | 35 | Bấm **Mở lại** trên một ô đã gửi | Ô chuyển sang *Đang chấm*, số phiếu đã chấm giảm; thành viên sửa và gửi lại được | — |
 
 ## H. Phi chức năng
 

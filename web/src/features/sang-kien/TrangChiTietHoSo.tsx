@@ -23,22 +23,28 @@ import {
   Typography,
 } from 'antd';
 import {
+  CalculatorOutlined,
   DownloadOutlined,
   EditOutlined,
   FilePdfOutlined,
   ReloadOutlined,
   RollbackOutlined,
+  TeamOutlined,
+  UndoOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi, taiTep } from '@/api/client';
 import {
+  apiDanhGia,
+  apiHoiDong,
   apiNhapXuat,
   apiSangKien,
   apiXuLy,
   type HanhDongKhaDung,
   type SangKienChiTiet,
 } from '@/api/endpoints';
+import { useAuthStore } from '@/app/store/authStore';
 import {
   HienThiHan,
   KhoiDangTai,
@@ -47,6 +53,8 @@ import {
   NhanTrungLap,
   ngayGio,
 } from '@/components/ThanhPhanChung';
+import { DatePicker, Select, Switch } from 'antd';
+import dayjs from 'dayjs';
 
 export default function TrangChiTietHoSo() {
   const { id = '' } = useParams<{ id: string }>();
@@ -55,6 +63,11 @@ export default function TrangChiTietHoSo() {
 
   const [hanhDongDangChon, setHanhDongDangChon] = useState<HanhDongKhaDung | null>(null);
   const [formXuLy] = Form.useForm<{ yKien: string }>();
+  const [moPhanCong, setMoPhanCong] = useState(false);
+
+  const duocThuHoi = useAuthStore((st) => st.coQuyen('XU_LY.THU_HOI'));
+  const duocPhanCong = useAuthStore((st) => st.coQuyen('DANH_GIA.PHAN_CONG'));
+  const duocTongHop = useAuthStore((st) => st.coQuyen('DANH_GIA.TONG_HOP'));
 
   const chiTiet = useQuery({
     queryKey: ['sang-kien', id],
@@ -98,6 +111,66 @@ export default function TrangChiTietHoSo() {
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Xử lý thất bại.'),
   });
 
+  /** Chức năng 29 — thu hồi bước vừa xử lý khi bấm nhầm nhánh. */
+  const thuHoi = useMutation({
+    mutationFn: (lyDo: string) => apiXuLy.thuHoi(id, lyDo),
+    onSuccess: () => {
+      message.success('Đã thu hồi bước xử lý');
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
+    },
+    onError: (loi) =>
+      modal.error({
+        title: 'Không thu hồi được',
+        content: loi instanceof LoiApi ? loi.message : 'Bước hiện tại không cho phép thu hồi.',
+      }),
+  });
+
+  /** Chức năng 32 — tổng hợp điểm của hội đồng cho hồ sơ này. */
+  const tongHop = useMutation({
+    mutationFn: (hoiDongId: string) => apiDanhGia.tongHop(id, hoiDongId),
+    onSuccess: (ketQua) => {
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
+
+      modal.info({
+        title: 'Kết quả tổng hợp điểm',
+        width: 520,
+        content: (
+          <Descriptions bordered size="small" column={1} style={{ marginTop: 12 }}>
+            <Descriptions.Item label="Số phiếu">
+              {ketQua.soPhieuSuDung}/{ketQua.soPhieu} phiếu được dùng để tính
+            </Descriptions.Item>
+            <Descriptions.Item label="Cao nhất / thấp nhất">
+              {ketQua.diemCaoNhat.toFixed(2)} / {ketQua.diemThapNhat.toFixed(2)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Trung bình">
+              {ketQua.diemTrungBinh.toFixed(2)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Điểm cuối cùng">
+              <Typography.Text strong>{ketQua.diemCuoiCung.toFixed(2)}</Typography.Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Kết quả">
+              {ketQua.dat ? (
+                <Tag color="success">Đạt — {ketQua.tenMucCongNhan ?? 'chưa gán mức'}</Tag>
+              ) : (
+                <Tag color="error">Chưa đạt</Tag>
+              )}
+            </Descriptions.Item>
+            {ketQua.canhBao.length > 0 && (
+              <Descriptions.Item label="Cảnh báo">
+                <ul style={{ paddingLeft: 16, marginBottom: 0 }}>
+                  {ketQua.canhBao.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        ),
+      });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không tổng hợp được.'),
+  });
+
   const chayLaiTrungLap = useMutation({
     mutationFn: () => apiSangKien.chayLaiTrungLap(id),
     onSuccess: () => {
@@ -120,6 +193,65 @@ export default function TrangChiTietHoSo() {
   if (chiTiet.error) return <KhoiLoi loi={chiTiet.error} thuLai={chiTiet.refetch} />;
 
   const hs = chiTiet.data!;
+
+  function moHopThoaiThuHoi() {
+    let lyDo = '';
+
+    modal.confirm({
+      title: 'Thu hồi bước xử lý',
+      content: (
+        <div>
+          <p>
+            Hồ sơ quay lại bước trước đó. Chỉ thu hồi được khi bước hiện tại cho phép và chưa ai
+            xử lý tiếp.
+          </p>
+          <Input.TextArea
+            rows={3}
+            placeholder="Lý do thu hồi (bắt buộc)"
+            onChange={(e) => {
+              lyDo = e.target.value;
+            }}
+          />
+        </div>
+      ),
+      okText: 'Thu hồi',
+      okButtonProps: { danger: true },
+      cancelText: 'Huỷ',
+      onOk: () => {
+        if (!lyDo.trim()) {
+          message.warning('Vui lòng nhập lý do thu hồi.');
+          return Promise.reject(new Error('thieu-ly-do'));
+        }
+
+        return thuHoi.mutateAsync(lyDo.trim());
+      },
+    });
+  }
+
+  function moHopThoaiTongHop() {
+    let hoiDongId: string | undefined;
+
+    modal.confirm({
+      title: 'Tổng hợp điểm của hội đồng',
+      width: 520,
+      content: (
+        <div>
+          <p>Chọn hội đồng đã chấm hồ sơ này để tính điểm cuối cùng theo bộ tiêu chí của đợt.</p>
+          <ChonHoiDong onChon={(v) => (hoiDongId = v)} />
+        </div>
+      ),
+      okText: 'Tổng hợp',
+      cancelText: 'Huỷ',
+      onOk: () => {
+        if (!hoiDongId) {
+          message.warning('Vui lòng chọn hội đồng.');
+          return Promise.reject(new Error('thieu-hoi-dong'));
+        }
+
+        return tongHop.mutateAsync(hoiDongId);
+      },
+    });
+  }
 
   return (
     <div>
@@ -253,6 +385,42 @@ export default function TrangChiTietHoSo() {
             </Space>
           </Card>
         )}
+
+        {(duocThuHoi || duocPhanCong || duocTongHop) && (
+          <Card
+            size="small"
+            title="Nghiệp vụ hội đồng"
+            style={{ marginTop: 12 }}
+            className="khong-in"
+          >
+            <Space wrap>
+              {duocPhanCong && (
+                <Button icon={<TeamOutlined />} onClick={() => setMoPhanCong(true)}>
+                  Phân công chấm điểm
+                </Button>
+              )}
+              {duocTongHop && (
+                <Button
+                  icon={<CalculatorOutlined />}
+                  loading={tongHop.isPending}
+                  onClick={moHopThoaiTongHop}
+                >
+                  Tổng hợp điểm
+                </Button>
+              )}
+              {duocThuHoi && (
+                <Button
+                  icon={<UndoOutlined />}
+                  danger
+                  loading={thuHoi.isPending}
+                  onClick={moHopThoaiThuHoi}
+                >
+                  Thu hồi bước
+                </Button>
+              )}
+            </Space>
+          </Card>
+        )}
       </Card>
 
       <Card style={{ marginTop: 12 }}>
@@ -293,6 +461,17 @@ export default function TrangChiTietHoSo() {
           ]}
         />
       </Card>
+
+      {moPhanCong && (
+        <ModalPhanCongCham
+          sangKienId={id}
+          onDong={() => setMoPhanCong(false)}
+          onXong={() => {
+            setMoPhanCong(false);
+            void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
+          }}
+        />
+      )}
 
       <Modal
         open={!!hanhDongDangChon}
@@ -713,5 +892,141 @@ function TabTrungLap({
         )}
       </Modal>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** Ô chọn hội đồng dùng trong hộp thoại tổng hợp điểm. */
+function ChonHoiDong({ onChon }: { onChon: (id: string) => void }) {
+  const { data } = useQuery({ queryKey: ['hoi-dong-chon'], queryFn: apiHoiDong.chon });
+
+  return (
+    <Select
+      style={{ width: '100%' }}
+      placeholder="Chọn hội đồng"
+      options={(data ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+      onChange={onChon}
+    />
+  );
+}
+
+/**
+ * Chức năng 33 — Phân công thành viên hội đồng chấm hồ sơ.
+ *
+ * Để trống danh sách thành viên = giao cho toàn bộ thành viên có quyền chấm của hội đồng.
+ * Máy chủ tự loại thành viên là tác giả của chính hồ sơ (xung đột lợi ích) và báo lại.
+ */
+function ModalPhanCongCham({
+  sangKienId,
+  onDong,
+  onXong,
+}: {
+  sangKienId: string;
+  onDong: () => void;
+  onXong: () => void;
+}) {
+  const { message } = App.useApp();
+
+  const [hoiDongId, setHoiDongId] = useState<string | undefined>();
+  const [thanhVienIds, setThanhVienIds] = useState<string[]>([]);
+  const [hanHoanThanh, setHanHoanThanh] = useState<dayjs.Dayjs | null>(dayjs().add(7, 'day'));
+  const [tuDongChiaDeu, setTuDongChiaDeu] = useState(true);
+
+  const { data: cacHoiDong } = useQuery({ queryKey: ['hoi-dong-chon'], queryFn: apiHoiDong.chon });
+
+  const { data: chiTietHoiDong } = useQuery({
+    queryKey: ['hoi-dong', hoiDongId],
+    queryFn: () => apiHoiDong.theoId(hoiDongId!),
+    enabled: !!hoiDongId,
+  });
+
+  const phanCong = useMutation({
+    mutationFn: () =>
+      apiDanhGia.phanCong({
+        hoiDongId,
+        sangKienIds: [sangKienId],
+        thanhVienIds: thanhVienIds.length > 0 ? thanhVienIds : null,
+        hanHoanThanh: hanHoanThanh ? hanHoanThanh.toISOString() : null,
+        tuDongChiaDeu,
+      }),
+    onSuccess: () => {
+      message.success('Đã phân công chấm điểm');
+      onXong();
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không phân công được.'),
+  });
+
+  const thanhVienChamDuoc = (chiTietHoiDong?.thanhVien ?? []).filter((x) => x.quyenChamDiem);
+
+  return (
+    <Modal
+      open
+      title="Phân công chấm điểm"
+      okText="Phân công"
+      cancelText="Huỷ"
+      confirmLoading={phanCong.isPending}
+      onCancel={onDong}
+      onOk={() => {
+        if (!hoiDongId) {
+          message.warning('Vui lòng chọn hội đồng.');
+          return;
+        }
+
+        phanCong.mutate();
+      }}
+    >
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <div>
+          <Typography.Text strong>Hội đồng</Typography.Text>
+          <Select
+            style={{ width: '100%', marginTop: 4 }}
+            placeholder="Chọn hội đồng chấm"
+            value={hoiDongId}
+            options={(cacHoiDong ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+            onChange={(v) => {
+              setHoiDongId(v);
+              setThanhVienIds([]);
+            }}
+          />
+        </div>
+
+        <div>
+          <Typography.Text strong>Thành viên chấm</Typography.Text>
+          <Select
+            mode="multiple"
+            style={{ width: '100%', marginTop: 4 }}
+            placeholder="Để trống = giao cho tất cả thành viên có quyền chấm"
+            value={thanhVienIds}
+            disabled={!hoiDongId}
+            options={thanhVienChamDuoc.map((x) => ({ value: x.id, label: x.hoTenHienThi }))}
+            onChange={setThanhVienIds}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Thành viên là tác giả của hồ sơ sẽ tự bị loại do xung đột lợi ích.
+          </Typography.Text>
+        </div>
+
+        <Space size="large" wrap>
+          <div>
+            <Typography.Text strong>Hạn hoàn thành</Typography.Text>
+            <div style={{ marginTop: 4 }}>
+              <DatePicker
+                showTime
+                format="DD/MM/YYYY HH:mm"
+                value={hanHoanThanh}
+                onChange={setHanHoanThanh}
+              />
+            </div>
+          </div>
+          <div>
+            <Typography.Text strong>Tự động chia đều</Typography.Text>
+            <div style={{ marginTop: 4 }}>
+              <Switch checked={tuDongChiaDeu} onChange={setTuDongChiaDeu} />
+            </div>
+          </div>
+        </Space>
+      </Space>
+    </Modal>
   );
 }

@@ -218,11 +218,11 @@ export default function TrangBieuMauXuat() {
         size="middle"
         loading={isLoading}
         dataSource={data?.duLieu ?? []}
-        scroll={{ x: 800 }}
+        scroll={{ x: 1110 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 200 },
-          { title: 'Tên biểu mẫu', dataIndex: 'ten' },
-          { title: 'Mô tả', dataIndex: 'moTa', responsive: ['lg'] },
+          { title: 'Tên biểu mẫu', dataIndex: 'ten', width: 320 },
+          { title: 'Mô tả', dataIndex: 'moTa', width: 260, ellipsis: true, responsive: ['lg'] },
           {
             title: 'Trạng thái',
             dataIndex: 'trangThai',

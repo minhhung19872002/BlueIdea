@@ -138,6 +138,163 @@ public sealed class QuyetDinhVaQuanTriTests
             .GetProperty("thongBao").GetString().Should().Contain("đã tồn tại");
     }
 
+    /// <summary>
+    /// Chuc nang 49 — man hinh Quyet dinh ky so chinh TEP VAN BAN gan vao quyet dinh, nen
+    /// tepTinId phai luu duoc va tra ve; khong co no thi nut Ky so khong co doi tuong de ky.
+    /// </summary>
+    [Fact]
+    public async Task Quyet_Dinh_Luu_Va_Tra_Ve_Tep_Van_Ban()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+
+        // Tai mot tep bat ky len kho dung chung de lam van ban quyet dinh.
+        using var form = new MultipartFormDataContent();
+        var tep = new ByteArrayContent("%PDF-1.4 noi dung kiem thu"u8.ToArray());
+        tep.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        form.Add(tep, "tep", "quyet-dinh.pdf");
+
+        var taiLen = await admin.PostAsync("/api/v1/tep-tin/tai-len", form);
+        taiLen.EnsureSuccessStatusCode();
+
+        var tepTinId = (await taiLen.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetProperty("id").GetString()!;
+
+        var duDieuKien = await LayMangAsync(admin, "/api/v1/quyet-dinh/ho-so-du-dieu-kien");
+        var soQuyetDinh = $"KS-{Guid.NewGuid():N}"[..16];
+
+        var tao = await admin.PostAsJsonAsync("/api/v1/quyet-dinh", new
+        {
+            soQuyetDinh,
+            ngayBanHanh = "2026-08-18",
+            loai = "CO_SO",
+            trichYeu = "Kiểm thử gắn tệp văn bản",
+            tepTinId,
+            sangKienIds = duDieuKien.Take(1).Select(x => x.GetProperty("id").GetString()!).ToList()
+        });
+
+        tao.EnsureSuccessStatusCode();
+        var id = (await tao.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("duLieu").GetString()!;
+
+        var chiTiet = await LayDuLieuAsync(admin, $"/api/v1/quyet-dinh/{id}");
+
+        chiTiet.GetProperty("thongTin").GetProperty("tepTinId").GetString().Should().Be(tepTinId);
+        chiTiet.GetProperty("thongTin").GetProperty("daKySo").GetBoolean().Should().BeFalse();
+
+        // Lich su ky so cua quyet dinh chua ky phai la mang rong, khong phai loi.
+        var lichSu = await LayMangAsync(admin, $"/api/v1/quyet-dinh/{id}/lich-su-ky-so");
+        lichSu.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Chuc nang 49 — cau hinh chu ky so: bi mat khong bao gio tra ve, va chi mot cau hinh
+    /// duoc danh dau mac dinh.
+    /// </summary>
+    [Fact]
+    public async Task Cau_Hinh_Chu_Ky_So_Giu_Bi_Mat_Va_Chi_Mot_Mac_Dinh()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+
+        var mot = await TaoCauHinhKySoAsync(admin, "VNPT_CA", "bi-mat-khong-duoc-lo", macDinh: true);
+        var hai = await TaoCauHinhKySoAsync(admin, "VIETTEL_CA", "bi-mat-khac", macDinh: true);
+
+        try
+        {
+            var ds = await LayMangAsync(admin, "/api/v1/cau-hinh-chu-ky-so");
+            var noiDung = ds.ToString();
+
+            noiDung.Should().NotContain("bi-mat-khong-duoc-lo");
+            noiDung.Should().NotContain("bi-mat-khac");
+
+            ds.Where(x => x.GetProperty("daDatBiMat").GetBoolean()).Should().HaveCountGreaterThanOrEqualTo(2);
+
+            // Dat mac dinh cau hinh sau phai BO mac dinh cua cau hinh truoc.
+            ds.Count(x => x.GetProperty("laMacDinh").GetBoolean()).Should().Be(1);
+            ds.Single(x => x.GetProperty("laMacDinh").GetBoolean())
+                .GetProperty("id").GetGuid().Should().Be(hai);
+
+            // Sua ma de trong o bi mat = giu nguyen bi mat dang luu.
+            var sua = await admin.PutAsJsonAsync($"/api/v1/cau-hinh-chu-ky-so/{mot}", new
+            {
+                nhaCungCap = "VNPT_CA",
+                loaiKy = "HSM",
+                thuatToan = "SHA256withRSA",
+                trangThai = 1,
+                laMacDinh = false
+            });
+
+            sua.EnsureSuccessStatusCode();
+
+            var sauSua = await LayMangAsync(admin, "/api/v1/cau-hinh-chu-ky-so");
+
+            sauSua.Single(x => x.GetProperty("id").GetGuid() == mot)
+                .GetProperty("daDatBiMat").GetBoolean().Should().BeTrue();
+        }
+        finally
+        {
+            await admin.DeleteAsync($"/api/v1/cau-hinh-chu-ky-so/{mot}");
+            await admin.DeleteAsync($"/api/v1/cau-hinh-chu-ky-so/{hai}");
+        }
+    }
+
+    private static async Task<Guid> TaoCauHinhKySoAsync(
+        HttpClient client, string nhaCungCap, string biMat, bool macDinh)
+    {
+        var phanHoi = await client.PostAsJsonAsync("/api/v1/cau-hinh-chu-ky-so", new
+        {
+            nhaCungCap,
+            loaiKy = "USB_TOKEN",
+            clientSecret = biMat,
+            thuatToan = "SHA256withRSA",
+            trangThai = 1,
+            laMacDinh = macDinh
+        });
+
+        phanHoi.EnsureSuccessStatusCode();
+
+        return (await phanHoi.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetGuid();
+    }
+
+    // -------------------------------------------------------------- Thong bao
+
+    /// <summary>
+    /// Thong bao la du lieu ca nhan: nguoi nay khong duoc danh dau da doc thong bao cua nguoi kia
+    /// du biet dinh danh.
+    /// </summary>
+    [Fact]
+    public async Task Khong_Danh_Dau_Duoc_Thong_Bao_Cua_Nguoi_Khac()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var nguoiKhac = await _ungDung.TaoClientDaDangNhapAsync("cb.khoa");
+
+        var cuaToi = await LayMangAsync(admin, "/api/v1/he-thong/thong-bao?soDong=1");
+
+        if (cuaToi.Count == 0)
+        {
+            // Du lieu mau khong bao dam admin co thong bao; khong co thi bo qua kiem thu nay.
+            return;
+        }
+
+        var id = cuaToi[0].GetProperty("id").GetString()!;
+
+        var phanHoi = await nguoiKhac.PostAsync($"/api/v1/he-thong/thong-bao/{id}/da-doc", null);
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "thong bao cua nguoi khac phai coi nhu khong ton tai");
+    }
+
+    [Fact]
+    public async Task Doc_Tat_Ca_Chi_Anh_Huong_Thong_Bao_Cua_Chinh_Minh()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+
+        var phanHoi = await admin.PostAsync("/api/v1/he-thong/thong-bao/doc-tat-ca", null);
+        phanHoi.EnsureSuccessStatusCode();
+
+        var conLai = await LayMangAsync(admin, "/api/v1/he-thong/thong-bao?chuaDoc=true&soDong=50");
+        conLai.Should().BeEmpty("vua danh dau doc het thong bao cua chinh minh");
+    }
+
     [Fact]
     public async Task Tac_Gia_Khong_Duoc_Ban_Hanh_Quyet_Dinh()
     {

@@ -127,7 +127,14 @@ public sealed record PhanCongChamDto(
     Guid? PhieuDanhGiaId);
 
 /// <summary>O trong bang ma tran diem (hang = ho so, cot = thanh vien) - chuc nang 35.</summary>
-public sealed record ODiemMaTran(Guid ThanhVienId, string TenThanhVien, decimal? Diem, string TrangThai);
+/// <summary>
+/// Mot o trong bang ma tran diem.
+///
+/// <c>PhieuId</c> co gia tri khi thanh vien da co phieu — thu ky can dinh danh phieu de mo lai
+/// phieu da gui ngay tren bang, khong phai mo tung ho so ra tim.
+/// </summary>
+public sealed record ODiemMaTran(
+    Guid ThanhVienId, string TenThanhVien, decimal? Diem, string TrangThai, Guid? PhieuId);
 
 public sealed record DongMaTranDiem(
     Guid SangKienId,

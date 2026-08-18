@@ -83,6 +83,31 @@ Hệ thống đọc `openid-configuration` của nhà cung cấp nên không ph�
 nhà cung cấp có công bố `end_session_endpoint` thì nút Đăng xuất sẽ kết thúc luôn phiên bên đó
 (single logout); không có thì chỉ đăng xuất cục bộ.
 
+### Nạp chứng thư số để ký văn bản — tuỳ chọn
+
+Ký số cần **hai** phần: chứng thư trên máy chủ và một bản ghi cấu hình trong hệ thống.
+
+1. Đặt tệp PFX vào máy chủ rồi gắn vào container `api` (thư mục `/app/du-lieu` đã có volume sẵn),
+   sau đó khai báo trong `.env`:
+
+```env
+KYSO_PFX=/app/du-lieu/chung-thu.pfx
+KYSO_MAT_KHAU_PFX=<mat-khau-tep-pfx>
+```
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d --force-recreate api
+```
+
+2. Đăng nhập bằng tài khoản quản trị, vào **Quản trị → Chữ ký số**, thêm một cấu hình (nhà cung
+   cấp, hình thức ký, thuật toán) và đặt làm mặc định.
+
+Thẻ trạng thái đầu màn hình phải chuyển sang **"Hệ thống sẵn sàng ký số"**; nếu vẫn báo thiếu thì
+xem lại mục nào chưa đạt — thẻ ghi rõ thiếu cấu hình hay thiếu chứng thư.
+
+> **Không** lưu khoá ký trong cơ sở dữ liệu. Một lần lộ bản dump cơ sở dữ liệu là lộ luôn quyền ký
+> văn bản, nên hệ thống cố tình chỉ đọc khoá từ tệp trên máy chủ.
+
 ### Chuyển sang chế độ vận hành thật
 
 Sau khi nghiệm thu xong, sửa `.env`:

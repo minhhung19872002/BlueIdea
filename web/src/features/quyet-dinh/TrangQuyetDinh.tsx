@@ -17,13 +17,18 @@ import {
   Tag,
   Tooltip,
   Typography,
+  Upload,
 } from 'antd';
 import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   FilePdfOutlined,
   NotificationOutlined,
   PlusOutlined,
+  SafetyCertificateOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -33,11 +38,14 @@ import {
   apiDonVi,
   apiDotDeNghi,
   apiQuyetDinh,
+  taiTepLen,
   type HoSoDuDieuKien,
   type LuuQuyetDinh,
+  type NhatKyKySo,
   type QuyetDinh,
 } from '@/api/endpoints';
-import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
+import { useAuthStore } from '@/app/store/authStore';
+import { KhoiLoi, KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
 
 const CAP_CONG_NHAN = [
   { value: 'CO_SO', label: 'Cấp cơ sở' },
@@ -55,6 +63,9 @@ export default function TrangQuyetDinh() {
   const [tuKhoa, setTuKhoa] = useState('');
   const [dangSua, setDangSua] = useState<QuyetDinh | null>(null);
   const [moForm, setMoForm] = useState(false);
+  const [xemKySo, setXemKySo] = useState<QuyetDinh | null>(null);
+
+  const duocKySo = useAuthStore((st) => st.coQuyen('QUYET_DINH.KY_SO'));
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['quyet-dinh', { trang, soDong, tuKhoa }],
@@ -69,6 +80,20 @@ export default function TrangQuyetDinh() {
       void queryClient.invalidateQueries({ queryKey: ['quyet-dinh'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không công bố được.'),
+  });
+
+  const kySo = useMutation({
+    mutationFn: ({ id, tepTinId }: { id: string; tepTinId: string }) =>
+      apiQuyetDinh.kySo(id, tepTinId),
+    onSuccess: () => {
+      message.success('Đã ký số quyết định. Bản gốc được giữ nguyên, chữ ký lưu thành tệp riêng.');
+      void queryClient.invalidateQueries({ queryKey: ['quyet-dinh'] });
+    },
+    onError: (loi) =>
+      modal.error({
+        title: 'Không ký số được',
+        content: loi instanceof LoiApi ? loi.message : 'Đã xảy ra lỗi khi ký số.',
+      }),
   });
 
   const xoa = useMutation({
@@ -109,6 +134,35 @@ export default function TrangQuyetDinh() {
       okText: 'Công bố và hiển thị công khai',
       cancelText: 'Huỷ',
       onOk: () => congBo.mutateAsync({ id: banGhi.id, congKhai: true }),
+    });
+  }
+
+  function xacNhanKySo(banGhi: QuyetDinh) {
+    if (!banGhi.tepTinId) {
+      modal.warning({
+        title: 'Chưa có tệp văn bản để ký',
+        content:
+          'Ký số áp dụng cho tệp văn bản quyết định đã ban hành. Hãy sửa quyết định và tải tệp lên ở mục "Tệp văn bản quyết định" trước.',
+      });
+      return;
+    }
+
+    modal.confirm({
+      title: `Ký số quyết định ${banGhi.soQuyetDinh}?`,
+      content: (
+        <div>
+          <p>
+            Hệ thống ký tệp văn bản bằng chứng thư số đang cấu hình. Chữ ký lưu thành tệp riêng
+            dạng PKCS#7 detached, <strong>bản gốc giữ nguyên</strong>.
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            Quyết định đã ký số sẽ <strong>không sửa hay xoá được</strong> nữa.
+          </p>
+        </div>
+      ),
+      okText: 'Ký số',
+      cancelText: 'Huỷ',
+      onOk: () => kySo.mutateAsync({ id: banGhi.id, tepTinId: banGhi.tepTinId! }),
     });
   }
 
@@ -185,7 +239,7 @@ export default function TrangQuyetDinh() {
             {
               title: '',
               key: 'thaoTac',
-              width: 180,
+              width: 220,
               fixed: 'right',
               render: (_v, dong) => (
                 <Space size={4}>
@@ -211,6 +265,31 @@ export default function TrangQuyetDinh() {
                       onClick={() => xacNhanCongBo(dong)}
                     />
                   </Tooltip>
+                  {duocKySo && !dong.daKySo && (
+                    <Tooltip
+                      title={
+                        dong.tepTinId
+                          ? 'Ký số văn bản quyết định'
+                          : 'Chưa có tệp văn bản — sửa quyết định để tải tệp lên trước'
+                      }
+                    >
+                      <Button
+                        size="small"
+                        icon={<SafetyCertificateOutlined />}
+                        loading={kySo.isPending}
+                        onClick={() => xacNhanKySo(dong)}
+                      />
+                    </Tooltip>
+                  )}
+                  {dong.daKySo && (
+                    <Tooltip title="Xem lịch sử ký số và xác minh chữ ký">
+                      <Button
+                        size="small"
+                        icon={<SafetyCertificateOutlined />}
+                        onClick={() => setXemKySo(dong)}
+                      />
+                    </Tooltip>
+                  )}
                   <Tooltip title={dong.daKySo ? 'Đã ký số — không sửa được' : 'Sửa'}>
                     <Button
                       size="small"
@@ -244,6 +323,10 @@ export default function TrangQuyetDinh() {
           }}
         />
       </Card>
+
+      {xemKySo && (
+        <ModalLichSuKySo quyetDinh={xemKySo} onDong={() => setXemKySo(null)} />
+      )}
 
       {moForm && (
         <FormQuyetDinh
@@ -289,6 +372,11 @@ function FormQuyetDinh({
   );
   const [daChon, setDaChon] = useState<string[]>([]);
   const [chiHienDaChon, setChiHienDaChon] = useState(false);
+  const [tepTinId, setTepTinId] = useState<string | null>(banGhi?.tepTinId ?? null);
+  const [tenTep, setTenTep] = useState<string | null>(
+    banGhi?.tepTinId ? 'Tệp văn bản đã tải lên trước đó' : null,
+  );
+  const [dangTaiTep, setDangTaiTep] = useState(false);
 
   const { data: chiTiet, isLoading: dangTaiChiTiet } = useQuery({
     queryKey: ['quyet-dinh-chi-tiet', banGhi?.id],
@@ -356,6 +444,7 @@ function FormQuyetDinh({
       chucVuNguoiKy: giaTri.chucVuNguoiKy,
       donViBanHanhId: giaTri.donViBanHanhId,
       dotDeNghiId: giaTri.dotDeNghiId,
+      tepTinId,
       sangKienIds: daChon,
     });
   }
@@ -459,6 +548,62 @@ function FormQuyetDinh({
         </Row>
       </Form>
 
+      <div style={{ marginBottom: 16 }}>
+        <Typography.Text strong>Tệp văn bản quyết định</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
+          Bản quyết định đã ban hành (PDF hoặc bản scan). Đây chính là tệp sẽ được{' '}
+          <strong>ký số</strong> ở màn hình danh sách — chưa có tệp thì nút ký số không dùng được.
+        </Typography.Paragraph>
+
+        <Space wrap>
+          <Upload
+            accept=".pdf,.docx,.doc,.png,.jpg,.jpeg"
+            maxCount={1}
+            showUploadList={false}
+            beforeUpload={(tep) => {
+              void (async () => {
+                setDangTaiTep(true);
+                try {
+                  const daTaiLen = await taiTepLen(tep as File);
+                  setTepTinId(daTaiLen.id);
+                  setTenTep(daTaiLen.tenGoc);
+                  message.success('Đã tải tệp văn bản lên');
+                } catch (loi) {
+                  message.error(loi instanceof LoiApi ? loi.message : 'Không tải được tệp.');
+                } finally {
+                  setDangTaiTep(false);
+                }
+              })();
+
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />} loading={dangTaiTep}>
+              {tepTinId ? 'Thay tệp khác' : 'Tải tệp văn bản'}
+            </Button>
+          </Upload>
+
+          {tepTinId && (
+            <>
+              <Tag color="blue">{tenTep}</Tag>
+              <a href={`/api/v1/tep-tin/${tepTinId}/tai-ve`} download>
+                Tải về
+              </a>
+              <Button
+                size="small"
+                danger
+                onClick={() => {
+                  setTepTinId(null);
+                  setTenTep(null);
+                }}
+              >
+                Gỡ tệp
+              </Button>
+            </>
+          )}
+        </Space>
+      </div>
+
       <Space style={{ marginBottom: 8 }}>
         <Typography.Text strong>Sáng kiến được công nhận</Typography.Text>
         <Tag color={daChon.length > 0 ? 'blue' : 'default'}>Đã chọn {daChon.length}</Tag>
@@ -501,6 +646,147 @@ function FormQuyetDinh({
           { title: 'Mức công nhận', dataIndex: 'tenMucCongNhan', width: 170, responsive: ['lg'] },
         ]}
       />
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** Chức năng 49 — Lịch sử ký số của một quyết định và xác minh từng chữ ký. */
+function ModalLichSuKySo({
+  quyetDinh,
+  onDong,
+}: {
+  quyetDinh: QuyetDinh;
+  onDong: () => void;
+}) {
+  const { message } = App.useApp();
+  const [ketQuaXacMinh, setKetQuaXacMinh] = useState<Record<string, string>>({});
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['lich-su-ky-so', quyetDinh.id],
+    queryFn: () => apiQuyetDinh.lichSuKySo(quyetDinh.id),
+  });
+
+  const xacMinh = useMutation({
+    mutationFn: (nhatKyId: string) => apiQuyetDinh.xacMinhChuKy(nhatKyId),
+    onSuccess: (kq, nhatKyId) => {
+      const nhan = !kq.coChuKy
+        ? 'Không tìm thấy tệp chữ ký'
+        : kq.hopLe
+          ? `Chữ ký hợp lệ — ${kq.nguoiKy ?? 'không rõ người ký'}`
+          : `Chữ ký KHÔNG hợp lệ: ${kq.thongBaoLoi ?? 'nội dung đã bị thay đổi'}`;
+
+      setKetQuaXacMinh((cu) => ({ ...cu, [nhatKyId]: nhan }));
+
+      if (kq.hopLe) message.success('Chữ ký hợp lệ');
+      else message.warning(nhan);
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không xác minh được.'),
+  });
+
+  return (
+    <Modal
+      open
+      width={860}
+      title={`Lịch sử ký số — ${quyetDinh.soQuyetDinh}`}
+      footer={<Button onClick={onDong}>Đóng</Button>}
+      onCancel={onDong}
+    >
+      {error ? (
+        <KhoiLoi loi={error} thuLai={refetch} />
+      ) : (
+        <Table<NhatKyKySo>
+          rowKey="id"
+          size="small"
+          loading={isLoading}
+          dataSource={data ?? []}
+          pagination={false}
+          scroll={{ x: 1000 }}
+          locale={{ emptyText: <KhoiRong moTa="Quyết định này chưa có lần ký số nào." /> }}
+          columns={[
+            {
+              title: 'Thời gian ký',
+              dataIndex: 'thoiGianKy',
+              width: 150,
+              render: (v: string) => ngayGio(v),
+            },
+            {
+              title: 'Chứng thư',
+              dataIndex: 'serialChungThu',
+              width: 300,
+              render: (v: string | null, dong) => (
+                <Space direction="vertical" size={0}>
+                  <Typography.Text code>{v ?? '—'}</Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {dong.nguoiCapChungThu ?? 'Không rõ đơn vị cấp'}
+                  </Typography.Text>
+                </Space>
+              ),
+            },
+            {
+              title: 'Hiệu lực',
+              key: 'hieuLuc',
+              width: 190,
+              responsive: ['lg'],
+              render: (_v, dong) =>
+                `${ngayGio(dong.hieuLucTu, false)} — ${ngayGio(dong.hieuLucDen, false)}`,
+            },
+            {
+              title: 'Trạng thái',
+              dataIndex: 'trangThaiKy',
+              width: 120,
+              render: (v: string) =>
+                v === 'THANH_CONG' ? (
+                  <Tag icon={<CheckCircleOutlined />} color="success">
+                    Thành công
+                  </Tag>
+                ) : (
+                  <Tag icon={<CloseCircleOutlined />} color="error">
+                    Thất bại
+                  </Tag>
+                ),
+            },
+            {
+              title: '',
+              key: 'thaoTac',
+              width: 260,
+              render: (_v, dong) => (
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                  <Space size={4} wrap>
+                    <Button
+                      size="small"
+                      loading={xacMinh.isPending && xacMinh.variables === dong.id}
+                      disabled={dong.trangThaiKy !== 'THANH_CONG'}
+                      onClick={() => xacMinh.mutate(dong.id)}
+                    >
+                      Xác minh
+                    </Button>
+                    {dong.tepGocId && (
+                      <a href={`/api/v1/tep-tin/${dong.tepGocId}/tai-ve`} download>
+                        Bản gốc
+                      </a>
+                    )}
+                    {dong.tepDaKyId && (
+                      <a href={`/api/v1/tep-tin/${dong.tepDaKyId}/tai-ve`} download>
+                        Tệp chữ ký
+                      </a>
+                    )}
+                  </Space>
+                  {ketQuaXacMinh[dong.id] && (
+                    <Typography.Text
+                      type={ketQuaXacMinh[dong.id].includes('hợp lệ —') ? 'success' : 'danger'}
+                      style={{ fontSize: 12 }}
+                    >
+                      {ketQuaXacMinh[dong.id]}
+                    </Typography.Text>
+                  )}
+                </Space>
+              ),
+            },
+          ]}
+        />
+      )}
     </Modal>
   );
 }

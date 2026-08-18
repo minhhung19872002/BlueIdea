@@ -34,6 +34,7 @@ public sealed record QuyetDinhDto(
     string? TenDonViBanHanh,
     Guid? DotDeNghiId,
     string? TenDot,
+    Guid? TepTinId,
     bool DaKySo,
     int SoSangKien,
     int SoDaCongBo);
@@ -59,6 +60,9 @@ public sealed record LuuQuyetDinhDto
     public Guid? DonViBanHanhId { get; init; }
 
     public Guid? DotDeNghiId { get; init; }
+
+    /// <summary>Tep van ban quyet dinh da ban hanh — la doi tuong duoc ky so (chuc nang 49).</summary>
+    public Guid? TepTinId { get; init; }
 
     public List<Guid> SangKienIds { get; init; } = new();
 }
@@ -223,7 +227,8 @@ public sealed class DichVuQuyetDinh
             NguoiKy = dto.NguoiKy,
             ChucVuNguoiKy = dto.ChucVuNguoiKy,
             DonViBanHanhId = dto.DonViBanHanhId,
-            DotDeNghiId = dto.DotDeNghiId
+            DotDeNghiId = dto.DotDeNghiId,
+            TepTinId = dto.TepTinId
         };
 
         _db.QuyetDinh.Add(quyetDinh);
@@ -268,6 +273,7 @@ public sealed class DichVuQuyetDinh
         quyetDinh.ChucVuNguoiKy = dto.ChucVuNguoiKy;
         quyetDinh.DonViBanHanhId = dto.DonViBanHanhId;
         quyetDinh.DotDeNghiId = dto.DotDeNghiId;
+        quyetDinh.TepTinId = dto.TepTinId;
 
         // Go het lien ket cu roi gan lai theo danh sach moi.
         var lienKetCu = await _db.QuyetDinhSangKien
@@ -476,7 +482,8 @@ public sealed class DichVuQuyetDinh
     private static QuyetDinhDto TaoDto(
         ThucTheQuyetDinh x, string? tenDonVi, string? tenDot, int soSangKien, int soDaCongBo)
         => new(x.Id, x.SoQuyetDinh, x.NgayBanHanh, x.Loai, x.TrichYeu, x.NguoiKy, x.ChucVuNguoiKy,
-            x.DonViBanHanhId, tenDonVi, x.DotDeNghiId, tenDot, x.DaKySo, soSangKien, soDaCongBo);
+            x.DonViBanHanhId, tenDonVi, x.DotDeNghiId, tenDot, x.TepTinId, x.DaKySo,
+            soSangKien, soDaCongBo);
 
     /// <summary>Go danh dau cong nhan khoi ho so khi bi bo ra khoi quyet dinh.</summary>
     private async Task GoCongNhanAsync(List<Guid> sangKienIds, CancellationToken ct)

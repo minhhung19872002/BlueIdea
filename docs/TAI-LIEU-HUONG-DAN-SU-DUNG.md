@@ -36,6 +36,15 @@ Chọn lại bộ lọc đã lưu ở ô **Bộ lọc đã lưu**; bấm ★ đ�
 xoá. Bộ lọc là **của riêng bạn**, người khác không nhìn thấy. Khi mở màn hình bằng liên kết có sẵn
 tiêu chí lọc, hệ thống giữ nguyên tiêu chí trên liên kết chứ không đè bằng bộ lọc mặc định.
 
+### Thông báo
+
+Chuông ở góc trên bên phải hiện số thông báo **chưa đọc**. Bấm vào chuông để mở danh sách:
+
+- Thông báo chưa đọc có nền xanh nhạt; bấm vào là đánh dấu đã đọc và mở thẳng hồ sơ liên quan.
+- Nút **Đọc tất cả** đánh dấu toàn bộ thông báo của bạn là đã đọc.
+
+Thông báo là dữ liệu riêng của từng người — không ai xem hay đánh dấu được thông báo của người khác.
+
 ### Dùng trên điện thoại
 
 Hệ thống chạy trực tiếp trên trình duyệt điện thoại, **không cần cài đặt ứng dụng**: mở cùng địa
@@ -121,10 +130,11 @@ Bấm **Xuất Excel** để tải danh sách theo đúng bộ lọc đang áp d
 
 ### Phân công chấm điểm
 
-Sau khi hồ sơ qua bước thẩm định:
+Sau khi hồ sơ qua bước thẩm định, mở hồ sơ và tìm khối **Nghiệp vụ hội đồng**:
 
-1. Vào hồ sơ, chọn hội đồng.
-2. Chọn các thành viên sẽ chấm và đặt hạn hoàn thành.
+1. Bấm **Phân công chấm điểm**, chọn hội đồng.
+2. Chọn các thành viên sẽ chấm (để trống = giao cho tất cả thành viên có quyền chấm) và đặt hạn
+   hoàn thành.
 3. Bấm **Phân công**.
 
 Hệ thống **tự động loại thành viên là tác giả của chính hồ sơ đó** (xung đột lợi ích) và báo lại
@@ -132,7 +142,8 @@ số lượng bị loại. Các thành viên được phân công sẽ nhận th
 
 ### Tổng hợp điểm
 
-Khi các thành viên đã gửi phiếu, bấm **Tổng hợp**. Hệ thống tính theo đúng cách tính cấu hình
+Khi các thành viên đã gửi phiếu, mở hồ sơ và bấm **Tổng hợp điểm** trong khối *Nghiệp vụ hội đồng*,
+chọn hội đồng đã chấm. Hệ thống tính theo đúng cách tính cấu hình
 trong bộ tiêu chí và hiển thị: số phiếu, điểm cao nhất, thấp nhất, trung bình, điểm cuối cùng,
 kết quả đạt/không đạt và mức công nhận.
 
@@ -165,14 +176,15 @@ bỏ phiếu, Kết luận.
 Nút **Xuất phiếu chấm** ở đầu trang hội đồng tải về một tệp PDF gộp toàn bộ phiếu chấm đã gửi của
 hội đồng — dùng khi in hồ sơ phiên họp.
 
-### Bảng ma trận điểm
+### Bảng ma trận điểm và mở lại phiếu
 
-Xem toàn cảnh: hàng là hồ sơ, cột là thành viên. Điểm chỉ hiện sau khi thành viên đã **gửi**
-phiếu — bảo đảm nguyên tắc **chấm điểm độc lập**.
+Vào **Hội đồng sáng kiến**, mở hội đồng rồi sang tab **Ma trận điểm**: hàng là hồ sơ, cột là thành
+viên. Điểm chỉ hiện sau khi thành viên đã **gửi** phiếu — bảo đảm nguyên tắc **chấm điểm độc lập**.
+Cột cuối là điểm trung bình kèm tỷ lệ phiếu đã chấm trên tổng phiếu phân công.
 
-### Mở lại phiếu
-
-Nếu thành viên chấm nhầm, thư ký bấm **Mở lại phiếu** để họ sửa. Thành viên không tự mở lại được.
+Nếu thành viên chấm nhầm, bấm **Mở lại** ngay trên ô điểm của người đó. Phiếu mở khoá để họ sửa và
+gửi lại; điểm tổng hợp cũ không còn đúng cho tới khi bạn tổng hợp lại. Thành viên không tự mở lại
+phiếu của mình được.
 
 ---
 
@@ -295,6 +307,23 @@ Thi đua khen thưởng hoặc hệ thống khác:
 Client secret được mã hoá khi lưu và **không bao giờ** hiển thị lại; giao diện chỉ cho biết
 "Đã đặt bí mật". Khi sửa cấu hình, để trống ô bí mật nghĩa là giữ nguyên giá trị đang dùng.
 
+### Ký số quyết định
+
+Chuẩn bị: quản trị máy chủ nạp chứng thư (xem tài liệu vận hành), rồi vào **Quản trị → Chữ ký số**
+thêm một cấu hình và đặt làm mặc định. Thẻ trạng thái phải báo *Hệ thống sẵn sàng ký số*.
+
+Ký một quyết định:
+
+1. Vào **Quyết định**, sửa quyết định cần ký, tải **tệp văn bản quyết định** (bản PDF đã ban hành)
+   ở mục *Tệp văn bản quyết định*, rồi lưu.
+2. Ở danh sách, bấm nút hình chứng thư để **Ký số**. Hệ thống ký tệp đó bằng chứng thư đang cấu
+   hình; bản gốc giữ nguyên, chữ ký lưu thành tệp riêng.
+3. Quyết định đã ký số **không sửa hay xoá được** nữa.
+4. Bấm lại nút chứng thư để xem **Lịch sử ký số**: mỗi lần ký có serial chứng thư, người ký, thời
+   gian, nút **Xác minh** và liên kết tải bản gốc / tệp chữ ký.
+
+Xác minh đối chiếu bản gốc với tệp chữ ký: nội dung bị sửa dù một ký tự cũng bị báo *không hợp lệ*.
+
 ### Bật đăng nhập một lần (SSO)
 
 Điền `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` trong tệp `.env` rồi khởi động lại dịch vụ
@@ -306,10 +335,17 @@ tự ẩn. Người đăng nhập bằng SSO khi bấm Đăng xuất sẽ đư�
 
 ### Quản lý đợt đề nghị
 
-- **Mở đợt** — bắt đầu nhận hồ sơ. Phải gán quy trình và bộ tiêu chí trước.
+Vào **Danh mục → tab Đợt đề nghị**. Bảng hiển thị trạng thái vòng đời của từng đợt và cảnh báo nếu
+còn thiếu quy trình hoặc bộ tiêu chí. Các nút bên phải mỗi dòng:
+
+- **Mở đợt** — bắt đầu nhận hồ sơ. Phải gán quy trình và bộ tiêu chí trước, nếu thiếu hệ thống chặn
+  và nói rõ thiếu gì.
 - **Đóng đợt** — ngừng nhận hồ sơ mới, vẫn xử lý tiếp hồ sơ đã nộp.
 - **Khóa đợt** — toàn bộ dữ liệu chỉ đọc, không thao tác được nữa.
-- **Sao chép đợt** — tạo đợt năm mới giữ nguyên cấu hình năm cũ.
+- **Sao chép đợt** — tạo đợt năm mới giữ nguyên quy trình, bộ tiêu chí và đơn vị áp dụng; đợt mới ở
+  trạng thái *Nháp*.
+
+Đợt bật *tự động đóng khi quá hạn nộp* sẽ được hệ thống tự đóng mỗi giờ, không cần thao tác tay.
 
 ### Thiết kế quy trình
 

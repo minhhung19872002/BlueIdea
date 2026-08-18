@@ -19,9 +19,9 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 1 | Lĩnh vực | ✅ | CRUD, cây phân cấp, tìm không dấu, chặn xóa khi đang tham chiếu, xuất Excel |
+| 1 | Lĩnh vực | ✅ | CRUD, cây phân cấp, tìm không dấu, **đổi thứ tự bằng nút lên/xuống**, chặn xóa khi đang tham chiếu, xuất Excel |
 | 2 | Đối tượng | ✅ | CRUD đầy đủ |
-| 3 | Đợt đề nghị | ✅ | CRUD + Mở/Đóng/Khóa đợt + Sao chép đợt; tự động đóng đợt quá hạn nộp mỗi giờ |
+| 3 | Đợt đề nghị | ✅ | Màn hình riêng trong tab Danh mục: CRUD + **Mở / Đóng / Khoá đợt + Sao chép đợt ngay trên bảng**, hiển thị trạng thái vòng đời và cảnh báo thiếu quy trình / bộ tiêu chí; tự động đóng đợt quá hạn nộp mỗi giờ |
 | 4 | Loại tác giả | ✅ | Kèm ràng buộc số tác giả tối đa, áp dụng khi nộp hồ sơ |
 | 5 | Đơn vị phê duyệt | ✅ | Cây tổ chức, đường dẫn cây phục vụ phạm vi dữ liệu |
 | 6 | Biểu mẫu xuất | ✅ | Màn hình tab **Biểu mẫu xuất** trong Danh mục: CRUD, tải tệp `.docx` mẫu, quét placeholder `{{ }}` ngay khi tải lên và ánh xạ từng placeholder sang nguồn dữ liệu. Gộp văn bản cả đoạn nên bắt được placeholder bị Word cắt thành nhiều run |
@@ -32,7 +32,7 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 9 | Cấu hình quy trình | ✅ | CRUD, sao chép, tạo phiên bản mới, kích hoạt, ngừng áp dụng |
+| 9 | Cấu hình quy trình | ✅ | CRUD, **sao chép sang quy trình mới**, tạo phiên bản mới, kích hoạt, ngừng áp dụng — tất cả có nút trên màn hình |
 | 10 | Cấu hình trường hợp | ✅ | Nhánh rẽ có điều kiện jsonb; rule evaluator đầy đủ toán tử; xem trên designer |
 | 11 | Cấu hình bước xử lý | ✅ | Panel cấu hình bước trên trình thiết kế ReactFlow |
 | 12 | Chức năng bổ sung | ✅ | Bật/tắt 9 chức năng ngay trên trình thiết kế quy trình |
@@ -46,7 +46,7 @@ thiện, đều được ghi rõ.
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
 | 17 | Nhóm tiêu chí | ✅ | Cây 2 cấp, kiểm tra tổng trọng số và tổng điểm realtime |
-| 18 | Cấu hình tiêu chí | ✅ | 4 kiểu nhập; mức công nhận theo khoảng điểm, kiểm tra chồng lấn |
+| 18 | Cấu hình tiêu chí | ✅ | 4 kiểu nhập; **khối mức công nhận theo khoảng điểm sửa trực tiếp trên màn hình**, máy chủ chặn khoảng chồng lấn |
 
 ## Nhóm IV — Hội đồng
 
@@ -72,7 +72,7 @@ thiện, đều được ghi rõ.
 |---|---|---|---|
 | 27 | Tiếp nhận hồ sơ | ✅ | Nút hành động sinh động theo quy trình |
 | 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích** ngay trên màn hình danh sách (chọn, lưu, đặt mặc định, xoá; bộ lọc mặc định tự áp dụng khi mở màn hình, liên kết chia sẻ luôn thắng bộ lọc cá nhân), chọn nhiều, xuất Excel |
-| 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, thu hồi, Idempotency-Key |
+| 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, **thu hồi bước có nút và bắt buộc nhập lý do**, Idempotency-Key |
 | 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
 | 31/36 | Đính kèm quyết định | ✅ | Màn hình ban hành quyết định, chọn sáng kiến đủ điều kiện, xuất PDF theo mẫu hành chính |
 | 32 | Kết quả sáng kiến | ✅ | Công bố kết quả hàng loạt theo quyết định, mở hiển thị công khai và gửi thông báo tới tác giả |
@@ -81,15 +81,15 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 33 | Danh sách hồ sơ đánh giá | ✅ | "Việc của tôi", đếm ngược hạn, phân công loại trừ xung đột lợi ích |
+| 33 | Danh sách hồ sơ đánh giá | ✅ | "Việc của tôi", đếm ngược hạn, **màn hình phân công chấm điểm** (chọn hội đồng, thành viên, hạn, chia đều) loại trừ xung đột lợi ích |
 | 34 | Đánh giá hồ sơ | ✅ | Giao diện 2 panel, phiếu chấm render động, tính điểm realtime |
-| 35 | Phiếu đánh giá | ✅ | Lưu/gửi/mở lại phiếu, ma trận điểm, xuất PDF hàng loạt theo hồ sơ hoặc theo hội đồng (nút **Xuất phiếu chấm** trên trang hội đồng) |
+| 35 | Phiếu đánh giá | ✅ | Lưu/gửi phiếu; **tab Ma trận điểm** trong trang hội đồng (hàng = hồ sơ, cột = thành viên, điểm chỉ hiện khi đã gửi) kèm nút **Mở lại phiếu** cho thư ký; xuất PDF hàng loạt theo hồ sơ hoặc theo hội đồng |
 
 ## Nhóm IX–X — Tra cứu, báo cáo
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 37 | Tra cứu, tìm kiếm | ✅ | Tìm không dấu, tìm nâng cao, chia sẻ link, trang công khai, **tìm ngữ nghĩa** bằng vector nội bộ (xem ghi chú giới hạn bên dưới) |
+| 37 | Tra cứu, tìm kiếm | ✅ | Tìm không dấu, tìm nâng cao, chia sẻ link, trang công khai, **khối "Tìm theo ý nghĩa" trên trang tra cứu** trả về độ tương đồng và đoạn khớp nhất (xem ghi chú giới hạn bên dưới) |
 | 38 | DS sáng kiến đạt | ✅ | Bảng + xuất Excel + xuất PDF mẫu văn bản hành chính |
 | 39 | DS sáng kiến chưa đạt | ✅ | Kèm lý do và điểm đánh giá |
 | 40 | DS theo đơn vị | ✅ | Kèm tỷ lệ đạt, dòng tổng cộng |
@@ -107,7 +107,7 @@ thiện, đều được ghi rõ.
 | 46 | Cấu hình hệ thống | ✅ | Đọc/ghi theo nhóm, có kiểu dữ liệu, màu chủ đạo áp dụng ngay lên giao diện |
 | 47 | Cấu hình đơn vị | ✅ | Sửa được tiêu đề văn bản, người ký mặc định và chức vụ ngay trong form đơn vị |
 | 48 | Cấu hình menu | ✅ | Menu render động từ CSDL và lọc theo quyền; sửa menu bằng API |
-| 49 | Cấu hình chữ ký số | ✅ | Ký PKCS#7 detached + xác minh chữ ký, giữ nguyên bản gốc, chặn ký bằng chứng thư hết hạn. Cần chứng thư thật của CA để dùng chính thức |
+| 49 | Cấu hình chữ ký số | ✅ | Màn hình `/quan-tri/chu-ky-so` khai báo nhà cung cấp, hình thức ký, chứng thư và báo hệ thống đã sẵn sàng ký hay chưa. Trên trang Quyết định: gắn tệp văn bản, **nút Ký số**, **lịch sử ký số** và **xác minh chữ ký** từng lần ký. Ký PKCS#7 detached, giữ nguyên bản gốc. Khoá bí mật đọc từ tệp PFX của máy chủ (`KYSO_PFX`), không lưu trong CSDL. Cần chứng thư thật của CA để dùng chính thức |
 | 50 | Cấu hình email & SMS | ✅ | Màn hình cấu hình SMTP/SMS có nút gửi thử và thống kê hàng đợi; worker gửi thật rút hàng đợi mỗi 5 phút |
 | 51 | Cấu hình thông tin sáng kiến | ✅ | Ngưỡng trùng lặp, hệ số tính điểm, giới hạn tệp — sửa được trên giao diện |
 
@@ -135,6 +135,13 @@ chủ tịch kết luận → ban hành quyết định → công bố kết qu�
 Luồng hội đồng: thành lập hội đồng → lưu danh sách thành viên (chặn khi không đúng 1 chủ tịch
 hoặc thiếu thành viên tối thiểu) → mở phiên họp kèm hồ sơ đưa ra xét → điểm danh → bỏ phiếu và
 kiểm phiếu theo ngưỡng thông qua → kết luận và kết thúc phiên (khoá bỏ phiếu) → xuất phiếu chấm PDF.
+
+Luồng thông báo: chuông trên thanh trên đếm số chưa đọc, mở ngăn kéo xem danh sách, bấm vào một
+thông báo là đánh dấu đã đọc và mở thẳng đối tượng liên quan, có nút "Đọc tất cả". Thông báo là
+dữ liệu cá nhân — không ai đọc hay đánh dấu được thông báo của người khác.
+
+Luồng ký số: khai báo cấu hình chữ ký số → gắn tệp văn bản vào quyết định → ký số → xem lịch sử ký
+→ xác minh chữ ký (đối chiếu bản gốc với tệp chữ ký PKCS#7 detached).
 
 Luồng liên thông: khai báo hệ thống ngoài → xem trước dữ liệu sẽ đẩy → chạy đồng bộ → đọc nhật ký
 đồng bộ; sửa cấu hình mà để trống ô bí mật thì giữ nguyên bí mật đang lưu.

@@ -187,6 +187,11 @@ services:
       GioiHanTruyCap__SoRequestMoiPhut: "${GIOI_HAN_REQUEST:-100}"
       GioiHanTruyCap__SoLanDangNhapMoiPhut: "${GIOI_HAN_DANG_NHAP:-5}"
 
+      # Chuc nang 49 - Ky so. PFX doc tu TEP tren dia (hoac o gan vao container), KHONG luu
+      # trong CSDL: mot lan lo ban dump la lo luon quyen ky van ban.
+      KySo__DuongDanPfx: "${KYSO_PFX:-}"
+      KySo__MatKhauPfx: "${KYSO_MAT_KHAU_PFX:-}"
+
       # Chuc nang 21, 41 - Dang nhap mot lan qua OIDC.
       #
       # De TRONG Sso__Issuer hoac Sso__ClientId = tat SSO: API bao "chua cau hinh" va trang

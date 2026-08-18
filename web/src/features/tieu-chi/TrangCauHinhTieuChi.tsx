@@ -12,6 +12,7 @@ import {
   Row,
   Space,
   Statistic,
+  Switch,
   Tag,
   Typography,
 } from 'antd';
@@ -32,6 +33,16 @@ interface TieuChiSua {
   huongDanCham?: string | null;
 }
 
+interface MucCongNhanSua {
+  id: string;
+  ma: string;
+  ten: string;
+  diemTu: number;
+  diemDen: number;
+  laDat: boolean;
+  mauSac?: string | null;
+}
+
 interface NhomSua {
   id: string;
   ma: string;
@@ -47,6 +58,7 @@ export default function TrangCauHinhTieuChi() {
   const { message, modal } = App.useApp();
 
   const [nhom, setNhom] = useState<NhomSua[]>([]);
+  const [mucCongNhan, setMucCongNhan] = useState<MucCongNhanSua[]>([]);
 
   const truyVan = useQuery({
     queryKey: ['bo-tieu-chi', id],
@@ -74,6 +86,17 @@ export default function TrangCauHinhTieuChi() {
         })),
       })),
     );
+    setMucCongNhan(
+      (truyVan.data.danhSachMucCongNhan ?? []).map((m) => ({
+        id: m.id,
+        ma: m.ma,
+        ten: m.ten,
+        diemTu: m.diemTu,
+        diemDen: m.diemDen,
+        laDat: m.laDat,
+        mauSac: m.mauSac,
+      })),
+    );
   }, [truyVan.data]);
 
   const luu = useMutation({
@@ -82,6 +105,20 @@ export default function TrangCauHinhTieuChi() {
     onError: (loi) =>
       modal.error({
         title: 'Không lưu được',
+        content: loi instanceof LoiApi ? loi.message : 'Đã xảy ra lỗi.',
+      }),
+  });
+
+  /** Chức năng 18 — mức công nhận theo khoảng điểm (máy chủ chặn khoảng chồng lấn). */
+  const luuMuc = useMutation({
+    mutationFn: () => apiTieuChi.luuMucCongNhan(id, mucCongNhan),
+    onSuccess: () => {
+      message.success('Đã lưu mức công nhận');
+      void truyVan.refetch();
+    },
+    onError: (loi) =>
+      modal.error({
+        title: 'Không lưu được mức công nhận',
         content: loi instanceof LoiApi ? loi.message : 'Đã xảy ra lỗi.',
       }),
   });
@@ -317,11 +354,113 @@ export default function TrangCauHinhTieuChi() {
         Thêm nhóm tiêu chí
       </Button>
 
+      <Card
+        size="small"
+        title="Mức công nhận theo khoảng điểm"
+        style={{ marginTop: 16 }}
+        extra={
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={luuMuc.isPending}
+            onClick={() => luuMuc.mutate()}
+          >
+            Lưu mức công nhận
+          </Button>
+        }
+      >
+        <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+          Điểm cuối cùng của hồ sơ rơi vào khoảng nào thì nhận mức công nhận tương ứng. Các khoảng
+          <strong> không được chồng lấn</strong> — máy chủ chặn khi lưu.
+        </Typography.Paragraph>
+
+        <List
+          dataSource={mucCongNhan}
+          locale={{ emptyText: 'Chưa cấu hình mức công nhận nào.' }}
+          renderItem={(muc, chiSo) => (
+            <List.Item>
+              <Space wrap align="start" style={{ width: '100%' }}>
+                <Input
+                  style={{ width: 150 }}
+                  placeholder="Mã"
+                  value={muc.ma}
+                  onChange={(e) => datMuc(chiSo, { ma: e.target.value.toUpperCase() })}
+                />
+                <Input
+                  style={{ width: 240 }}
+                  placeholder="Tên mức công nhận"
+                  value={muc.ten}
+                  onChange={(e) => datMuc(chiSo, { ten: e.target.value })}
+                />
+                <InputNumber
+                  style={{ width: 120 }}
+                  addonBefore="Từ"
+                  min={0}
+                  max={bo.thangDiemToiDa}
+                  value={muc.diemTu}
+                  onChange={(v) => datMuc(chiSo, { diemTu: v ?? 0 })}
+                />
+                <InputNumber
+                  style={{ width: 120 }}
+                  addonBefore="Đến"
+                  min={0}
+                  max={bo.thangDiemToiDa}
+                  value={muc.diemDen}
+                  onChange={(v) => datMuc(chiSo, { diemDen: v ?? 0 })}
+                />
+                <Space>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Là đạt
+                  </Typography.Text>
+                  <Switch
+                    checked={muc.laDat}
+                    onChange={(v) => datMuc(chiSo, { laDat: v })}
+                  />
+                </Space>
+                <Button
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => setMucCongNhan((cu) => cu.filter((_x, i) => i !== chiSo))}
+                />
+              </Space>
+            </List.Item>
+          )}
+        />
+
+        <Button
+          type="dashed"
+          block
+          icon={<PlusOutlined />}
+          style={{ marginTop: 8 }}
+          onClick={() =>
+            setMucCongNhan((cu) => [
+              ...cu,
+              {
+                id: '00000000-0000-0000-0000-000000000000',
+                ma: '',
+                ten: '',
+                diemTu: 0,
+                diemDen: bo.thangDiemToiDa,
+                laDat: true,
+                mauSac: null,
+              },
+            ])
+          }
+        >
+          Thêm mức công nhận
+        </Button>
+      </Card>
+
       <Typography.Paragraph type="secondary" style={{ marginTop: 12, fontSize: 12 }}>
         Lưu ý: bộ tiêu chí đã có phiếu chấm sẽ không sửa được cấu trúc — hãy sao chép sang bộ mới.
       </Typography.Paragraph>
     </Card>
   );
+
+  function datMuc(chiSo: number, thayDoi: Partial<MucCongNhanSua>) {
+    setMucCongNhan((cu) => cu.map((m, i) => (i === chiSo ? { ...m, ...thayDoi } : m)));
+  }
 
   function datNhom(chiSo: number, thayDoi: Partial<NhomSua>) {
     setNhom((cu) => cu.map((n, i) => (i === chiSo ? { ...n, ...thayDoi } : n)));

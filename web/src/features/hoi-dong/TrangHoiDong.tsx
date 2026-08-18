@@ -145,15 +145,16 @@ export default function TrangHoiDong() {
         size="middle"
         loading={isLoading}
         dataSource={data?.duLieu ?? []}
-        scroll={{ x: 900 }}
+        scroll={{ x: 1210 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 180 },
           {
             title: 'Tên hội đồng',
             dataIndex: 'ten',
+            width: 320,
             render: (v: string, dong) => <Link to={`/hoi-dong/${dong.id}`}>{v}</Link>,
           },
-          { title: 'Mô tả', dataIndex: 'moTa', responsive: ['lg'] },
+          { title: 'Mô tả', dataIndex: 'moTa', width: 260, ellipsis: true, responsive: ['lg'] },
           {
             title: 'Trạng thái',
             dataIndex: 'trangThai',

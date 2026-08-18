@@ -14,7 +14,13 @@ import {
   Table,
   Tag,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi } from '@/api/client';
@@ -87,6 +93,21 @@ export default function TrangDanhMuc() {
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
 
+  /**
+   * Chức năng 1 — đổi thứ tự lĩnh vực bằng nút lên/xuống.
+   *
+   * Dùng nút thay vì kéo–thả: thao tác này cũng phải làm được trên điện thoại, mà kéo–thả trong
+   * bảng cuộn ngang trên màn hình hẹp gần như không dùng nổi.
+   */
+  const sapXep = useMutation({
+    mutationFn: (idTheoThuTu: string[]) => apiLinhVuc.sapXep(idTheoThuTu),
+    onSuccess: () => {
+      message.success('Đã lưu thứ tự mới');
+      void queryClient.invalidateQueries({ queryKey: ['danh-muc', ma] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được thứ tự.'),
+  });
+
   const xoa = useMutation({
     mutationFn: (id: string) => cauHinh.api.xoa(id),
     onSuccess: () => {
@@ -101,6 +122,20 @@ export default function TrangDanhMuc() {
   });
 
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
+
+  const choPhepSapXep = ma === 'linh-vuc';
+  const danhSach = data?.duLieu ?? [];
+
+  /** Đổi chỗ hai dòng liền kề rồi gửi luôn thứ tự mới của cả trang. */
+  function doiCho(chiSo: number, huong: -1 | 1) {
+    const dich = chiSo + huong;
+    if (dich < 0 || dich >= danhSach.length) return;
+
+    const moi = [...danhSach];
+    [moi[chiSo], moi[dich]] = [moi[dich], moi[chiSo]];
+
+    sapXep.mutate(moi.map((x) => x.id));
+  }
 
   return (
     <Card
@@ -136,7 +171,7 @@ export default function TrangDanhMuc() {
         rowKey="id"
         size="middle"
         loading={isLoading}
-        dataSource={data?.duLieu ?? []}
+        dataSource={danhSach}
         scroll={{ x: 800 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 180 },
@@ -159,10 +194,28 @@ export default function TrangDanhMuc() {
           },
           {
             title: '',
-            width: 100,
+            width: choPhepSapXep ? 160 : 100,
             fixed: 'right',
-            render: (_v, dong) => (
-              <Space>
+            render: (_v, dong, chiSo) => (
+              <Space size={0}>
+                {choPhepSapXep && (
+                  <>
+                    <Button
+                      type="text"
+                      icon={<ArrowUpOutlined />}
+                      title="Đưa lên trên"
+                      disabled={chiSo === 0 || sapXep.isPending}
+                      onClick={() => doiCho(chiSo, -1)}
+                    />
+                    <Button
+                      type="text"
+                      icon={<ArrowDownOutlined />}
+                      title="Đưa xuống dưới"
+                      disabled={chiSo === danhSach.length - 1 || sapXep.isPending}
+                      onClick={() => doiCho(chiSo, 1)}
+                    />
+                  </>
+                )}
                 <Button
                   type="text"
                   icon={<EditOutlined />}

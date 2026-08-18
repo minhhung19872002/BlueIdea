@@ -234,6 +234,21 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
 }
 
 /// <summary>Chuc nang 3 - Dot de nghi (co vong doi Mo / Dong / Khoa).</summary>
+/// <summary>Mot dot de nghi kem trang thai vong doi, phuc vu man hinh quan tri dot.</summary>
+public sealed record DotDeNghiQuanLyDto(
+    Guid Id,
+    string Ma,
+    string Ten,
+    int Nam,
+    string CapXetDuyet,
+    string TrangThaiDot,
+    bool TuDongKhoa,
+    DateTimeOffset? HanNopHoSo,
+    DateTimeOffset? HanChamDiem,
+    Guid? QuyTrinhId,
+    Guid? BoTieuChiId,
+    short TrangThai);
+
 public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
 {
     public DichVuDotDeNghi(IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo)
@@ -244,6 +259,37 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
     protected override DbSet<DotDeNghi> BangDuLieu => Db.DotDeNghi;
 
     protected override string TenDanhMuc => "Đợt đề nghị";
+
+    /// <summary>
+    /// Danh sach dot kem trang thai vong doi - man hinh quan tri dung de bat/tat nut
+    /// Mo / Dong / Khoa dot. Danh sach danh muc chung khong co truong nay.
+    /// </summary>
+    public async Task<PagedResult<DotDeNghiQuanLyDto>> LayDanhSachQuanLyAsync(
+        ThamSoLocDanhMuc thamSo, CancellationToken ct = default)
+    {
+        var truyVan = Db.DotDeNghi.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(thamSo.TuKhoa))
+        {
+            var khongDau = VanBanTiengViet.TaoKhongDau(thamSo.TuKhoa);
+            truyVan = truyVan.Where(x => x.TenKhongDau.Contains(khongDau)
+                                         || x.Ma.ToUpper().Contains(thamSo.TuKhoa.ToUpper()));
+        }
+
+        var tongSo = await truyVan.CountAsync(ct).ConfigureAwait(false);
+
+        var duLieu = await truyVan
+            .OrderByDescending(x => x.Nam).ThenBy(x => x.ThuTu)
+            .Skip(thamSo.BoQua)
+            .Take(thamSo.SoDong)
+            .Select(x => new DotDeNghiQuanLyDto(
+                x.Id, x.Ma, x.Ten, x.Nam, x.CapXetDuyet, x.TrangThaiDot, x.TuDongKhoa,
+                x.HanNopHoSo, x.HanChamDiem, x.QuyTrinhId, x.BoTieuChiId, x.TrangThai))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return new PagedResult<DotDeNghiQuanLyDto>(duLieu, tongSo, thamSo.Trang, thamSo.SoDong);
+    }
 
     /// <summary>Cac dot dang mo va con han nop - dung cho wizard nop ho so.</summary>
     public async Task<IReadOnlyList<DanhMucDto>> LayDotDangMoAsync(CancellationToken ct = default)

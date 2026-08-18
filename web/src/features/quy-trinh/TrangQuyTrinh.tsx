@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Card, Form, Input, Modal, Space, Table, Tag } from 'antd';
+import { App, Button, Card, Form, Input, Modal, Space, Table, Tag, Typography } from 'antd';
 import {
   ApartmentOutlined,
   CheckCircleOutlined,
+  BlockOutlined,
   CopyOutlined,
   PlusOutlined,
   StopOutlined,
@@ -73,6 +74,17 @@ export default function TrangQuyTrinh() {
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không tạo được.'),
   });
 
+  /** Sao chép sang một quy trình MỚI — khác "tạo phiên bản mới" của chính quy trình đang có. */
+  const saoChep = useMutation({
+    mutationFn: ({ id, ma, ten }: { id: string; ma: string; ten: string }) =>
+      apiQuyTrinh.saoChep(id, ma, ten),
+    onSuccess: () => {
+      message.success('Đã sao chép thành quy trình mới');
+      void lamMoi();
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không sao chép được.'),
+  });
+
   const tao = useMutation({
     mutationFn: (giaTri: Record<string, unknown>) => apiQuyTrinh.them(giaTri),
     onSuccess: () => {
@@ -85,6 +97,47 @@ export default function TrangQuyTrinh() {
   });
 
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
+
+  function moSaoChep(dong: DanhMucDto) {
+    let ma = `${dong.ma}-COPY`;
+    let ten = `${dong.ten} (bản sao)`;
+
+    modal.confirm({
+      title: `Sao chép quy trình "${dong.ten}"`,
+      content: (
+        <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
+          <Input
+            defaultValue={ma}
+            addonBefore="Mã"
+            onChange={(e) => {
+              ma = e.target.value;
+            }}
+          />
+          <Input
+            defaultValue={ten}
+            addonBefore="Tên"
+            onChange={(e) => {
+              ten = e.target.value;
+            }}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Bản sao giữ nguyên bước, trường hợp, tác nhân và thành phần hồ sơ; trạng thái là nháp
+            nên phải kiểm tra hợp lệ rồi kích hoạt mới dùng được.
+          </Typography.Text>
+        </Space>
+      ),
+      okText: 'Sao chép',
+      cancelText: 'Huỷ',
+      onOk: () => {
+        if (!ma.trim() || !ten.trim()) {
+          message.warning('Mã và tên không được để trống.');
+          return Promise.reject(new Error('thieu-du-lieu'));
+        }
+
+        return saoChep.mutateAsync({ id: dong.id, ma: ma.trim(), ten: ten.trim() });
+      },
+    });
+  }
 
   return (
     <Card
@@ -151,6 +204,13 @@ export default function TrangQuyTrinh() {
                   loading={phienBanMoi.isPending}
                   title="Tạo phiên bản mới"
                   onClick={() => phienBanMoi.mutate(dong.id)}
+                />
+                <Button
+                  size="small"
+                  icon={<BlockOutlined />}
+                  loading={saoChep.isPending}
+                  title="Sao chép thành quy trình mới"
+                  onClick={() => moSaoChep(dong)}
                 />
                 <Button
                   size="small"

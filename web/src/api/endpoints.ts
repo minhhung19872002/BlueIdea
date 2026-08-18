@@ -56,16 +56,40 @@ export function taoApiDanhMuc<TChiTiet = DanhMucDto, TLuu = Record<string, unkno
 export const apiLinhVuc = {
   ...taoApiDanhMuc('/api/v1/danh-muc/linh-vuc'),
   cay: () => layDuLieu<NutCay[]>('/api/v1/danh-muc/linh-vuc/cay'),
+  /** Lưu thứ tự sau khi kéo–thả: gửi mảng id theo đúng thứ tự mong muốn. */
+  sapXep: (idTheoThuTu: string[]) =>
+    capNhatDuLieu('/api/v1/danh-muc/linh-vuc/sap-xep', idTheoThuTu),
 };
 
 export const apiDoiTuong = taoApiDanhMuc('/api/v1/danh-muc/doi-tuong');
 export const apiLoaiTacGia = taoApiDanhMuc('/api/v1/danh-muc/loai-tac-gia');
+export interface DotDeNghiQuanLy {
+  id: string;
+  ma: string;
+  ten: string;
+  nam: number;
+  capXetDuyet: string;
+  /** NHAP | DANG_MO | DA_DONG | DA_KHOA */
+  trangThaiDot: string;
+  tuDongKhoa: boolean;
+  hanNopHoSo?: string | null;
+  hanChamDiem?: string | null;
+  quyTrinhId?: string | null;
+  boTieuChiId?: string | null;
+  trangThai: number;
+}
+
 export const apiDotDeNghi = {
   ...taoApiDanhMuc('/api/v1/danh-muc/dot-de-nghi'),
   dangMo: () => layDuLieu<DanhMucDto[]>('/api/v1/danh-muc/dot-de-nghi/dang-mo'),
+  /** Danh sách kèm trạng thái vòng đời — dùng cho màn hình quản trị đợt. */
+  danhSachQuanLy: (thamSo?: ThamSoLoc) =>
+    layPhanTrang<DotDeNghiQuanLy>('/api/v1/danh-muc/dot-de-nghi/quan-ly', thamSo),
   moDot: (id: string) => guiDuLieu(`/api/v1/danh-muc/dot-de-nghi/${id}/mo-dot`),
   dongDot: (id: string) => guiDuLieu(`/api/v1/danh-muc/dot-de-nghi/${id}/dong-dot`),
   khoaDot: (id: string) => guiDuLieu(`/api/v1/danh-muc/dot-de-nghi/${id}/khoa-dot`),
+  saoChep: (id: string, duLieu: { ma: string; ten: string; nam: number }) =>
+    guiDuLieu(`/api/v1/danh-muc/dot-de-nghi/${id}/sao-chep`, duLieu),
 };
 
 export const apiDonVi = {
@@ -263,7 +287,28 @@ export const apiSangKien = {
       `/api/v1/sang-kien/${id}/nop`,
     ),
   rut: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/rut`, { lyDo }),
+  /** Chức năng 37 — tìm theo ý nghĩa câu hỏi, không cần trùng từ khoá. */
+  timNguNghia: (thamSo: {
+    cauHoi: string;
+    soKetQua?: number;
+    linhVucId?: string;
+    nam?: number;
+  }) => layDuLieu<KetQuaTimNguNghia[]>('/api/v1/sang-kien/tim-ngu-nghia', { params: thamSo }),
 };
+
+export interface KetQuaTimNguNghia {
+  sangKienId: string;
+  maHoSo: string;
+  tenSangKien: string;
+  tenTacGiaChinh?: string | null;
+  tenDonVi?: string | null;
+  tenLinhVuc?: string | null;
+  namCongNhan?: number | null;
+  ketQua?: string | null;
+  /** 0–100, càng cao càng sát ý câu hỏi. */
+  doTuongDong: number;
+  doanKhopNhat: string;
+}
 
 export interface LichSuChinhSua {
   id: string;
@@ -360,6 +405,16 @@ export interface NhomTieuChi {
   danhSachTieuChi: TieuChi[];
 }
 
+export interface MucCongNhan {
+  id: string;
+  ma: string;
+  ten: string;
+  diemTu: number;
+  diemDen: number;
+  laDat: boolean;
+  mauSac?: string | null;
+}
+
 export interface BoTieuChi {
   id: string;
   ma: string;
@@ -369,6 +424,7 @@ export interface BoTieuChi {
   cachTinh: string;
   lamTron: number;
   danhSachNhom: NhomTieuChi[];
+  danhSachMucCongNhan?: MucCongNhan[];
 }
 
 export interface PhieuDanhGia {
@@ -415,12 +471,60 @@ export const apiDanhGia = {
     ),
   luuNhap: (duLieu: unknown) => guiDuLieu<PhieuDanhGia>('/api/v1/danh-gia/phieu/luu-nhap', duLieu),
   gui: (duLieu: unknown) => guiDuLieu<PhieuDanhGia>('/api/v1/danh-gia/phieu/gui', duLieu),
-  phanCong: (duLieu: unknown) => guiDuLieu('/api/v1/danh-gia/phan-cong', duLieu),
+  phanCong: (duLieu: {
+    hoiDongId?: string;
+    sangKienIds: string[];
+    thanhVienIds?: string[] | null;
+    hanHoanThanh?: string | null;
+    tuDongChiaDeu: boolean;
+  }) => guiDuLieu('/api/v1/danh-gia/phan-cong', duLieu),
   tongHop: (sangKienId: string, hoiDongId: string) =>
-    guiDuLieu(`/api/v1/danh-gia/tong-hop?sangKienId=${sangKienId}&hoiDongId=${hoiDongId}`),
-  maTranDiem: (hoiDongId: string) =>
-    layDuLieu<unknown[]>(`/api/v1/danh-gia/ma-tran-diem?hoiDongId=${hoiDongId}`),
+    guiDuLieu<KetQuaTongHop>(
+      `/api/v1/danh-gia/tong-hop?sangKienId=${sangKienId}&hoiDongId=${hoiDongId}`,
+    ),
+  maTranDiem: (hoiDongId: string, dotDeNghiId?: string) =>
+    layDuLieu<DongMaTranDiem[]>('/api/v1/danh-gia/ma-tran-diem', {
+      params: { hoiDongId, dotDeNghiId },
+    }),
+  /** Chức năng 35 — thư ký mở lại phiếu đã gửi để thành viên sửa. */
+  moLaiPhieu: (phieuId: string) => guiDuLieu(`/api/v1/danh-gia/phieu/${phieuId}/mo-lai`),
 };
+
+export interface KetQuaTongHop {
+  sangKienId: string;
+  soPhieu: number;
+  soPhieuSuDung: number;
+  diemCaoNhat: number;
+  diemThapNhat: number;
+  diemTrungBinh: number;
+  diemCuoiCung: number;
+  dat: boolean;
+  mucCongNhanId?: string | null;
+  tenMucCongNhan?: string | null;
+  canhBao: string[];
+}
+
+export interface ODiemMaTran {
+  thanhVienId: string;
+  tenThanhVien: string;
+  diem?: number | null;
+  /** CHUA_CHAM | NHAP | DA_GUI | DA_KY | "-" khi chưa phân công */
+  trangThai: string;
+  /** Có giá trị khi thành viên đã có phiếu — dùng cho thao tác mở lại phiếu. */
+  phieuId?: string | null;
+}
+
+export interface DongMaTranDiem {
+  sangKienId: string;
+  maHoSo: string;
+  tenSangKien: string;
+  diemThanhVien: ODiemMaTran[];
+  diemTrungBinh?: number | null;
+  diemCaoNhat?: number | null;
+  diemThapNhat?: number | null;
+  soPhieuDaCham: number;
+  soPhieuPhanCong: number;
+}
 
 // --- Báo cáo ---------------------------------------------------------------
 
@@ -708,6 +812,22 @@ export const apiHoiDong = {
 
 // --- Hệ thống --------------------------------------------------------------
 
+export interface ThongBaoTrongUngDung {
+  id: string;
+  tieuDe: string;
+  noiDung: string;
+  loaiSuKien?: string | null;
+  doiTuongLienQuan?: string | null;
+  doiTuongId?: string | null;
+  /** Đường dẫn trong ứng dụng để mở thẳng đối tượng liên quan. */
+  duongDan?: string | null;
+  /** THAP | BINH_THUONG | CAO | KHAN */
+  mucDo: string;
+  daDoc: boolean;
+  ngayDoc?: string | null;
+  thoiGian: string;
+}
+
 export interface CauHinhMuc {
   id: string;
   nhom: string;
@@ -789,6 +909,12 @@ export const apiHeThong = {
   datLaiMatKhau: (id: string) =>
     guiDuLieu<{ matKhauTam: string }>(`/api/v1/he-thong/nguoi-dung/${id}/dat-lai-mat-khau`),
 
+  // Thông báo trong ứng dụng
+  thongBao: (thamSo?: { trang?: number; soDong?: number; chuaDoc?: boolean }) =>
+    layPhanTrang<ThongBaoTrongUngDung>('/api/v1/he-thong/thong-bao', thamSo),
+  danhDauDaDoc: (id: string) => guiDuLieu(`/api/v1/he-thong/thong-bao/${id}/da-doc`),
+  danhDauDocTatCa: () => guiDuLieu('/api/v1/he-thong/thong-bao/doc-tat-ca'),
+
   // Chức năng 45 — ma trận phân quyền
   themVaiTro: (duLieu: LuuVaiTro) => guiDuLieu<string>('/api/v1/he-thong/vai-tro', duLieu),
   suaVaiTro: (id: string, duLieu: LuuVaiTro) =>
@@ -822,6 +948,8 @@ export interface QuyetDinh {
   tenDonViBanHanh?: string | null;
   dotDeNghiId?: string | null;
   tenDot?: string | null;
+  /** Tệp văn bản quyết định đã ban hành — đối tượng được ký số (chức năng 49). */
+  tepTinId?: string | null;
   daKySo: boolean;
   soSangKien: number;
   soDaCongBo: number;
@@ -836,6 +964,7 @@ export interface LuuQuyetDinh {
   chucVuNguoiKy?: string | null;
   donViBanHanhId?: string | null;
   dotDeNghiId?: string | null;
+  tepTinId?: string | null;
   sangKienIds: string[];
 }
 
@@ -856,7 +985,41 @@ export const apiQuyetDinh = {
   congBo: (id: string, congKhai: boolean) =>
     guiDuLieu(`/api/v1/quyet-dinh/${id}/cong-bo?congKhai=${congKhai}`),
   duongDanPdf: (id: string) => `/api/v1/quyet-dinh/${id}/xuat-pdf`,
+
+  // Chức năng 49 — ký số văn bản quyết định
+  kySo: (id: string, tepTinId: string) =>
+    guiDuLieu<string>(`/api/v1/quyet-dinh/${id}/ky-so?tepTinId=${tepTinId}`),
+  lichSuKySo: (id: string) =>
+    layDuLieu<NhatKyKySo[]>(`/api/v1/quyet-dinh/${id}/lich-su-ky-so`),
+  xacMinhChuKy: (nhatKyKySoId: string) =>
+    layDuLieu<KetQuaXacMinhChuKy>(`/api/v1/quyet-dinh/xac-minh-chu-ky/${nhatKyKySoId}`),
 };
+
+export interface NhatKyKySo {
+  id: string;
+  doiTuong: string;
+  doiTuongId: string;
+  nguoiKyId?: string | null;
+  thoiGianKy: string;
+  serialChungThu?: string | null;
+  nguoiCapChungThu?: string | null;
+  hieuLucTu?: string | null;
+  hieuLucDen?: string | null;
+  tepGocId?: string | null;
+  tepDaKyId?: string | null;
+  /** THANH_CONG | THAT_BAI */
+  trangThaiKy: string;
+  thongTinXacThuc?: Record<string, unknown> | null;
+}
+
+export interface KetQuaXacMinhChuKy {
+  coChuKy: boolean;
+  hopLe: boolean;
+  serialChungThu?: string | null;
+  nguoiKy?: string | null;
+  thoiGianKy?: string | null;
+  thongBaoLoi?: string | null;
+}
 
 // --- Cấu hình gửi tin (chức năng 50) ---------------------------------------
 
@@ -992,6 +1155,47 @@ export const apiNhapXuat = {
 };
 
 export type { PhanHoiPhanTrang };
+
+// --- Cấu hình chữ ký số (chức năng 49) -------------------------------------
+
+export interface CauHinhChuKySo {
+  id: string;
+  /** BAN_CO_YEU_CHINH_PHU | VNPT_CA | VIETTEL_CA | FPT_CA | MISA | KHAC */
+  nhaCungCap: string;
+  /** USB_TOKEN | HSM | REMOTE_SIGNING | SMART_CA */
+  loaiKy: string;
+  endpoint?: string | null;
+  clientId?: string | null;
+  daDatBiMat: boolean;
+  chungThuSo?: string | null;
+  thuatToan: string;
+  trangThai: number;
+  laMacDinh: boolean;
+}
+
+export interface LuuCauHinhChuKySo {
+  nhaCungCap: string;
+  loaiKy: string;
+  endpoint?: string | null;
+  clientId?: string | null;
+  clientSecret?: string | null;
+  chungThuSo?: string | null;
+  thuatToan: string;
+  trangThai: number;
+  laMacDinh: boolean;
+}
+
+export const apiChuKySo = {
+  danhSach: () => layDuLieu<CauHinhChuKySo[]>('/api/v1/cau-hinh-chu-ky-so'),
+  trangThai: () =>
+    layDuLieu<{ coCauHinhHoatDong: boolean; mayChuSanSangKy: boolean; sanSang: boolean }>(
+      '/api/v1/cau-hinh-chu-ky-so/trang-thai',
+    ),
+  them: (duLieu: LuuCauHinhChuKySo) => guiDuLieu<string>('/api/v1/cau-hinh-chu-ky-so', duLieu),
+  sua: (id: string, duLieu: LuuCauHinhChuKySo) =>
+    capNhatDuLieu(`/api/v1/cau-hinh-chu-ky-so/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/cau-hinh-chu-ky-so/${id}`),
+};
 
 // --- Liên thông hệ thống ngoài (chức năng 16, 41) --------------------------
 

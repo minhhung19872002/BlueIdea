@@ -4,6 +4,72 @@
 
 ---
 
+## [1.3.0] — 2026-08-18
+
+Rà soát lại toàn bộ 206 endpoint và đối chiếu với những gì màn hình thực sự gọi. Đợt trước chỉ tìm
+theo đường dẫn nên bỏ sót nhiều chỗ; lần này đối chiếu theo **tên hàm trong lớp API client**, phát
+hiện 12 hàm khai báo mà không màn hình nào dùng. Bản này nối hết chúng vào giao diện.
+
+### Ký số văn bản (chức năng 49)
+
+- Màn hình **Quản trị → Chữ ký số**: khai báo nhà cung cấp (Ban Cơ yếu, VNPT-CA, Viettel-CA…),
+  hình thức ký (USB token / HSM / ký từ xa / SmartCA), serial chứng thư, thuật toán. Có thẻ trạng
+  thái cho biết hệ thống đã sẵn sàng ký hay còn thiếu gì.
+- Bổ sung API CRUD cho bảng `cau_hinh_chu_ky_so` — trước đây bảng này không có endpoint nào, chứng
+  thư chỉ chèn được thẳng vào cơ sở dữ liệu.
+- Trang **Quyết định**: thêm ô tải tệp văn bản quyết định (đối tượng được ký), nút **Ký số**, nút
+  **Lịch sử ký số** kèm **Xác minh chữ ký** từng lần ký và liên kết tải bản gốc / tệp chữ ký.
+- `QuyetDinhDto` và `LuuQuyetDinhDto` bổ sung `TepTinId`: trước đây cột `tep_tin_id` của quyết định
+  không có đường nào ghi vào, nên nút ký số sẽ không có tệp để ký.
+- Khoá bí mật vẫn **không** nằm trong cơ sở dữ liệu: đường dẫn PFX và mật khẩu đọc từ biến môi
+  trường `KYSO_PFX` / `KYSO_MAT_KHAU_PFX`, đã thêm vào cả hai tệp compose.
+
+### Thông báo trong ứng dụng
+
+- Chuông trên thanh trên cùng trước đây chỉ hiện badge đếm — **bấm vào không mở gì**. Nay mở ngăn
+  kéo danh sách 20 thông báo gần nhất, đánh dấu đã đọc khi bấm vào, mở thẳng đối tượng liên quan
+  nếu thông báo có đường dẫn, kèm nút **Đọc tất cả**.
+- **Sửa lỗ hổng IDOR**: endpoint đánh dấu đã đọc chỉ tìm theo Id nên bất kỳ ai đăng nhập cũng đánh
+  dấu được thông báo của người khác, và thông báo lỗi còn để lộ Id nào có thật. Nay truy vấn lọc
+  luôn theo người nhận. Bổ sung endpoint đánh dấu đã đọc tất cả.
+
+### Hội đồng và chấm điểm (chức năng 32, 33, 35)
+
+- Tab **Ma trận điểm** trong trang hội đồng: hàng là hồ sơ, cột là thành viên, điểm chỉ hiện sau khi
+  phiếu đã gửi. Thư ký bấm **Mở lại** ngay trên ô để mở khoá phiếu cho thành viên sửa — trước đây
+  tài liệu hướng dẫn có mô tả nút này nhưng giao diện không hề có.
+- `ODiemMaTran` bổ sung `PhieuId` để thao tác mở lại phiếu có đối tượng cụ thể.
+- Trang chi tiết hồ sơ thêm khối **Nghiệp vụ hội đồng**: phân công chấm điểm (chọn hội đồng, thành
+  viên, hạn hoàn thành, chia đều), tổng hợp điểm (hiện bảng kết quả kèm cảnh báo), thu hồi bước xử
+  lý (bắt buộc nhập lý do).
+
+### Đợt đề nghị, quy trình, tiêu chí, tra cứu, danh mục
+
+- **Đợt đề nghị** tách thành màn hình riêng trong tab Danh mục: bảng hiện trạng thái vòng đời và
+  cảnh báo thiếu quy trình / bộ tiêu chí, có nút **Mở / Đóng / Khoá / Sao chép** và form thêm–sửa
+  đầy đủ (hạn nộp, hạn chấm, quy trình, bộ tiêu chí, đơn vị áp dụng). Bổ sung endpoint
+  `GET /danh-muc/dot-de-nghi/quan-ly` vì danh sách danh mục chung không trả trạng thái vòng đời.
+- **Quy trình**: thêm nút *Sao chép thành quy trình mới*, phân biệt rõ với *Tạo phiên bản mới*.
+- **Bộ tiêu chí**: khối **Mức công nhận theo khoảng điểm** sửa trực tiếp trên màn hình.
+- **Tra cứu**: khối *Tìm theo ý nghĩa* trả kết quả kèm độ tương đồng và đoạn khớp nhất, tách riêng
+  khỏi bảng kết quả tìm từ khoá.
+- **Danh mục lĩnh vực**: đổi thứ tự bằng nút lên/xuống (không dùng kéo–thả để thao tác được cả trên
+  điện thoại), lưu ngay sau mỗi lần đổi.
+
+### Sửa lỗi
+
+- Bốn bảng mới bị bóp cột do có `scroll.x` nhỏ hơn tổng bề rộng các cột: đặt bề rộng cho mọi cột và
+  nâng `scroll.x` cho khớp.
+
+### Kiểm thử
+
+- Thêm kiểm thử: quyết định lưu và trả về tệp văn bản; cấu hình chữ ký số không trả bí mật và chỉ
+  giữ một cấu hình mặc định; không đánh dấu được thông báo của người khác; đọc tất cả chỉ ảnh hưởng
+  thông báo của chính mình.
+- Tổng: 267 unit test + 76 integration test, tất cả đều pass.
+
+---
+
 ## [1.2.0] — 2026-08-18
 
 Hoàn thiện phần giao diện cho các chức năng trước đây mới có API, và chốt phương án cho chức năng
