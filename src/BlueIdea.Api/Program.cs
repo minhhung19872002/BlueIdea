@@ -312,6 +312,10 @@ app.UseMiddleware<MiddlewareHeaderBaoMat>();
 app.UseResponseCompression();
 app.UseSerilogRequestLogging();
 
+// Chan /metrics tu ngoai TRUOC moi thu khac: khong phu thuoc vao viec Nginx cua may chu da
+// duoc cai lai hay chua.
+app.UseMiddleware<ChanMetricsTuNgoai>();
+
 // Do dem HTTP (so request, thoi gian phan hoi, ma trang thai) cho Prometheus. Dat truoc
 // MapControllers de bao gom ca cac yeu cau bi middleware phia sau tu choi.
 app.UseHttpMetrics();
