@@ -12,12 +12,36 @@ namespace BlueIdea.Application.HoiDong;
 public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 {
     private readonly INguoiDungHienTai _nguoiDung;
+    private readonly IBoDayRealtime? _realtime;
 
     public DichVuHoiDong(
         IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo,
-        INguoiDungHienTai nguoiDung)
+        INguoiDungHienTai nguoiDung, IBoDayRealtime? realtime = null)
         : base(db, phanQuyen, dongHo)
-        => _nguoiDung = nguoiDung;
+    {
+        _nguoiDung = nguoiDung;
+        _realtime = realtime;
+    }
+
+    /// <summary>
+    /// Bao cho phong hop rang du lieu phien vua doi.
+    ///
+    /// Chay SAU khi da luu va nuot loi: day realtime that bai chi lam man hinh cham cap nhat mot
+    /// nhip, khong duoc phep lam hong mot lan diem danh hay mot la phieu da ghi vao CSDL.
+    /// </summary>
+    private async Task DayCapNhatPhienAsync(Guid phienHopId, CancellationToken ct)
+    {
+        if (_realtime is null) return;
+
+        try
+        {
+            await _realtime.CapNhatPhienHopAsync(phienHopId, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Bo qua co y: xem chu thich tren.
+        }
+    }
 
     protected override DbSet<HoiDongSangKien> BangDuLieu => Db.HoiDong;
 
@@ -215,6 +239,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         banGhi.ThoiGianDiemDanh = DongHo.BayGio;
 
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await DayCapNhatPhienAsync(phienHopId, ct).ConfigureAwait(false);
     }
 
     /// <summary>Bo phieu cho mot ho so trong phien hop (ho tro phieu kin).</summary>
@@ -271,6 +296,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         phieu.ThoiGian = DongHo.BayGio;
 
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await DayCapNhatPhienAsync(duLieu.PhienHopId, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -311,6 +337,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         dong.KetQua = ketQua;
 
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await DayCapNhatPhienAsync(phienHopId, ct).ConfigureAwait(false);
     }
 
     /// <summary>Ket qua bo phieu cua mot ho so trong phien hop.</summary>
@@ -349,6 +376,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         phien.ThoiGianKetThuc ??= DongHo.BayGio;
 
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await DayCapNhatPhienAsync(phienHopId, ct).ConfigureAwait(false);
     }
 
     protected override async Task<IReadOnlyList<NoiThamChieu>> LayNoiThamChieuAsync(

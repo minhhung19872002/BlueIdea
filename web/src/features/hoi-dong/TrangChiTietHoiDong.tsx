@@ -34,6 +34,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { layPhanTrang, LoiApi, taiTep } from '@/api/client';
+import { theoDoiPhienHop } from '@/api/realtime';
 import {
   apiDanhGia,
   apiHoiDong,
@@ -777,6 +778,17 @@ function ModalDieuHanhPhien({
     queryKey: ['phien-hop', phienHopId],
     queryFn: () => apiHoiDong.phienHop(phienHopId),
   });
+
+  // Phòng họp trực tuyến: thư ký điểm danh hay một thành viên bỏ phiếu thì mọi người đang mở
+  // phiên thấy ngay, không phải bấm tải lại và đọc số liệu cũ.
+  useEffect(() => {
+    const huy = theoDoiPhienHop(phienHopId, () => {
+      void queryClient.invalidateQueries({ queryKey: ['phien-hop', phienHopId] });
+      void queryClient.invalidateQueries({ queryKey: ['ket-qua-bo-phieu', phienHopId] });
+    });
+
+    return huy;
+  }, [phienHopId, queryClient]);
 
   const diemDanh = useMutation({
     mutationFn: (duLieu: { thanhVienId: string; coMat: boolean; lyDoVang?: string }) =>

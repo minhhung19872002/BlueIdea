@@ -1506,6 +1506,33 @@ export const apiCauHinhMenu = {
     capNhatDuLieu(`/api/v1/cau-hinh-menu/sap-xep?loai=${loai}`, cay),
 };
 
+export interface BanSaoLuu {
+  ten: string;
+  thoiGian: string;
+  kichThuocByte: number;
+  coCsdl: boolean;
+  coTepDinhKem: boolean;
+  dayDu: boolean;
+}
+
+export interface TinhTrangSaoLuu {
+  daCauHinh: boolean;
+  thuMuc: string;
+  soBan: number;
+  tongKichThuocByte: number;
+  lanGanNhat?: string | null;
+  soGioTuLanGanNhat?: number | null;
+  /** BINH_THUONG | CANH_BAO | NGUY_HIEM | CHUA_CAU_HINH */
+  mucCanhBao: string;
+  thongDiep: string;
+  danhSach: BanSaoLuu[];
+}
+
+/** Chỉ đọc: tạo bản sao lưu và khôi phục chạy bằng script trên máy chủ. */
+export const apiSaoLuu = {
+  tinhTrang: () => layDuLieu<TinhTrangSaoLuu>('/api/v1/sao-luu'),
+};
+
 export interface TepTinDaTaiLen {
   id: string;
   tenGoc: string;

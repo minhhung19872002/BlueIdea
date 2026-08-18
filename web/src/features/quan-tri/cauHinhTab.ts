@@ -12,4 +12,5 @@ export const DS_TAB_CAU_HINH: MucTab[] = [
   { ma: 'chu-ky-so', ten: 'Chữ ký số', duongDan: '/quan-tri/chu-ky-so' },
   { ma: 'tich-hop', ten: 'Tích hợp', duongDan: '/quan-tri/cau-hinh/tich-hop' },
   { ma: 'menu', ten: 'Menu', duongDan: '/quan-tri/cau-hinh/menu' },
+  { ma: 'sao-luu', ten: 'Sao lưu', duongDan: '/quan-tri/sao-luu' },
 ];

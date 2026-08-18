@@ -196,6 +196,9 @@ services:
     volumes:
       - api-data:/app/du-lieu
       - api-logs:/app/logs
+      # Chi doc: man hinh Sao luu chi LIET KE cac ban sao luu, khong tao va khong khoi phuc.
+      # Gan :ro de mot loi trong ung dung web khong the xoa mat chinh cac ban sao luu.
+      - ${THU_MUC_SAO_LUU:-/var/backups/blueidea}:/var/backups/blueidea:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
       interval: 20s

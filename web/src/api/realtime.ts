@@ -63,3 +63,42 @@ export async function dungRealtime() {
     ketNoi = null;
   }
 }
+
+/**
+ * Theo dõi realtime một phòng họp hội đồng.
+ *
+ * Trả về hàm huỷ đăng ký — LUÔN gọi khi rời phiên: không rời nhóm thì sau vài lần mở/đóng phiên,
+ * một trình duyệt vẫn nhận tín hiệu của những phiên nó không còn xem và nạp lại dữ liệu vô ích.
+ *
+ * Tự đăng ký lại sau khi kết nối lại: SignalR khôi phục kết nối nhưng KHÔNG khôi phục nhóm, bỏ
+ * bước này thì mất mạng một nhịp là phòng họp im lặng cho tới khi tải lại trang.
+ */
+export function theoDoiPhienHop(phienHopId: string, khiCapNhat: () => void): () => void {
+  let daHuy = false;
+  const kn = layKetNoiRealtime();
+
+  const thamGia = () => {
+    void kn.invoke('ThamGiaPhienHop', phienHopId).catch(() => {
+      // Chưa kết nối xong thì lần reconnect kế tiếp sẽ tham gia lại.
+    });
+  };
+
+  const xuLy = () => {
+    if (!daHuy) khiCapNhat();
+  };
+
+  kn.on(SU_KIEN_REALTIME.capNhatBangDiem, xuLy);
+  kn.onreconnected(thamGia);
+
+  void batDauRealtime().then(() => {
+    if (!daHuy) thamGia();
+  });
+
+  return () => {
+    daHuy = true;
+    kn.off(SU_KIEN_REALTIME.capNhatBangDiem, xuLy);
+    void kn.invoke('RoiPhienHop', phienHopId).catch(() => {
+      // Kết nối đã đóng thì máy chủ tự dọn nhóm.
+    });
+  };
+}
