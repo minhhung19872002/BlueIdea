@@ -19,7 +19,7 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 1 | Lĩnh vực | ✅ | CRUD, cây phân cấp, tìm không dấu, **đổi thứ tự bằng kéo–thả (dnd-kit) hoặc nút lên/xuống**, **nhập từ Excel có chạy thử trước**, chặn xóa khi đang tham chiếu, xuất Excel |
+| 1 | Lĩnh vực | ✅ | CRUD, **phân cấp cha–con sửa được trên giao diện** (chọn lĩnh vực cấp trên, danh sách hiện cột "Thuộc lĩnh vực"), tìm không dấu, **đổi thứ tự bằng kéo–thả (dnd-kit) hoặc nút lên/xuống**, **nhập từ Excel có chạy thử trước**, chặn xóa khi đang tham chiếu, xuất Excel |
 | 2 | Đối tượng | ✅ | CRUD đầy đủ, **nhập từ Excel** (mã đã có thì cập nhật, không tạo bản trùng) |
 | 3 | Đợt đề nghị | ✅ | CRUD + **Mở / Đóng / Khoá + Sao chép đợt**; **màn hình chi tiết đợt 6 tab** (thông tin, đơn vị áp dụng, quy trình & tiêu chí, hồ sơ, hội đồng & tiến độ chấm, quyết định) gom số liệu trong một lần gọi; tự động đóng đợt quá hạn nộp mỗi giờ |
 | 4 | Loại tác giả | ✅ | Kèm ràng buộc số tác giả tối đa, áp dụng khi nộp hồ sơ; **nhập từ Excel** |
@@ -71,7 +71,7 @@ thiện, đều được ghi rõ.
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
 | 27 | Tiếp nhận hồ sơ | ✅ | Nút hành động sinh động theo quy trình |
-| 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích**, **chọn cột hiển thị** (nhớ lựa chọn cho lần sau), chọn nhiều, xuất Excel |
+| 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích**, **chọn cột hiển thị** (nhớ lựa chọn cho lần sau), **sắp xếp theo cột ở phía máy chủ** (mã, tên, điểm, trùng lặp, hạn xử lý — hồ sơ chưa có giá trị luôn nằm cuối), chọn nhiều, xuất Excel. Bảng dùng chung ở 4 màn hình: Hồ sơ của tôi, Tiếp nhận/Xử lý, Tra cứu, Chi tiết đợt |
 | 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, **thu hồi bước có nút và bắt buộc nhập lý do**, Idempotency-Key |
 | 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
 | 31/36 | Đính kèm quyết định | ✅ | Màn hình ban hành quyết định, chọn sáng kiến đủ điều kiện, xuất PDF theo mẫu hành chính |
@@ -83,13 +83,13 @@ thiện, đều được ghi rõ.
 |---|---|---|---|
 | 33 | Danh sách hồ sơ đánh giá | ✅ | "Việc của tôi", đếm ngược hạn, **màn hình phân công chấm điểm** (chọn hội đồng, thành viên, hạn, chia đều) loại trừ xung đột lợi ích |
 | 34 | Đánh giá hồ sơ | ✅ | Giao diện 2 panel, phiếu chấm render động, tính điểm realtime |
-| 35 | Phiếu đánh giá | ✅ | Lưu/gửi phiếu; **tab Ma trận điểm** kèm nút **Mở lại phiếu** cho thư ký; **ký số từng phiếu** (ký trên bản PDF chốt tại thời điểm ký) kèm lịch sử ký; xuất **một PDF liền mạch hoặc ZIP mỗi phiếu một tệp** |
+| 35 | Phiếu đánh giá | ✅ | Lưu/gửi phiếu; **tab Ma trận điểm** kèm nút **Mở lại phiếu** cho thư ký; **ký số từng phiếu** (ký trên bản PDF chốt tại thời điểm ký) kèm **khối lịch sử ký hiển thị ngay dưới phiếu**; xuất **một PDF liền mạch hoặc ZIP mỗi phiếu một tệp** |
 
 ## Nhóm IX–X — Tra cứu, báo cáo
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 37 | Tra cứu, tìm kiếm | ✅ | Tìm không dấu, tìm nâng cao, chia sẻ link, trang công khai, **khối "Tìm theo ý nghĩa"**; **gợi ý từ khoá khi gõ** (chỉ trong phạm vi dữ liệu người dùng được xem), **tô đậm phần khớp** trong kết quả, **lưu truy vấn** bằng bộ lọc yêu thích |
+| 37 | Tra cứu, tìm kiếm | ✅ | Tìm không dấu, tìm nâng cao, chia sẻ link, trang công khai, **khối "Tìm theo ý nghĩa"**; **gợi ý từ khoá khi gõ** (chỉ trong phạm vi dữ liệu người dùng được xem), **tô đậm phần khớp**, **lưu truy vấn**, **thứ tự sắp xếp giữ trong URL** nên liên kết chia sẻ mở ra đúng thứ tự người gửi đang nhìn. Có **ô tìm nhanh trên thanh tiêu đề** ở mọi màn hình |
 | 38 | DS sáng kiến đạt | ✅ | Bảng + xuất Excel + xuất PDF mẫu văn bản hành chính |
 | 39 | DS sáng kiến chưa đạt | ✅ | Kèm lý do và điểm đánh giá |
 | 40 | DS theo đơn vị | ✅ | Kèm tỷ lệ đạt, dòng tổng cộng. Bổ sung **thống kê theo tác giả**, **thời gian xử lý trung bình theo bước** (kèm số lượt quá hạn) và **báo cáo tổng hợp năm** (xuất PDF). Dashboard có bộ lọc năm/đợt/lĩnh vực/đơn vị và **bấm vào biểu đồ để mở đúng danh sách hồ sơ đứng sau con số**. Kết quả báo cáo đệm 5 phút, khoá đệm gồm danh tính người gọi |
@@ -99,7 +99,7 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 41 | Tích hợp SSO/IOC/TĐKT | ✅ | SSO OIDC có nút trên trang đăng nhập + **single logout** khi đăng xuất, cấu hình bằng `SSO_ISSUER`/`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET` trong `.env`, đẩy danh sách sáng kiến đã công bố sang hệ thống ngoài qua REST kèm nhật ký đồng bộ, **API `/api/public/v1` cho hệ thống ngoài gọi vào** (khoá API băm + danh sách IP/CIDR + giới hạn tần suất riêng). Cần thông tin endpoint thật của thành phố để đấu nối |
+| 41 | Tích hợp SSO/IOC/TĐKT | ✅ | **Nhật ký đồng bộ có lối vào riêng** tại `/quan-tri/nhat-ky/dong-bo` cạnh các nhật ký khác (vẫn giữ tab trong màn hình Liên thông). SSO OIDC có nút trên trang đăng nhập + **single logout** khi đăng xuất, cấu hình bằng `SSO_ISSUER`/`SSO_CLIENT_ID`/`SSO_CLIENT_SECRET` trong `.env`, đẩy danh sách sáng kiến đã công bố sang hệ thống ngoài qua REST kèm nhật ký đồng bộ, **API `/api/public/v1` cho hệ thống ngoài gọi vào** (khoá API băm + danh sách IP/CIDR + giới hạn tần suất riêng). Cần thông tin endpoint thật của thành phố để đấu nối |
 | 42 | Ứng dụng di động | ✅ | **Đáp ứng bằng web responsive** theo quyết định của chủ đầu tư: giao diện chạy tốt từ 320px, thanh điều hướng chuyển thành Drawer, bảng cuộn ngang trong khung riêng — dùng trực tiếp trên trình duyệt điện thoại, không cần cài đặt. **Không** có ứng dụng đóng gói cho App Store / CH Play |
 | 43 | Quản lý người dùng | ✅ | Thêm/sửa/gán vai trò, đặt lại mật khẩu (thu hồi phiên cũ), khoá/mở khoá, **nhập từ Excel** (chạy thử trước, toàn bộ hoặc không) |
 | 44 | Quản lý đơn vị | ✅ | Cây tổ chức + panel chi tiết, thêm/sửa/xoá; **kéo–thả đổi cấp trên**, **gộp đơn vị khi sáp nhập** (chuyển hồ sơ, tài khoản, đơn vị con sang đích rồi mới xoá mềm nguồn), **xuất sơ đồ tổ chức ra PNG** |
@@ -107,7 +107,7 @@ thiện, đều được ghi rõ.
 | 46 | Cấu hình hệ thống | ✅ | Đọc/ghi theo nhóm, có kiểu dữ liệu, màu chủ đạo áp dụng ngay lên giao diện; **khai báo ngày nghỉ lễ** (trừ khi tính hạn xử lý); **màn hình theo dõi sao lưu** (liệt kê bản sao, cảnh báo bản gần nhất quá 48 giờ hoặc thiếu thành phần — chỉ đọc, không có nút khôi phục trên web) |
 | 47 | Cấu hình đơn vị | ✅ | Sửa được tiêu đề văn bản, người ký mặc định và chức vụ ngay trong form đơn vị |
 | 48 | Cấu hình menu | ✅ | Menu render động từ CSDL và lọc theo quyền; **màn hình quản trị menu**: thêm/sửa/xoá, **kéo–thả cả cây rồi lưu một lần**, tách riêng hai cây **Web** và **Mobile** |
-| 49 | Cấu hình chữ ký số | ✅ | Màn hình `/quan-tri/chu-ky-so` khai báo nhà cung cấp, hình thức ký, chứng thư và báo hệ thống đã sẵn sàng ký hay chưa. Ký số áp dụng cho **quyết định** và **biên bản họp**, kèm lịch sử ký và xác minh chữ ký từng lần. Ký PKCS#7 detached, giữ nguyên bản gốc. Khoá bí mật đọc từ tệp PFX của máy chủ (`KYSO_PFX`), không lưu trong CSDL. Cần chứng thư thật của CA để dùng chính thức |
+| 49 | Cấu hình chữ ký số | ✅ | Màn hình `/quan-tri/chu-ky-so` khai báo nhà cung cấp, hình thức ký, chứng thư và báo hệ thống đã sẵn sàng ký hay chưa. **Ký bằng USB token có giao diện riêng** (3 nhịp: máy chủ phát giá trị băm → công cụ ký ở máy trạm → máy chủ xác minh) và **tạo được liên kết tải xuống có thời hạn** để gửi văn bản cho người ngoài hệ thống. Ký số áp dụng cho **quyết định** và **biên bản họp**, kèm lịch sử ký và xác minh chữ ký từng lần. Ký PKCS#7 detached, giữ nguyên bản gốc. Khoá bí mật đọc từ tệp PFX của máy chủ (`KYSO_PFX`), không lưu trong CSDL. Cần chứng thư thật của CA để dùng chính thức |
 | 50 | Cấu hình email & SMS | ✅ | Màn hình cấu hình SMTP/SMS có nút gửi thử và thống kê hàng đợi; worker gửi thật rút hàng đợi mỗi 5 phút. **Mẫu thông báo theo sự kiện và kênh gửi** (Email/SMS/trong ứng dụng) có xem trước, biến chưa có dữ liệu hiện `[tên_biến]` |
 | 51 | Cấu hình thông tin sáng kiến | ✅ | Ngưỡng trùng lặp, hệ số tính điểm, giới hạn tệp — sửa được trên giao diện |
 
@@ -170,6 +170,8 @@ quản trị viên gỡ hộ), CAPTCHA sau 3 lần sai, quên mật khẩu qua O
 | 37 — Tìm ngữ nghĩa | Vector nhúng hiện là "hashing trick" từ vựng nên bắt quan hệ **từ vựng**, chưa bắt được quan hệ ngữ nghĩa xa (ví dụ "tiết kiệm điện" ~ "cảm biến ánh sáng") | Nạp mô hình sentence-transformer tiếng Việt dạng ONNX chạy nội bộ (không dùng API bên thứ ba) |
 | 42 — Di động | Đáp ứng bằng **web responsive** chứ không phải ứng dụng cài từ store: không có thông báo đẩy, không dùng được ngoại tuyến, không truy cập máy ảnh/chữ ký trên thiết bị. Menu Mobile đã cấu hình riêng được ở màn hình cấu hình menu | Nếu chủ đầu tư yêu cầu bản cài đặt: làm ứng dụng React Native dùng lại hợp đồng API hiện có |
 | Sao lưu / phục hồi | Màn hình trên web **chỉ theo dõi** (liệt kê bản sao, cảnh báo bản cũ hoặc thiếu thành phần). Tạo bản sao và khôi phục chạy bằng `deploy/sao-luu-blueidea.sh` trên máy chủ | Đây là lựa chọn có chủ đích: khôi phục ghi đè toàn bộ CSDL đang chạy nên không đưa lên web; và để API tự tạo bản sao thì phải cho ứng dụng web gọi được docker trên máy chủ, tức trao quyền tương đương root của máy đó |
+| Form dùng antd Form thay vì react-hook-form + zod | Đặc tả (chương 9) yêu cầu `react-hook-form + zod`; dự án dùng `Form` của Ant Design xuyên suốt, `zod` có trong `package.json` nhưng không file nào import. **Lệch có chủ đích**: validation tiếng Việt, chặn double-submit và hiển thị lỗi đã có đủ qua antd Form; chuyển đổi là viết lại cơ học hàng chục màn hình, rủi ro hồi quy cao mà người dùng không thấy khác biệt | Nếu bên nghiệm thu soi đúng dòng này thì làm theo từng màn hình, ưu tiên form nộp hồ sơ |
+| Ký bằng USB token | Giao diện ba nhịp đã có và máy chủ xác minh đầy đủ, nhưng bước "ký trên máy trạm" hiện là **sao chép / dán thủ công** giá trị băm và chữ ký | Mỗi nhà cung cấp token ở Việt Nam có plugin và giao thức riêng (cổng nội bộ, lược đồ URL, tiện ích trình duyệt). Khi đơn vị chốt nhà cung cấp, chỉ cần nối tự động đúng bước đó — máy chủ không phải sửa gì |
 | Kho tệp | Mặc định lưu trên **đĩa của máy chủ**; adapter MinIO đã có và chọn bằng `LuuTru:Loai = MINIO` nhưng chưa bật ở bản triển khai hiện tại | Máy chủ sản xuất hiện chỉ có 1 vCPU / 2GB RAM nên không chạy thêm MinIO. Khi chạy nhiều bản API thì bắt buộc chuyển sang MinIO vì tệp không còn nằm trên đĩa của một máy cụ thể |
 
 ## Công việc nền (Hangfire)

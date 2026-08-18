@@ -9,6 +9,7 @@ import {
   Divider,
   Input,
   InputNumber,
+  List,
   Progress,
   Radio,
   Row,
@@ -29,7 +30,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi } from '@/api/client';
 import { apiDanhGia, apiSangKien } from '@/api/endpoints';
-import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
+import { KhoiDangTai, KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
 
 interface DongCham {
   tieuChiId: string;
@@ -126,11 +127,19 @@ export default function TrangChamDiem() {
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được phiếu.'),
   });
 
+  // Chỉ hỏi lịch sử ký khi phiếu đã gửi — phiếu đang chấm chắc chắn chưa có chữ ký nào.
+  const lichSuKy = useQuery({
+    queryKey: ['lich-su-ky-phieu', phieu.data?.id],
+    queryFn: () => apiDanhGia.lichSuKySoPhieu(phieu.data!.id),
+    enabled: !!phieu.data?.id && phieu.data.trangThaiPhieu !== 'DANG_CHAM',
+  });
+
   const kySo = useMutation({
     mutationFn: () => apiDanhGia.kySoPhieu(phieu.data!.id),
     onSuccess: () => {
       message.success('Đã ký số phiếu đánh giá');
       void queryClient.invalidateQueries({ queryKey: ['phieu-cham', id, hoiDongId] });
+      void queryClient.invalidateQueries({ queryKey: ['lich-su-ky-phieu'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không ký số được.'),
   });
@@ -398,6 +407,35 @@ export default function TrangChamDiem() {
               </Button>
             )}
           </Space>
+
+          {(lichSuKy.data?.length ?? 0) > 0 && (
+            <Card size="small" title="Lịch sử ký số phiếu" style={{ marginTop: 12 }}>
+              <List
+                size="small"
+                dataSource={lichSuKy.data ?? []}
+                renderItem={(x) => (
+                  <List.Item>
+                    <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                      <Space wrap>
+                        <Tag color={x.trangThaiKy === 'THANH_CONG' ? 'success' : 'error'}>
+                          {x.trangThaiKy === 'THANH_CONG' ? 'Ký thành công' : 'Ký thất bại'}
+                        </Tag>
+                        <span>{ngayGio(x.thoiGianKy)}</span>
+                      </Space>
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        Chứng thư: {x.nguoiCapChungThu ?? '—'}
+                        {x.serialChungThu ? ` · Serial ${x.serialChungThu}` : ''}
+                      </Typography.Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Chữ ký gắn với bản PDF chốt tại thời điểm ký. Mở lại phiếu và sửa điểm sẽ làm chữ
+                ký cũ không còn khớp nội dung hiện tại.
+              </Typography.Text>
+            </Card>
+          )}
         </Card>
       </Col>
     </Row>

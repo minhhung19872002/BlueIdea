@@ -29,7 +29,10 @@ export default function TrangHoSoCuaToi() {
   const trangThaiTong = thamSoUrl.get('trangThaiTong') ?? undefined;
   const dotDeNghiId = thamSoUrl.get('dotDeNghiId') ?? undefined;
 
-  const thamSo = { trang, soDong, tuKhoa, trangThaiTong, dotDeNghiId };
+  const [sapXep, setSapXep] = useState<string | undefined>();
+  const [huong, setHuong] = useState<'asc' | 'desc' | undefined>();
+
+  const thamSo = { trang, soDong, tuKhoa, trangThaiTong, dotDeNghiId, sapXep, huong };
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['sang-kien', 'cua-toi', thamSo],
@@ -115,9 +118,15 @@ export default function TrangHoSoCuaToi() {
           soDong={soDong}
           dangTai={isLoading}
           thamSoXuat={thamSo}
+          chonCot
           onDoiTrang={(t, s) => {
             setTrang(t);
             setSoDong(s);
+          }}
+          onDoiSapXep={(cot, chieu) => {
+            setSapXep(cot);
+            setHuong(chieu);
+            setTrang(1);
           }}
         />
       )}

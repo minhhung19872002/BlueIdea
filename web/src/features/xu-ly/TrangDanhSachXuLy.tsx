@@ -42,6 +42,8 @@ export default function TrangDanhSachXuLy() {
     dotDeNghiId: thamSoUrl.get('dotDeNghiId') ?? undefined,
     linhVucId: thamSoUrl.get('linhVucId') ?? undefined,
     chiQuaHan: thamSoUrl.get('chiQuaHan') === 'true' ? true : undefined,
+    sapXep: thamSoUrl.get('sapXep') ?? undefined,
+    huong: thamSoUrl.get('huong') ?? undefined,
   };
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -191,9 +193,24 @@ export default function TrangDanhSachXuLy() {
           dangTai={isLoading}
           thamSoXuat={thamSo}
           chonNhieu={{ khoaDaChon: daChon, onDoiChon: setDaChon }}
+          chonCot
           onDoiTrang={(t, s) => {
             setTrang(t);
             setSoDong(s);
+          }}
+          onDoiSapXep={(cot, chieu) => {
+            const moi = new URLSearchParams(thamSoUrl);
+
+            if (cot && chieu) {
+              moi.set('sapXep', cot);
+              moi.set('huong', chieu);
+            } else {
+              moi.delete('sapXep');
+              moi.delete('huong');
+            }
+
+            datThamSoUrl(moi);
+            setTrang(1);
           }}
         />
       )}

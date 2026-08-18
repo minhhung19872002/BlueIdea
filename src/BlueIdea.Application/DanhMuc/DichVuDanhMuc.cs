@@ -19,6 +19,35 @@ public sealed class DichVuLinhVuc : DichVuDanhMucCoSo<LinhVuc>
 
     protected override string TenDanhMuc => "Lĩnh vực";
 
+    /// <summary>
+    /// Danh sach linh vuc kem Id linh vuc cap tren.
+    ///
+    /// Bo sung sau khi goi lop co so thay vi viet lai truy van: giu nguyen mot cho duy nhat xu ly
+    /// loc / tim kiem / sap xep / phan trang, chi tra them mot truong ma lop co so khong biet.
+    /// </summary>
+    public override async Task<PagedResult<DanhMucDto>> LayDanhSachAsync(
+        ThamSoLocDanhMuc thamSo, CancellationToken ct = default)
+    {
+        var ketQua = await base.LayDanhSachAsync(thamSo, ct).ConfigureAwait(false);
+
+        var ids = ketQua.DuLieu.Select(x => x.Id).ToList();
+
+        var cha = await Db.LinhVuc.AsNoTracking()
+            .Where(x => ids.Contains(x.Id) && x.LinhVucChaId != null)
+            .ToDictionaryAsync(x => x.Id, x => x.LinhVucChaId, ct)
+            .ConfigureAwait(false);
+
+        if (cha.Count == 0) return ketQua;
+
+        var duLieu = ketQua.DuLieu
+            .Select(x => cha.TryGetValue(x.Id, out var chaId)
+                ? x with { DanhMucChaId = chaId }
+                : x)
+            .ToList();
+
+        return new PagedResult<DanhMucDto>(duLieu, ketQua.TongSo, ketQua.Trang, ketQua.SoDong);
+    }
+
     /// <summary>Tra ve cay linh vuc (UI hien thi dang Tree).</summary>
     public async Task<IReadOnlyList<NutCay>> LayCayAsync(CancellationToken ct = default)
     {
@@ -433,7 +462,7 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
             : await Db.DonVi.AsNoTracking()
                 .Where(x => dot.DonViApDungIds.Contains(x.Id))
                 .OrderBy(x => x.ThuTu)
-                .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao))
+                .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao, null))
                 .ToListAsync(ct)
                 .ConfigureAwait(false);
 
@@ -511,7 +540,7 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
             .Where(x => x.TrangThaiDot == TrangThaiDot.DangMo
                         && (x.HanNopHoSo == null || x.HanNopHoSo >= bayGio))
             .OrderByDescending(x => x.Nam).ThenBy(x => x.ThuTu)
-            .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao))
+            .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao, null))
             .ToListAsync(ct)
             .ConfigureAwait(false);
     }

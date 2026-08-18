@@ -47,6 +47,14 @@ interface Props {
   soDong: number;
   dangTai?: boolean;
   onDoiTrang: (trang: number, soDong: number) => void;
+  /**
+   * Người dùng bấm tiêu đề cột để sắp xếp.
+   *
+   * Các cột khai `sorter: true` nghĩa là sắp xếp Ở MÁY CHỦ — bảng chỉ vẽ mũi tên, còn việc sắp
+   * là của truy vấn. Không truyền hàm này thì bấm vào tiêu đề chỉ đổi mũi tên còn danh sách
+   * đứng yên, người dùng tưởng hệ thống hỏng.
+   */
+  onDoiSapXep?: (sapXep?: string, huong?: 'asc' | 'desc') => void;
   chonNhieu?: {
     khoaDaChon: string[];
     onDoiChon: (khoa: string[]) => void;
@@ -68,6 +76,7 @@ export function BangSangKien({
   soDong,
   dangTai,
   onDoiTrang,
+  onDoiSapXep,
   chonNhieu,
   thamSoXuat,
   duongDanXuat = '/api/v1/sang-kien/xuat-excel',
@@ -97,6 +106,7 @@ export function BangSangKien({
     {
       title: 'Mã hồ sơ',
       dataIndex: 'maHoSo',
+      key: 'maHoSo',
       width: 140,
       fixed: 'left',
       sorter: true,
@@ -109,6 +119,7 @@ export function BangSangKien({
       // âm và tên sáng kiến bị bóp thành một ký tự mỗi dòng.
       title: 'Tên sáng kiến',
       dataIndex: 'tenSangKien',
+      key: 'tenSangKien',
       width: 320,
       sorter: true,
       render: (giaTri: string, dong) => (
@@ -245,6 +256,21 @@ export function BangSangKien({
             onChange: (khoa) => chonNhieu.onDoiChon(khoa as string[]),
           }
         }
+        onChange={(_phanTrang, _boLoc, sapXep) => {
+          if (!onDoiSapXep) return;
+
+          // Bảng cho phép sắp nhiều cột nên antd có thể trả về mảng; ở đây chỉ sắp một cột.
+          const s = Array.isArray(sapXep) ? sapXep[0] : sapXep;
+          const cot = s?.columnKey ?? s?.field;
+
+          // Bấm lần thứ ba trên cùng cột = bỏ sắp xếp: antd trả order rỗng.
+          if (!cot || !s?.order) {
+            onDoiSapXep(undefined, undefined);
+            return;
+          }
+
+          onDoiSapXep(String(cot), s.order === 'descend' ? 'desc' : 'asc');
+        }}
         rowClassName={(dong) =>
           (dong.tyLeTrungLap ?? 0) > 40
             ? 'o-trung-lap-cao'

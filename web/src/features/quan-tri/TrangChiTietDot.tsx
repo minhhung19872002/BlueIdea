@@ -53,6 +53,8 @@ export default function TrangChiTietDot() {
   const { id = '' } = useParams<{ id: string }>();
   const [trang, setTrang] = useState(1);
   const [soDong, setSoDong] = useState(20);
+  const [sapXep, setSapXep] = useState<string | undefined>();
+  const [huong, setHuong] = useState<'asc' | 'desc' | undefined>();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dot-tong-quan', id],
@@ -61,8 +63,8 @@ export default function TrangChiTietDot() {
   });
 
   const hoSo = useQuery({
-    queryKey: ['dot-ho-so', id, trang, soDong],
-    queryFn: () => apiSangKien.danhSach({ dotDeNghiId: id, trang, soDong }),
+    queryKey: ['dot-ho-so', id, trang, soDong, sapXep, huong],
+    queryFn: () => apiSangKien.danhSach({ dotDeNghiId: id, trang, soDong, sapXep, huong }),
     enabled: !!id,
   });
 
@@ -234,6 +236,11 @@ export default function TrangChiTietDot() {
                 onDoiTrang={(t, s) => {
                   setTrang(t);
                   setSoDong(s);
+                }}
+                onDoiSapXep={(cot, chieu) => {
+                  setSapXep(cot);
+                  setHuong(chieu);
+                  setTrang(1);
                 }}
               />
             ),

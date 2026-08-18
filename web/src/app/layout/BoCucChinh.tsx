@@ -13,6 +13,7 @@ import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore, type MucMenu } from '@/app/store/cauHinhStore';
 import { kichThuoc, mauSac } from '@/app/giaoDien';
 import { HopThongBao } from '@/components/HopThongBao';
+import { TimKiemNhanh } from '@/components/TimKiemNhanh';
 import { layDiaChiDangXuatSso } from '@/features/xac-thuc/sso';
 
 const { Header, Sider, Content } = Layout;
@@ -203,6 +204,10 @@ export function BoCucChinh() {
               )}
             </Typography.Text>
           </div>
+
+          {/* Ô tìm nhanh chỉ hiện trên màn hình rộng: trên điện thoại nó chiếm gần hết thanh
+              tiêu đề, mà ở đó đã có mục Tra cứu trong menu. */}
+          {!laDiDong && <TimKiemNhanh />}
 
           <HopThongBao />
 

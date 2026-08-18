@@ -19,6 +19,8 @@ export interface DanhMucDto {
   thuTu: number;
   trangThai: number;
   ngayTao: string;
+  /** Danh mục cấp trên — chỉ có giá trị với danh mục phân cấp (hiện tại là lĩnh vực). */
+  danhMucChaId?: string | null;
 }
 
 export interface NutCay {
@@ -1521,6 +1523,31 @@ export const apiCauHinhMenu = {
   xoa: (id: string) => xoaDuLieu(`/api/v1/cau-hinh-menu/${id}`),
   sapXep: (loai: 'WEB' | 'MOBILE', cay: { id: string; con?: unknown }[]) =>
     capNhatDuLieu(`/api/v1/cau-hinh-menu/sap-xep?loai=${loai}`, cay),
+};
+
+export interface YeuCauKyUsb {
+  phienId: string;
+  hashBase64: string;
+  thuatToanBam: string;
+  tenTep: string;
+  hetHan: string;
+}
+
+export interface KetQuaKyUsb {
+  nhatKyKySoId: string;
+  tepChuKyId: string;
+  chuTheChungThu: string;
+  serialChungThu?: string | null;
+  thoiGianKy: string;
+}
+
+/** Chức năng 49 — ký số bằng USB token (khoá bí mật không rời khỏi thiết bị người ký). */
+export const apiKySoUsb = {
+  chuanBi: (duLieu: { tepTinId: string; doiTuong: string; doiTuongId: string }) =>
+    guiDuLieu<YeuCauKyUsb>('/api/v1/ky-so-usb/chuan-bi', duLieu),
+  hoanTat: (phienId: string, duLieu: { chuKyBase64: string; chungThuBase64: string }) =>
+    guiDuLieu<KetQuaKyUsb>(`/api/v1/ky-so-usb/${phienId}/hoan-tat`, duLieu),
+  huy: (phienId: string) => xoaDuLieu(`/api/v1/ky-so-usb/${phienId}`),
 };
 
 export interface BanSaoLuu {

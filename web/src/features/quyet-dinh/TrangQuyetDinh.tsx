@@ -27,7 +27,9 @@ import {
   FilePdfOutlined,
   NotificationOutlined,
   PlusOutlined,
+  LinkOutlined,
   SafetyCertificateOutlined,
+  UsbOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +40,7 @@ import {
   apiDonVi,
   apiDotDeNghi,
   apiQuyetDinh,
+  apiTepTin,
   taiTepLen,
   type HoSoDuDieuKien,
   type LuuQuyetDinh,
@@ -45,6 +48,7 @@ import {
   type QuyetDinh,
 } from '@/api/endpoints';
 import { useAuthStore } from '@/app/store/authStore';
+import { HopThoaiKySoUsb } from '@/components/HopThoaiKySoUsb';
 import { KhoiLoi, KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
 
 const CAP_CONG_NHAN = [
@@ -80,6 +84,42 @@ export default function TrangQuyetDinh() {
       void queryClient.invalidateQueries({ queryKey: ['quyet-dinh'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không công bố được.'),
+  });
+
+  const [kyUsb, setKyUsb] = useState<QuyetDinh | null>(null);
+
+  /**
+   * Liên kết tải xuống có thời hạn.
+   *
+   * Dùng khi cần gửi văn bản cho người NGOÀI hệ thống (đơn vị phối hợp, người dân): liên kết tự
+   * mang chữ ký và hạn dùng nên người nhận không cần tài khoản, mà cũng không trở thành đường
+   * tải vĩnh viễn — hết hạn là hỏng.
+   */
+  const lienKet = useMutation({
+    mutationFn: (tepTinId: string) => apiTepTin.lienKetTaiXuong(tepTinId, 15),
+    onSuccess: (kq) => {
+      const diaChi = `${window.location.origin}${kq.url}`;
+
+      void navigator.clipboard?.writeText(diaChi).catch(() => undefined);
+
+      modal.info({
+        title: 'Liên kết tải xuống có thời hạn',
+        width: 620,
+        content: (
+          <div style={{ marginTop: 12 }}>
+            <Typography.Paragraph copyable={{ text: diaChi }} style={{ wordBreak: 'break-all' }}>
+              {diaChi}
+            </Typography.Paragraph>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Liên kết hết hạn sau {kq.hetHanSauPhut} phút. Người nhận không cần đăng nhập, nên
+              chỉ gửi cho đúng người cần nhận.
+            </Typography.Text>
+          </div>
+        ),
+      });
+    },
+    onError: (loi) =>
+      message.error(loi instanceof LoiApi ? loi.message : 'Không tạo được liên kết.'),
   });
 
   const kySo = useMutation({
@@ -281,6 +321,25 @@ export default function TrangQuyetDinh() {
                       />
                     </Tooltip>
                   )}
+                  {!dong.daKySo && dong.tepTinId && (
+                    <Tooltip title="Ký bằng chứng thư cá nhân trên USB token">
+                      <Button
+                        size="small"
+                        icon={<UsbOutlined />}
+                        onClick={() => setKyUsb(dong)}
+                      />
+                    </Tooltip>
+                  )}
+                  {dong.tepTinId && (
+                    <Tooltip title="Tạo liên kết tải xuống có thời hạn để gửi cho người khác">
+                      <Button
+                        size="small"
+                        icon={<LinkOutlined />}
+                        loading={lienKet.isPending && lienKet.variables === dong.tepTinId}
+                        onClick={() => lienKet.mutate(dong.tepTinId!)}
+                      />
+                    </Tooltip>
+                  )}
                   {dong.daKySo && (
                     <Tooltip title="Xem lịch sử ký số và xác minh chữ ký">
                       <Button
@@ -326,6 +385,17 @@ export default function TrangQuyetDinh() {
 
       {xemKySo && (
         <ModalLichSuKySo quyetDinh={xemKySo} onDong={() => setXemKySo(null)} />
+      )}
+
+      {kyUsb && (
+        <HopThoaiKySoUsb
+          tepTinId={kyUsb.tepTinId!}
+          doiTuong="QUYET_DINH"
+          doiTuongId={kyUsb.id}
+          tenVanBan={kyUsb.soQuyetDinh}
+          onDong={() => setKyUsb(null)}
+          onXong={() => void queryClient.invalidateQueries({ queryKey: ['quyet-dinh'] })}
+        />
       )}
 
       {moForm && (

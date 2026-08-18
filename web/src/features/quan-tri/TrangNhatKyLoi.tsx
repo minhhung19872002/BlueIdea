@@ -7,12 +7,7 @@ import { LoiApi } from '@/api/client';
 import { apiNhatKyLoi, type NhatKyLoi } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
-
-const DS_TAB = [
-  { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/nhat-ky/he-thong' },
-  { ma: 'dang-nhap', ten: 'Đăng nhập', duongDan: '/quan-tri/nhat-ky/dang-nhap' },
-  { ma: 'loi', ten: 'Lỗi hệ thống', duongDan: '/quan-tri/nhat-ky-loi' },
-];
+import { DS_TAB_NHAT_KY } from './nhatKyTab';
 
 const MAU_MUC_DO: Record<string, string> = {
   NGHIEM_TRONG: 'error',
@@ -55,7 +50,7 @@ export default function TrangNhatKyLoi() {
 
   return (
     <Card title="Nhật ký hệ thống">
-      <DaiTabTrang danhSach={DS_TAB} dangChon="loi" />
+      <DaiTabTrang danhSach={DS_TAB_NHAT_KY} dangChon="loi" />
 
       <Space wrap style={{ marginBottom: 12 }}>
         <Select

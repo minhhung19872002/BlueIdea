@@ -25,7 +25,14 @@ public sealed record DanhMucDto(
     string? MoTa,
     int ThuTu,
     short TrangThai,
-    DateTimeOffset NgayTao);
+    DateTimeOffset NgayTao,
+    /// <summary>
+    /// Danh muc cap tren, chi co y nghia voi danh muc phan cap (hien tai la linh vuc).
+    ///
+    /// De o DTO dung chung thay vi tao rieng mot DTO cho linh vuc: cac danh muc khac tra null,
+    /// con man hinh danh muc dung chung mot bang nen khong phai re nhanh kieu du lieu.
+    /// </summary>
+    Guid? DanhMucChaId = null);
 
 /// <summary>Mot vi tri dang tham chieu toi ban ghi - tra ve kem HTTP 409 khi chan xoa.</summary>
 public sealed record NoiThamChieu(string Bang, string MoTa, int SoLuong);
@@ -61,7 +68,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     // ------------------------------------------------------------------------------------
 
-    public async Task<PagedResult<DanhMucDto>> LayDanhSachAsync(
+    public virtual async Task<PagedResult<DanhMucDto>> LayDanhSachAsync(
         ThamSoLocDanhMuc thamSo, CancellationToken ct = default)
     {
         await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, ct: ct).ConfigureAwait(false);
@@ -80,7 +87,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
         var duLieu = await truyVan
             .Skip(thamSo.BoQua)
             .Take(thamSo.SoDong)
-            .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao))
+            .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao, null))
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -92,7 +99,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
         => await TaoTruyVanCoSo()
             .Where(x => x.TrangThai == TrangThaiDanhMuc.HoatDong)
             .OrderBy(x => x.ThuTu).ThenBy(x => x.Ten)
-            .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao))
+            .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao, null))
             .ToListAsync(ct)
             .ConfigureAwait(false);
 

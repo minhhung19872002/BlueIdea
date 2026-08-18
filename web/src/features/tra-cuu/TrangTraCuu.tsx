@@ -59,6 +59,8 @@ export default function TrangTraCuu() {
     donViId: doc('donViId'),
     trangThaiTong: doc('trangThaiTong'),
     nam: docSo('nam'),
+    sapXep: doc('sapXep'),
+    huong: doc('huong'),
     ketQua: doc('ketQua'),
     diemTu: docSo('diemTu'),
     diemDen: docSo('diemDen'),
@@ -282,6 +284,22 @@ export default function TrangTraCuu() {
           tenTepXuat="ket-qua-tra-cuu.xlsx"
           tuKhoaToDam={thamSo.tuKhoa}
           chonCot
+          onDoiSapXep={(cot, chieu) => {
+            // Giữ trong URL như mọi bộ lọc khác: liên kết chia sẻ phải mở ra đúng thứ tự
+            // người gửi đang nhìn thấy.
+            const moi = new URLSearchParams(thamSoUrl);
+
+            if (cot && chieu) {
+              moi.set('sapXep', cot);
+              moi.set('huong', chieu);
+            } else {
+              moi.delete('sapXep');
+              moi.delete('huong');
+            }
+
+            datThamSoUrl(moi);
+            setTrang(1);
+          }}
           onDoiTrang={(t, s) => {
             setTrang(t);
             setSoDong(s);

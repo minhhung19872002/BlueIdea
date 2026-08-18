@@ -133,6 +133,9 @@ export default function TrangDanhMuc() {
   const choPhepSapXep = ma === 'linh-vuc';
   const danhSach = data?.duLieu ?? [];
 
+  // Bảng chỉ có Id lĩnh vực cha; tra ngược sang tên để người xem đọc được ngay trên danh sách.
+  const tenTheoId = new Map(danhSach.map((x) => [x.id, x.ten]));
+
   /** Đổi chỗ hai dòng liền kề rồi gửi luôn thứ tự mới của cả trang. */
   function doiCho(chiSo: number, huong: -1 | 1) {
     const dich = chiSo + huong;
@@ -197,6 +200,18 @@ export default function TrangDanhMuc() {
             : []),
           { title: 'Mã', dataIndex: 'ma', width: 180 },
           { title: 'Tên', dataIndex: 'ten' },
+          ...(cauHinh.truongThem === 'LINH_VUC'
+            ? [
+                {
+                  title: 'Thuộc lĩnh vực',
+                  dataIndex: 'danhMucChaId',
+                  width: 200,
+                  responsive: ['lg' as const],
+                  render: (v: string | null) =>
+                    v ? (tenTheoId.get(v) ?? '—') : <Tag>Gốc</Tag>,
+                },
+              ]
+            : []),
           { title: 'Mô tả', dataIndex: 'moTa', responsive: ['lg'] },
           { title: 'Thứ tự', dataIndex: 'thuTu', width: 90, align: 'right' },
           {
@@ -313,6 +328,24 @@ export default function TrangDanhMuc() {
           <Form.Item name="moTa" label="Mô tả">
             <Input.TextArea rows={2} />
           </Form.Item>
+
+          {cauHinh.truongThem === 'LINH_VUC' && (
+            <Form.Item
+              name="linhVucChaId"
+              label="Thuộc lĩnh vực cấp trên"
+              tooltip="Để trống nếu đây là lĩnh vực gốc. Lĩnh vực con dùng để nhóm hồ sơ khi thống kê."
+            >
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="(lĩnh vực gốc)"
+                options={(danhSach ?? [])
+                  .filter((x) => x.id !== dangSua?.id)
+                  .map((x) => ({ value: x.id, label: `${x.ma} — ${x.ten}` }))}
+              />
+            </Form.Item>
+          )}
 
           {cauHinh.truongThem === 'LOAI_TAC_GIA' && (
             <>

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiHeThong } from '@/api/endpoints';
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
+import { DS_TAB_NHAT_KY } from './nhatKyTab';
 
 interface DongNhatKyHeThong {
   id: string;
@@ -32,12 +33,6 @@ interface DongNhatKyDangNhap {
 }
 
 /** Các nhánh con của trang — thiết kế gộp thành một mục ở thanh điều hướng. */
-const DS_TAB = [
-  { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/nhat-ky/he-thong' },
-  { ma: 'dang-nhap', ten: 'Đăng nhập', duongDan: '/quan-tri/nhat-ky/dang-nhap' },
-  { ma: 'loi', ten: 'Lỗi hệ thống', duongDan: '/quan-tri/nhat-ky-loi' },
-];
-
 /** Nhật ký hệ thống và nhật ký đăng nhập. */
 export default function TrangNhatKy() {
   const { loai = 'he-thong' } = useParams<{ loai: string }>();
@@ -104,7 +99,7 @@ export default function TrangNhatKy() {
         </Space>
       }
     >
-      <DaiTabTrang danhSach={DS_TAB} dangChon={loai} />
+      <DaiTabTrang danhSach={DS_TAB_NHAT_KY} dangChon={loai} />
 
       {laDangNhap ? (
         <Table<DongNhatKyDangNhap>

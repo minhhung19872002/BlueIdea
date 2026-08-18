@@ -592,7 +592,8 @@ function ModalDongBo({ heThong, onDong }: { heThong: HeThongTichHop; onDong: () 
 
 // ---------------------------------------------------------------------------
 
-function BangNhatKyDongBo({ heThong }: { heThong: HeThongTichHop[] }) {
+/** Bảng nhật ký đồng bộ — dùng chung cho tab trong màn hình Liên thông và trang Nhật ký. */
+export function BangNhatKyDongBo({ heThong }: { heThong: HeThongTichHop[] }) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [heThongId, setHeThongId] = useState<string | undefined>();

@@ -536,27 +536,47 @@ public sealed class DichVuTruyVanSangKien
         return truyVan;
     }
 
+    /// <summary>
+    /// Sap xep danh sach ho so theo cot nguoi dung chon.
+    ///
+    /// Cot co the null (diem, ty le trung lap, han xu ly) LUON day o cuoi du sap xep chieu nao:
+    /// PostgreSQL mac dinh dat NULL len dau khi DESC, nen "sap xep diem giam dan" se do mot loat
+    /// ho so CHUA CHAM len dau bang — dung cai nguoi dung muon xem nhat bi day xuong duoi.
+    /// </summary>
     private static IQueryable<HoSoSangKien> ApDungSapXep(
         IQueryable<HoSoSangKien> truyVan, ThamSoPhanTrang thamSo)
-        => (thamSo.SapXep ?? string.Empty).ToLowerInvariant() switch
+    {
+        var giam = thamSo.GiamDan;
+
+        return (thamSo.SapXep ?? string.Empty).ToLowerInvariant() switch
         {
-            "mahoso" => thamSo.GiamDan
+            "mahoso" => giam
                 ? truyVan.OrderByDescending(x => x.MaHoSo)
                 : truyVan.OrderBy(x => x.MaHoSo),
-            "tensangkien" => thamSo.GiamDan
+
+            "tensangkien" => giam
                 ? truyVan.OrderByDescending(x => x.TenSangKien)
                 : truyVan.OrderBy(x => x.TenSangKien),
-            "tongdiem" => thamSo.GiamDan
-                ? truyVan.OrderByDescending(x => x.TongDiem)
-                : truyVan.OrderBy(x => x.TongDiem),
-            "tyletrunglap" => thamSo.GiamDan
-                ? truyVan.OrderByDescending(x => x.TyLeTrungLap)
-                : truyVan.OrderBy(x => x.TyLeTrungLap),
-            "hanxuly" => thamSo.GiamDan
-                ? truyVan.OrderByDescending(x => x.HanXuLyHienTai)
-                : truyVan.OrderBy(x => x.HanXuLyHienTai),
-            _ => thamSo.GiamDan
+
+            "tongdiem" => giam
+                ? truyVan.OrderBy(x => x.TongDiem == null).ThenByDescending(x => x.TongDiem)
+                : truyVan.OrderBy(x => x.TongDiem == null).ThenBy(x => x.TongDiem),
+
+            "tyletrunglap" => giam
+                ? truyVan.OrderBy(x => x.TyLeTrungLap == null).ThenByDescending(x => x.TyLeTrungLap)
+                : truyVan.OrderBy(x => x.TyLeTrungLap == null).ThenBy(x => x.TyLeTrungLap),
+
+            "hanxuly" => giam
+                ? truyVan.OrderBy(x => x.HanXuLyHienTai == null)
+                    .ThenByDescending(x => x.HanXuLyHienTai)
+                : truyVan.OrderBy(x => x.HanXuLyHienTai == null)
+                    .ThenBy(x => x.HanXuLyHienTai),
+
+            // Khong chon cot: moi nhat truoc. Truoc day hai nhanh nay bi dao nguoc nen truyen
+            // huong=desc ma khong kem ten cot lai ra ho so CU NHAT dau bang.
+            _ => giam
                 ? truyVan.OrderBy(x => x.NgayTao)
-                : truyVan.OrderByDescending(x => x.NgayTao)
+                : truyVan.OrderByDescending(x => x.NgayTao),
         };
+    }
 }
