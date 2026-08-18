@@ -125,13 +125,15 @@ public sealed class DichVuTruyVanSangKien
 
     public async Task<SangKienChiTietDto> LayChiTietAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, ct: ct).ConfigureAwait(false);
 
         var hoSo = await _db.SangKien.AsNoTracking()
             .Include(x => x.DanhSachTacGia)
             .Include(x => x.TepDinhKem).ThenInclude(t => t.TepTin)
             .FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", id);
+
+        await BatBuocTrongPhamViAsync(hoSo, ct).ConfigureAwait(false);
 
         var dto = new SangKienChiTietDto
         {
@@ -276,7 +278,8 @@ public sealed class DichVuTruyVanSangKien
     /// <summary>Chuc nang 30 - Timeline tien do xu ly cua ho so.</summary>
     public async Task<IReadOnlyList<MocTienDoDto>> LayTienDoAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, ct: ct).ConfigureAwait(false);
+        await BatBuocTrongPhamViSangKienAsync(id, ct).ConfigureAwait(false);
 
         var buocs = await _db.SangKienXuLy.AsNoTracking()
             .Where(x => x.SangKienId == id)
@@ -328,7 +331,8 @@ public sealed class DichVuTruyVanSangKien
     /// <summary>Chuc nang 23 - Lich su chinh sua (diff truoc/sau).</summary>
     public async Task<IReadOnlyList<SangKienLichSu>> LayLichSuAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.SangKienXem, ct: ct).ConfigureAwait(false);
+        await BatBuocTrongPhamViSangKienAsync(id, ct).ConfigureAwait(false);
 
         return await _db.SangKienLichSu.AsNoTracking()
             .Where(x => x.SangKienId == id)
@@ -338,6 +342,40 @@ public sealed class DichVuTruyVanSangKien
     }
 
     // ------------------------------------------------------------------------------------
+
+    private async Task BatBuocTrongPhamViAsync(HoSoSangKien hoSo, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+
+        var nguoiDungId = _nguoiDung.Id.Value;
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiDungId, ct).ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong) return;
+
+        var laTacGia = hoSo.NguoiTaoId == nguoiDungId
+                       || (hoSo.DanhSachTacGia?.Any(t => t.NguoiDungId == nguoiDungId) == true);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia) throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+        if (!laTacGia && !trongDonVi)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+    }
+
+    private async Task BatBuocTrongPhamViSangKienAsync(Guid sangKienId, CancellationToken ct)
+    {
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+
+        await BatBuocTrongPhamViAsync(hoSo, ct).ConfigureAwait(false);
+    }
 
     /// <summary>Ap dung pham vi du lieu theo vai tro (Muc 6 dac ta) - chong IDOR o muc truy van.</summary>
     private async Task<IQueryable<HoSoSangKien>> ApDungPhamViDuLieuAsync(

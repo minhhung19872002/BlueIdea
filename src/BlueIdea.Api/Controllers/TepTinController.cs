@@ -71,6 +71,7 @@ public sealed partial class TepTinController : ControllerBase
     private readonly IAppDbContext _db;
     private readonly ILuuTruTep _luuTru;
     private readonly INguoiDungHienTai _nguoiDung;
+    private readonly IDichVuPhanQuyen _phanQuyen;
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDongHoHeThong _dongHo;
     private readonly IDichVuOcr _ocr;
@@ -79,12 +80,13 @@ public sealed partial class TepTinController : ControllerBase
 
     public TepTinController(
         IAppDbContext db, ILuuTruTep luuTru, INguoiDungHienTai nguoiDung,
-        IDichVuCauHinh cauHinh, IDongHoHeThong dongHo,
+        IDichVuPhanQuyen phanQuyen, IDichVuCauHinh cauHinh, IDongHoHeThong dongHo,
         IDichVuOcr ocr, IHangDoiCongViecNen hangDoi, IDichVuQuetVirus quetVirus)
     {
         _db = db;
         _luuTru = luuTru;
         _nguoiDung = nguoiDung;
+        _phanQuyen = phanQuyen;
         _cauHinh = cauHinh;
         _dongHo = dongHo;
         _ocr = ocr;
@@ -190,6 +192,8 @@ public sealed partial class TepTinController : ControllerBase
 
         if (sangKienId.HasValue && !string.IsNullOrWhiteSpace(thanhPhanHoSoMa))
         {
+            await BatBuocHoSoTrongPhamViAsync(sangKienId.Value, ct).ConfigureAwait(false);
+
             var hoSo = await _db.SangKien
                 .FirstOrDefaultAsync(x => x.Id == sangKienId.Value, ct)
                 .ConfigureAwait(false)
@@ -249,6 +253,8 @@ public sealed partial class TepTinController : ControllerBase
     public async Task<IActionResult> LayLienKetTaiXuongAsync(
         Guid id, [FromQuery] int soPhut = 10, CancellationToken ct = default)
     {
+        await BatBuocTepTrongPhamViAsync(id, ct).ConfigureAwait(false);
+
         var tepTin = await _db.TepTin.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("tệp tin", id);
@@ -304,6 +310,8 @@ public sealed partial class TepTinController : ControllerBase
     [HttpGet("{id:guid}/xem-truoc")]
     public async Task<IActionResult> XemTruocAsync(Guid id, CancellationToken ct)
     {
+        await BatBuocTepTrongPhamViAsync(id, ct).ConfigureAwait(false);
+
         var tepTin = await _db.TepTin.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("tệp tin", id);
@@ -327,10 +335,11 @@ public sealed partial class TepTinController : ControllerBase
         return File(luong, MimeXemTruoc(phanMoRong));
     }
 
-    /// <summary>Tải tệp về (kiểm tra quyền trên từng tệp — chống IDOR).</summary>
     [HttpGet("{id:guid}/tai-ve")]
     public async Task<IActionResult> TaiVeAsync(Guid id, CancellationToken ct)
     {
+        await BatBuocTepTrongPhamViAsync(id, ct).ConfigureAwait(false);
+
         var tepTin = await _db.TepTin.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("tệp tin", id);
@@ -342,13 +351,14 @@ public sealed partial class TepTinController : ControllerBase
         return File(luong, tepTin.MimeType ?? "application/octet-stream", tepTin.TenGoc);
     }
 
-    /// <summary>Gỡ tệp khỏi hồ sơ (xoá mềm bản ghi đính kèm, giữ nguyên tệp gốc).</summary>
     [HttpDelete("dinh-kem/{id:guid}")]
     public async Task<IActionResult> GoDinhKemAsync(Guid id, CancellationToken ct)
     {
         var dinhKem = await _db.SangKienTepDinhKem
             .FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("tệp đính kèm", id);
+
+        await BatBuocHoSoTrongPhamViAsync(dinhKem.SangKienId, ct).ConfigureAwait(false);
 
         var hoSo = await _db.SangKien
             .FirstOrDefaultAsync(x => x.Id == dinhKem.SangKienId, ct)
@@ -364,6 +374,71 @@ public sealed partial class TepTinController : ControllerBase
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return Ok(PhanHoiApi.Ok("Đã gỡ tệp đính kèm"));
+    }
+
+    private async Task BatBuocTepTrongPhamViAsync(Guid tepTinId, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("tệp tin", tepTinId);
+
+        var danhSachDinhKem = await _db.SangKienTepDinhKem.AsNoTracking()
+            .Where(x => x.TepTinId == tepTinId)
+            .Select(x => x.SangKienId)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (danhSachDinhKem.Count == 0)
+        {
+            var tepTin = await _db.TepTin.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == tepTinId, ct)
+                .ConfigureAwait(false);
+            if (tepTin is not null && tepTin.NguoiTaiLenId != _nguoiDung.Id)
+                throw new KhongTimThayException("tệp tin", tepTinId);
+            return;
+        }
+
+        foreach (var sangKienId in danhSachDinhKem)
+        {
+            try
+            {
+                await BatBuocHoSoTrongPhamViAsync(sangKienId, ct).ConfigureAwait(false);
+                return;
+            }
+            catch (KhongTimThayException)
+            {
+            }
+        }
+
+        throw new KhongTimThayException("tệp tin", tepTinId);
+    }
+
+    private async Task BatBuocHoSoTrongPhamViAsync(Guid sangKienId, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+
+        var nguoiDungId = _nguoiDung.Id.Value;
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiDungId, ct).ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong) return;
+
+        var laTacGia = hoSo.NguoiTaoId == nguoiDungId
+                       || hoSo.DanhSachTacGia.Any(t => t.NguoiDungId == nguoiDungId);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia) throw new KhongTimThayException("tệp tin", sangKienId);
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+        if (!laTacGia && !trongDonVi)
+            throw new KhongTimThayException("tệp tin", sangKienId);
     }
 
     private static bool KiemTraChuKyTep(string phanMoRong, byte[] duLieu)

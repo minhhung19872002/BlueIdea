@@ -1,0 +1,778 @@
+# BlueIdea Requirement Traceability
+#
+# Source: docs/Chuong V - Yeu cau ve ky thuat (1).pdf (51 functions)
+# Spec: docs/00-MASTER-SPEC.md
+#
+# Status values:
+#   NOT_ASSESSED | MISSING | PARTIAL | IMPLEMENTED_NOT_VERIFIED | VERIFIED | BLOCKED_EXTERNAL | NOT_APPLICABLE
+#
+# AUDIT RUN #001 (2026-08-18): Independent baseline audit by 5 specialist agents.
+# Original claim "51/51 complete" independently refuted.
+# Result: 13 VERIFIED, 32 IMPLEMENTED_NOT_VERIFIED, 4 PARTIAL, 2 BLOCKED_EXTERNAL.
+# Post-reconciliation correction: REQ-48 upgraded from PARTIAL to IMPLEMENTED_NOT_VERIFIED
+# after Release Auditor discovered CauHinhMenuController.cs (missed by Requirement Auditor).
+
+schema_version: "1.0"
+last_updated: "2026-08-18"
+last_updated_by: "audit-run-001"
+audit_commit: "5933854"
+
+requirements:
+
+  # ── Nhom I: Danh muc he thong ──────────────────────────────────────
+
+  - id: REQ-01
+    source_number: 1
+    title: "Linh vuc"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDanhMuc.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DanhMucController.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
+    gaps:
+      - "No CRUD-specific authorization policy — any authenticated user can create/edit/delete"
+      - "No dedicated integration test for CRUD, hierarchy, unaccented search, Excel export"
+
+  - id: REQ-02
+    source_number: 2
+    title: "Doi tuong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDanhMuc.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DanhMucController.cs"]
+      tests: []
+    gaps:
+      - "Same authorization gap as REQ-01"
+      - "No integration test"
+
+  - id: REQ-03
+    source_number: 3
+    title: "Dot de nghi"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDotDeNghi.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
+      tests: []
+    gaps:
+      - "No policy for open/close/lock lifecycle transitions"
+      - "No integration test for lifecycle management or auto-lock job"
+
+  - id: REQ-04
+    source_number: 4
+    title: "Loai tac gia"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDanhMuc.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DanhMucController.cs"]
+      tests: []
+    gaps:
+      - "Authorization gap — class-level [Authorize] only"
+      - "No dedicated test for max-author constraint enforcement"
+
+  - id: REQ-05
+    source_number: 5
+    title: "Don vi phe duyet"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
+      tests: []
+    gaps:
+      - "Authorization gap"
+      - "No test for tree-path auto-calculation or data scope enforcement"
+
+  - id: REQ-06
+    source_number: 6
+    title: "Bieu mau xuat"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangBieuMauXuat.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/BieuMauController.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Reporting/BoQuetPlaceholderDocxTests.cs"]
+    gaps:
+      - "Authorization gap"
+      - "No integration test for complete upload-then-map-then-export flow"
+
+  - id: REQ-07
+    source_number: 7
+    title: "Bieu mau thong ke"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/bao-cao/TrangBaoCaoTuyBien.tsx"]
+      backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCaoTuyBien.cs"]
+      tests: ["tests/BlueIdea.UnitTests/BaoCao/DichVuBaoCaoTuyBienTests.cs"]
+    gaps:
+      - "Authorization gap"
+      - "No test for invalid column config rejection at save time"
+
+  - id: REQ-08
+    source_number: 8
+    title: "Quyet dinh"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: catalog
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/quyet-dinh/TrangQuyetDinh.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/QuyetDinhController.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"]
+    gaps:
+      - "Signing operation requires real CA certificate (BLOCKED_EXTERNAL)"
+    notes: "Specific policies: QuyetDinhXem, QuyetDinhBanHanh, QuyetDinhKySo. Tests cover publish, duplicate check, file attachment."
+
+  # ── Nhom II: Quy trinh dong ────────────────────────────────────────
+
+  - id: REQ-09
+    source_number: 9
+    title: "Cau hinh quy trinh"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quy-trinh/TrangQuyTrinh.tsx", "web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/QuyTrinhVaTieuChiController.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/Workflow/KiemTraQuyTrinhTests.cs"]
+    gaps:
+      - "No runtime integration test; only unit tests"
+    notes: "Snapshot rule COMPLIANT per workflow specialist audit."
+
+  - id: REQ-10
+    source_number: 10
+    title: "Cau hinh truong hop"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
+      backend: ["src/BlueIdea.Workflow/DieuKien/BoDanhGiaDieuKien.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Workflow/BoDanhGiaDieuKienTests.cs"]
+    gaps:
+      - "No runtime integration test"
+    notes: "Rule evaluator SAFE — no dynamic eval."
+
+  - id: REQ-11
+    source_number: 11
+    title: "Cau hinh buoc xu ly"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
+      backend: ["src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
+    gaps:
+      - "10 step types implemented; no runtime integration test"
+
+  - id: REQ-12
+    source_number: 12
+    title: "Chuc nang bo sung"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: PARTIAL
+    evidence:
+      frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
+      backend: ["src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
+      tests: []
+    gaps:
+      - "Feature toggle flags are stored in config but NOT enforced by BoMayQuyTrinh at runtime"
+      - "Admin can configure toggles; engine ignores them during step execution"
+
+  - id: REQ-13
+    source_number: 13
+    title: "Thanh phan ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
+      backend: ["src/BlueIdea.Application/SangKien/BoKiemTraThanhPhanHoSo.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps:
+      - "Components are workflow-level, not per-step as detailed in customer spec"
+
+  - id: REQ-14
+    source_number: 14
+    title: "Trang thai buoc xu ly"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/xu-ly/TrangDanhSachXuLy.tsx"]
+      backend: ["src/BlueIdea.Workflow/MoHinh/MoHinhWorkflow.cs"]
+      tests: []
+    gaps:
+      - "Status labels configurable; no runtime integration test"
+
+  - id: REQ-15
+    source_number: 15
+    title: "Tac nhan xu ly"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: workflow
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
+      backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps:
+      - "CHU_TICH_QUYET_DINH processing rule is identical to MOT_NGUOI — may not be intentional"
+
+  - id: REQ-16
+    source_number: 16
+    title: "Cau hinh lien thong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: integration
+    status: PARTIAL
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangLienThong.tsx"]
+      backend: ["src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs", "src/BlueIdea.Infrastructure/TichHop/BoGuiLienThongHttp.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs"]
+    gaps:
+      - "Event-driven sync adapter exists but is NOT connected to workflow engine transitions"
+      - "Admin can configure integration; workflow steps do not trigger sync"
+
+  # ── Nhom III: Tieu chi dong ────────────────────────────────────────
+
+  - id: REQ-17
+    source_number: 17
+    title: "Danh sach nhom tieu chi"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: scoring
+    status: PARTIAL
+    evidence:
+      frontend: ["web/src/features/tieu-chi/TrangTieuChi.tsx"]
+      backend: ["src/BlueIdea.Application/TieuChi/DichVuTieuChi.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs"]
+    gaps:
+      - "KiemTraBoTieuChi validates weight sum but is NOT called during LuuCayTieuChiAsync save"
+      - "Admin can save criteria with weights != 100% without server rejection"
+
+  - id: REQ-18
+    source_number: 18
+    title: "Cau hinh tieu chi dong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: scoring
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/tieu-chi/TrangCauHinhTieuChi.tsx"]
+      backend: ["src/BlueIdea.Scoring/BoTinhDiem.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs"]
+    gaps:
+      - "No runtime integration test for 4 input types"
+
+  # ── Nhom IV: Hoi dong ──────────────────────────────────────────────
+
+  - id: REQ-19
+    source_number: 19
+    title: "Danh sach hoi dong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: council
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/hoi-dong/TrangHoiDong.tsx", "web/src/features/hoi-dong/TrangChiTietHoiDong.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/HoiDongController.cs", "src/BlueIdea.Application/HoiDong/DichVuHoiDong.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/HoiDongTests.cs"]
+    gaps: []
+    notes: "Tests cover sessions, attendance, voting, conclusion."
+
+  - id: REQ-20
+    source_number: 20
+    title: "Thanh vien hoi dong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: council
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/hoi-dong/TrangChiTietHoiDong.tsx"]
+      backend: ["src/BlueIdea.Application/HoiDong/DichVuHoiDong.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/HoiDongTests.cs"]
+    gaps: []
+    notes: "Tests verify exactly-1-chairman and min-member-count constraints."
+
+  # ── Nhom V: Dang ky nop ho so ──────────────────────────────────────
+
+  - id: REQ-21
+    source_number: 21
+    title: "Dang nhap"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: auth
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/xac-thuc/TrangDangNhap.tsx", "web/src/features/xac-thuc/TrangSsoTraVe.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/XacThucController.cs", "src/BlueIdea.Application/XacThuc/"]
+      tests: ["tests/BlueIdea.IntegrationTests/XacThucNangCaoTests.cs", "tests/BlueIdea.UnitTests/XacThuc/"]
+    gaps:
+      - "SSO component BLOCKED_EXTERNAL — needs real city SSO credentials"
+      - "SEC: Account enumeration via distinct login error messages (HIGH)"
+      - "SEC: SSO state parameter not validated server-side (HIGH)"
+      - "SEC: Open redirect in duongDanTraVe (HIGH)"
+    notes: "Internal auth verified by 9+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes)."
+
+  - id: REQ-22
+    source_number: 22
+    title: "Dang ky nop sang kien"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: submission
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/SangKienController.cs", "src/BlueIdea.Application/SangKien/SangKienCommands.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps:
+      - "No test for contribution ratio = 100% validation"
+    notes: "6-step wizard with auto-save. Submission blocked by missing mandatory components (test verified)."
+
+  - id: REQ-23
+    source_number: 23
+    title: "Quan ly ho so sang kien"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: submission
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangHoSoCuaToi.tsx", "web/src/features/sang-kien/TrangChiTietHoSo.tsx"]
+      backend: ["src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs", "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"]
+    gaps:
+      - "No test for diff accuracy (before/after values)"
+      - "No test for withdrawal blocked after scoring step"
+      - "SEC: LayHanhDongKhaDungQuery — no ICoYeuCauQuyen, returns 200+empty instead of 404 for cross-org (LOW, existence oracle)"
+      - "SEC: GoiYAsync — BatBuocCoQuyenAsync not called, permission bypass but org scope IS enforced (LOW)"
+    notes: "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime)."
+
+  - id: REQ-24
+    source_number: 24
+    title: "Thanh phan ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: submission
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
+      backend: ["src/BlueIdea.Application/SangKien/BoKiemTraThanhPhanHoSo.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps: []
+    notes: "LuongNghiepVuTests verifies 422 THIEU_THANH_PHAN_BAT_BUOC on missing component."
+
+  - id: REQ-25
+    source_number: 25
+    title: "Tap tin dinh kem"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: submission
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/TepTinController.cs", "src/BlueIdea.Infrastructure/BaoMat/DichVuQuetVirusClamAv.cs"]
+      tests: ["tests/BlueIdea.UnitTests/BaoMat/DichVuQuetVirusClamAvTests.cs", "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"]
+    gaps:
+      - "No integration test for blocked extensions, magic number mismatch, ClamAV virus detection"
+    notes: "Run-002-B1: IDOR fixes — BatBuocTepTrongPhamViAsync + BatBuocHoSoTrongPhamViAsync scope checks added to download, preview, signed-URL, upload, delete. File dedup edge case handled (checks all attachments). 13 IDOR tests added. Tests compile but not executed (env lacks .NET 8 runtime)."
+
+  - id: REQ-26
+    source_number: 26
+    title: "Kiem tra trung lap"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: ai
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangChiTietHoSo.tsx"]
+      backend: ["src/BlueIdea.Ai/TrungLap/BoPhanTichTrungLap.cs", "src/BlueIdea.Application/TrungLap/DichVuKiemTraTrungLap.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Ai/BoPhanTichTrungLapTests.cs", "tests/BlueIdea.UnitTests/Ai/ThuatToanTrungLapTests.cs", "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"]
+    gaps:
+      - "ONNX model not deployed — semantic embedding uses lexical hashing (BLOCKED_EXTERNAL)"
+      - "Brute-force O(n^2) pairwise comparison — no backfill mechanism"
+      - "SEC: ChayAsync IDOR — no org scoping on similarity re-run, cross-org content disclosure + write (HIGH)"
+      - "SEC: DanhDauDaXemXetAsync latent IDOR — no org scoping but NOT wired to any endpoint (MEDIUM, latent)"
+    notes: "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. ChayAsync and DanhDauDaXemXetAsync NOT fixed (queued for Run-002-B2). AI compliance fully satisfied — zero third-party AI references."
+
+  # ── Nhom VI: Tiep nhan va xu ly ────────────────────────────────────
+
+  - id: REQ-27
+    source_number: 27
+    title: "Tiep nhan ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: processing
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/xu-ly/TrangDanhSachXuLy.tsx"]
+      backend: ["src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps: []
+    notes: "Tests verify TAC_GIA gets empty actions, CAN_BO_TIEP_NHAN gets reception actions."
+
+  - id: REQ-28
+    source_number: 28
+    title: "Danh sach ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: processing
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/sang-kien/BangSangKien.tsx"]
+      backend: ["src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs"]
+      tests: []
+    gaps:
+      - "No test for saved filters, default filter, shared filter link, Excel export content"
+
+  - id: REQ-29
+    source_number: 29
+    title: "Xu ly ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: processing
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/xu-ly/TrangDanhSachXuLy.tsx"]
+      backend: ["src/BlueIdea.Application/XuLy/DichVuWorkflow.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps:
+      - "No test for idempotency key deduplication or batch processing"
+    notes: "Multi-step processing flow verified through full workflow."
+
+  - id: REQ-30
+    source_number: 30
+    title: "Theo doi ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: processing
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/sang-kien/TrangChiTietHoSo.tsx"]
+      backend: ["src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+    gaps:
+      - "No test for timeline completeness, overdue detection, or reminder deduplication"
+
+  - id: REQ-31
+    source_number: 31
+    title: "Dinh kem quyet dinh"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: decision
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/quyet-dinh/TrangQuyetDinh.tsx"]
+      backend: ["src/BlueIdea.Application/BanHanh/DichVuQuyetDinh.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"]
+    gaps:
+      - "Signing requires real PFX certificate (BLOCKED_EXTERNAL)"
+    notes: "PDF export verified (bytes start with %PDF). File attachment verified."
+
+  - id: REQ-32
+    source_number: 32
+    title: "Ket qua sang kien"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: decision
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/quyet-dinh/TrangQuyetDinh.tsx"]
+      backend: ["src/BlueIdea.Application/BanHanh/DichVuQuyetDinh.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"]
+    gaps:
+      - "No test for notification to innovation authors"
+    notes: "Test verifies congKhai=true, ngayCongNhan set, soDaCongBo count."
+
+  # ── Nhom VII: Danh gia ─────────────────────────────────────────────
+
+  - id: REQ-33
+    source_number: 33
+    title: "Danh sach ho so danh gia"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: evaluation
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/danh-gia/TrangViecDanhGia.tsx"]
+      backend: ["src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs"]
+      tests: []
+    gaps:
+      - "Score visibility before form submission not verified by test"
+
+  - id: REQ-34
+    source_number: 34
+    title: "Danh gia ho so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: evaluation
+    status: PARTIAL
+    evidence:
+      frontend: ["web/src/features/danh-gia/TrangChamDiem.tsx"]
+      backend: ["src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs", "src/BlueIdea.Scoring/BoTinhDiem.cs"]
+      tests: []
+    gaps:
+      - "P0 BUG: TRUNG_BINH_CONG calculation computes raw sum instead of average (BoTinhDiem.cs:98-100)"
+      - "BoTieuChiSnapshot property exists but is NEVER written — criteria changes could corrupt running evaluations"
+    notes: "Independently confirmed: CachTinhDiem.TrungBinhCong branch missing; BoTieuChiSnapshot has no assignment in src/."
+
+  - id: REQ-35
+    source_number: 35
+    title: "Phieu danh gia"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: evaluation
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/danh-gia/TrangChamDiem.tsx"]
+      backend: ["src/BlueIdea.Application/DanhGia/DichVuXuatPhieuCham.cs", "src/BlueIdea.Reporting/BoXuatPhieuChamPdf.cs"]
+      tests: []
+    gaps:
+      - "No test for evaluation form PDF export"
+
+  # ── Nhom VIII: Dinh kem quyet dinh (merged with 31) ────────────────
+
+  - id: REQ-36
+    source_number: 36
+    title: "Dinh kem quyet dinh (merged with 31)"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: decision
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/quyet-dinh/TrangQuyetDinh.tsx"]
+      backend: ["src/BlueIdea.Application/BanHanh/DichVuQuyetDinh.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"]
+    gaps: []
+    notes: "Merged with REQ-31."
+
+  # ── Nhom IX: Tra cuu ───────────────────────────────────────────────
+
+  - id: REQ-37
+    source_number: 37
+    title: "Tra cuu, tim kiem"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: search
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/tra-cuu/TrangTraCuu.tsx", "web/src/features/cong-khai/TrangCongKhai.tsx"]
+      backend: ["src/BlueIdea.Application/TraCuu/DichVuTimNguNghia.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/CongKhaiTests.cs"]
+    gaps:
+      - "Semantic search uses lexical hashing, not learned embedding (see TD-001)"
+    notes: "Reconciled: AI Specialist rated IMPL (semantic quality), Req Auditor rated VERIFIED (functional). Resolution: VERIFIED — customer requirement is functional search, semantic is a quality improvement."
+
+  # ── Nhom X: Thong ke bao cao ───────────────────────────────────────
+
+  - id: REQ-38
+    source_number: 38
+    title: "Danh sach sang kien dat"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: report
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/bao-cao/TrangBaoCao.tsx"]
+      backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCao.cs"]
+      tests: []
+    gaps:
+      - "No test for report data accuracy or Excel content"
+
+  - id: REQ-39
+    source_number: 39
+    title: "Danh sach sang kien chua dat"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: report
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/bao-cao/TrangBaoCao.tsx"]
+      backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCao.cs"]
+      tests: []
+    gaps:
+      - "No PDF export for this report (only Excel)"
+      - "No integration test"
+
+  - id: REQ-40
+    source_number: 40
+    title: "Danh sach theo don vi"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: report
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/bao-cao/TrangBaoCao.tsx"]
+      backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCao.cs"]
+      tests: []
+    gaps:
+      - "No test for pass rate calculation or totals row"
+
+  # ── Nhom XI: Ket noi he thong khac ────────────────────────────────
+
+  - id: REQ-41
+    source_number: 41
+    title: "Tich hop SSO/IOC/TDKT"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: integration
+    status: BLOCKED_EXTERNAL
+    evidence:
+      frontend: ["web/src/features/xac-thuc/sso.ts", "web/src/features/xac-thuc/TrangSsoTraVe.tsx", "web/src/features/quan-tri/TrangLienThong.tsx"]
+      backend: ["src/BlueIdea.Infrastructure/XacThuc/BoXacThucOidc.cs", "src/BlueIdea.Infrastructure/TichHop/BoGuiLienThongHttp.cs", "src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs", "tests/BlueIdea.UnitTests/XacThuc/BoXacThucOidcTests.cs"]
+    gaps:
+      - "SSO needs real SSO_ISSUER/CLIENT_ID/CLIENT_SECRET"
+      - "IOC/TDKT needs real endpoint and API key"
+      - "SEC: SSO state parameter not validated server-side (HIGH)"
+      - "SEC: Open redirect in duongDanTraVe (HIGH)"
+    dependencies: ["external-sso-provider", "external-ioc-system", "external-tdkt-system"]
+
+  # ── Nhom XII: Ung dung di dong ─────────────────────────────────────
+
+  - id: REQ-42
+    source_number: 42
+    title: "Ung dung di dong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: mobile
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/styles/thiet-ke.css"]
+    gaps:
+      - "No automated test for 320px breakpoint, Drawer navigation, horizontal table scroll"
+    notes: "Owner approved responsive web approach instead of App Store/Play Store app."
+
+  # ── Nhom XIII: Quan tri he thong ───────────────────────────────────
+
+  - id: REQ-43
+    source_number: 43
+    title: "Quan ly nguoi dung"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: VERIFIED
+    verified_date: "2026-08-18"
+    verified_by: "audit-run-001"
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangNguoiDung.tsx", "web/src/features/quan-tri/HopThoaiNhapNguoiDung.tsx"]
+      backend: ["src/BlueIdea.Application/QuanTri/DichVuQuanTriNguoiDung.cs", "src/BlueIdea.Application/QuanTri/DichVuNhapNguoiDung.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs", "tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
+    gaps:
+      - "No test for role assignment during user creation/update"
+    notes: "Excel import with dry-run mode and row-level error reporting verified by tests."
+
+  - id: REQ-44
+    source_number: 44
+    title: "Quan ly don vi, to chuc"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
+      tests: []
+    gaps:
+      - "Authorization gap — class-level [Authorize] only"
+      - "No test for tree-path auto-update when moving nodes"
+
+  - id: REQ-45
+    source_number: 45
+    title: "Quan ly vai tro"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangVaiTro.tsx"]
+      backend: ["src/BlueIdea.Application/QuanTri/DichVuQuanTriNguoiDung.cs"]
+      tests: []
+    gaps:
+      - "No test for permission matrix update or data scope enforcement change"
+
+  - id: REQ-46
+    source_number: 46
+    title: "Cau hinh he thong"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangCauHinhHeThong.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/HeThongController.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
+    gaps:
+      - "No test for theme color persistence or public config endpoint filtering"
+
+  - id: REQ-47
+    source_number: 47
+    title: "Cau hinh don vi"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
+      tests: []
+    gaps:
+      - "No test for document title/signer config used in decision PDF generation"
+
+  - id: REQ-48
+    source_number: 48
+    title: "Cau hinh menu"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangCauHinhMenu.tsx", "web/src/app/layout/BoCucChinh.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/CauHinhMenuController.cs", "src/BlueIdea.Api/Controllers/XacThucController.cs"]
+      tests: []
+    gaps:
+      - "No integration test for menu CRUD, drag-drop reorder, or duplicate code rejection"
+    notes: "Reconciliation correction: Requirement Auditor missed CauHinhMenuController.cs (searched HeThongController/XacThucController only). Release Auditor discovered full CRUD: GET, POST, PUT, DELETE, PUT/sap-xep — all protected by [Authorize(Policy = MaQuyen.CauHinhSua)]. Frontend TrangCauHinhMenu.tsx has query/mutation hooks for all endpoints."
+
+  - id: REQ-49
+    source_number: 49
+    title: "Cau hinh chu ky so"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: BLOCKED_EXTERNAL
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangChuKySo.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/CauHinhChuKySoController.cs", "src/BlueIdea.Infrastructure/KySo/BoKySoPkcs7.cs"]
+      tests: ["tests/BlueIdea.UnitTests/KySo/BoKySoPkcs7Tests.cs", "tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"]
+    gaps:
+      - "Needs real CA certificate for legally valid signatures"
+    dependencies: ["external-ca-certificate"]
+    notes: "PKCS#7 detached signing and verification work with self-signed certificate. Secret masking and single-default constraint tested."
+
+  - id: REQ-50
+    source_number: 50
+    title: "Cau hinh email va SMS"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangCauHinhGuiTin.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/CauHinhGuiTinController.cs", "src/BlueIdea.Infrastructure/CongViecNen/DichVuGuiTin.cs"]
+      tests: []
+    gaps:
+      - "No integration test for test-send functionality"
+      - "Actual email/SMS delivery requires real SMTP/SMS credentials"
+
+  - id: REQ-51
+    source_number: 51
+    title: "Cau hinh thong tin sang kien"
+    source: "E-HSMT Chuong V, Muc 3.1"
+    type: admin
+    status: IMPLEMENTED_NOT_VERIFIED
+    evidence:
+      frontend: ["web/src/features/quan-tri/TrangCauHinhHeThong.tsx"]
+      backend: ["src/BlueIdea.Api/Controllers/HeThongController.cs"]
+      tests: []
+    gaps:
+      - "No test for config-driven behavior change (e.g., changing duplicate threshold actually changes behavior)"

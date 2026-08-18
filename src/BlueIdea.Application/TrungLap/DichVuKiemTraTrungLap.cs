@@ -24,6 +24,7 @@ public sealed class DichVuKiemTraTrungLap
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDongHoHeThong _dongHo;
     private readonly IDichVuPhanQuyen _phanQuyen;
+    private readonly INguoiDungHienTai _nguoiDung;
     private readonly ILogger<DichVuKiemTraTrungLap> _logger;
 
     public DichVuKiemTraTrungLap(
@@ -33,6 +34,7 @@ public sealed class DichVuKiemTraTrungLap
         IDichVuCauHinh cauHinh,
         IDongHoHeThong dongHo,
         IDichVuPhanQuyen phanQuyen,
+        INguoiDungHienTai nguoiDung,
         ILogger<DichVuKiemTraTrungLap> logger)
     {
         _db = db;
@@ -41,6 +43,7 @@ public sealed class DichVuKiemTraTrungLap
         _cauHinh = cauHinh;
         _dongHo = dongHo;
         _phanQuyen = phanQuyen;
+        _nguoiDung = nguoiDung;
         _logger = logger;
     }
 
@@ -181,7 +184,8 @@ public sealed class DichVuKiemTraTrungLap
     public async Task<EntityKiemTra?> LayKetQuaGanNhatAsync(
         Guid sangKienId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TrungLapXem, sangKienId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TrungLapXem, ct: ct).ConfigureAwait(false);
+        await BatBuocTrongPhamViSangKienAsync(sangKienId, ct).ConfigureAwait(false);
 
         return await _db.KiemTraTrungLap.AsNoTracking()
             .Include(x => x.ChiTiet)
@@ -207,6 +211,35 @@ public sealed class DichVuKiemTraTrungLap
     }
 
     // ------------------------------------------------------------------------------------
+
+    private async Task BatBuocTrongPhamViSangKienAsync(Guid sangKienId, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+
+        var nguoiDungId = _nguoiDung.Id.Value;
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiDungId, ct).ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong) return;
+
+        var laTacGia = hoSo.NguoiTaoId == nguoiDungId
+                       || hoSo.DanhSachTacGia.Any(t => t.NguoiDungId == nguoiDungId);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia) throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+        if (!laTacGia && !trongDonVi)
+            throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
+    }
 
     private async Task<ThamSoTrungLap> NapThamSoAsync(CancellationToken ct)
     {
