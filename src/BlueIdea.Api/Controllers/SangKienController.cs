@@ -46,6 +46,13 @@ public sealed class SangKienController : ControllerBase
         [FromQuery] ThamSoLocSangKien thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<SangKienTomTatDto>.Tu(await _truyVan.LayDanhSachAsync(thamSo, ct)));
 
+    /// <summary>Chức năng 37 — Gợi ý từ khoá khi gõ ở ô tìm kiếm.</summary>
+    [HttpGet("goi-y")]
+    public async Task<IActionResult> GoiYAsync(
+        [FromQuery] string tuKhoa, [FromQuery] int soLuong = 8, CancellationToken ct = default)
+        => Ok(PhanHoiApi<IReadOnlyList<GoiYTimKiem>>.Ok(
+            await _truyVan.GoiYAsync(tuKhoa, soLuong, ct)));
+
     /// <summary>
     /// Chức năng 26, 37 — Tìm kiếm ngữ nghĩa.
     ///

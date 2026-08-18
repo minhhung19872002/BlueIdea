@@ -45,6 +45,7 @@ import {
   type TacGia,
 } from '@/api/endpoints';
 import { KhoiDangTai } from '@/components/ThanhPhanChung';
+import { ONoiDungDai } from '@/components/ONoiDungDai';
 
 /** Khoảng thời gian tự động lưu nháp (Mục 5 — chức năng 22). */
 const CHU_KY_TU_LUU_MS = 30_000;
@@ -462,7 +463,11 @@ export default function TrangNopHoSo() {
                     : undefined
                 }
               >
-                <Input.TextArea rows={5} showCount />
+                <ONoiDungDai
+                  rows={6}
+                  soKyTuToiThieu={tp.soKyTuToiThieu}
+                  placeholder={tp.moTaHuongDan ?? undefined}
+                />
               </Form.Item>
             ))}
 

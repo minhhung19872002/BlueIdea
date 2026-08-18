@@ -98,6 +98,9 @@ public sealed record SangKienTomTatDto(
     int PhienBan);
 
 /// <summary>Chi tiet day du cua ho so (man hinh /sang-kien/:id).</summary>
+/// <summary>Mot goi y tu khoa khi go o o tim kiem (chuc nang 37).</summary>
+public sealed record GoiYTimKiem(string GiaTri, string Loai, string? MoTa);
+
 public sealed class SangKienChiTietDto
 {
     public Guid Id { get; set; }

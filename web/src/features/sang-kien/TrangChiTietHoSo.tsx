@@ -55,6 +55,7 @@ import {
   NhanTrungLap,
   ngayGio,
 } from '@/components/ThanhPhanChung';
+import { XemTruocVanBan } from '@/components/ONoiDungDai';
 import { DatePicker, Select, Switch } from 'antd';
 import dayjs from 'dayjs';
 
@@ -604,9 +605,7 @@ function TabNoiDung({ hs }: { hs: SangKienChiTiet }) {
         .filter((m) => m.giaTri)
         .map((m) => (
           <Card key={m.nhan} size="small" title={m.nhan} style={{ marginBottom: 12 }}>
-            <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
-              {m.giaTri}
-            </Typography.Paragraph>
+            <XemTruocVanBan noiDung={m.giaTri ?? ''} />
           </Card>
         ))}
     </div>

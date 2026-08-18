@@ -267,6 +267,13 @@ export interface NoiDungHoSo {
   danhSachTacGia: TacGia[];
 }
 
+export interface GoiYTimKiem {
+  giaTri: string;
+  /** MA_HO_SO | SANG_KIEN | TAC_GIA */
+  loai: string;
+  moTa?: string | null;
+}
+
 export const apiSangKien = {
   danhSach: (thamSo?: Record<string, unknown>) =>
     layPhanTrang<SangKienTomTat>('/api/v1/sang-kien', thamSo),
@@ -275,6 +282,9 @@ export const apiSangKien = {
   chiTiet: (id: string) => layDuLieu<SangKienChiTiet>(`/api/v1/sang-kien/${id}`),
   tienDo: (id: string) => layDuLieu<MocTienDo[]>(`/api/v1/sang-kien/${id}/tien-do`),
   duongDanPhieuTiepNhan: (id: string) => `/api/v1/sang-kien/${id}/phieu-tiep-nhan`,
+  /** Chức năng 37 — gợi ý từ khoá khi gõ ở ô tìm kiếm. */
+  goiY: (tuKhoa: string, soLuong = 8) =>
+    layDuLieu<GoiYTimKiem[]>('/api/v1/sang-kien/goi-y', { params: { tuKhoa, soLuong } }),
   lichSu: (id: string) => layDuLieu<LichSuChinhSua[]>(`/api/v1/sang-kien/${id}/lich-su`),
   hanhDong: (id: string) => layDuLieu<HanhDongKhaDung[]>(`/api/v1/sang-kien/${id}/hanh-dong`),
   trungLap: (id: string) => layDuLieu<KetQuaTrungLap | null>(`/api/v1/sang-kien/${id}/trung-lap`),

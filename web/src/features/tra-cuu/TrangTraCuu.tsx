@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   App,
+  AutoComplete,
   Button,
   Card,
   Col,
@@ -28,7 +29,14 @@ import {
   type KetQuaTimNguNghia,
 } from '@/api/endpoints';
 import { BangSangKien } from '@/features/sang-kien/BangSangKien';
+import { ThanhBoLocYeuThich } from '@/components/BoLocYeuThich';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
+
+const NHAN_LOAI_GOI_Y: Record<string, string> = {
+  MA_HO_SO: 'Mã hồ sơ',
+  SANG_KIEN: 'Sáng kiến',
+  TAC_GIA: 'Tác giả',
+};
 
 /** Chức năng 37 — Tra cứu, tìm kiếm nâng cao. */
 export default function TrangTraCuu() {
@@ -64,9 +72,30 @@ export default function TrangTraCuu() {
     queryFn: () => apiSangKien.danhSach(thamSo),
   });
 
+  // Ô tìm kiếm giữ giá trị đang gõ riêng: gọi API gợi ý theo từng phím, còn tham số URL chỉ đổi
+  // khi người dùng thật sự bấm tìm — nếu không mỗi phím gõ sẽ là một lần chạy truy vấn đầy đủ.
+  const [dangGo, setDangGo] = useState(thamSoUrl.get('tuKhoa') ?? '');
+
+  const { data: goiY } = useQuery({
+    queryKey: ['goi-y-tim-kiem', dangGo],
+    queryFn: () => apiSangKien.goiY(dangGo),
+    enabled: dangGo.trim().length >= 2,
+    staleTime: 30_000,
+  });
+
   const { data: cacDot } = useQuery({ queryKey: ['dot-chon'], queryFn: apiDotDeNghi.chon });
   const { data: cacLinhVuc } = useQuery({ queryKey: ['linh-vuc-chon'], queryFn: apiLinhVuc.chon });
   const { data: cacDonVi } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
+
+  const apBoLocDaLuu = useCallback(
+    (chuoi: string) => {
+      const moi = new URLSearchParams(chuoi);
+      datThamSoUrl(moi);
+      setDangGo(moi.get('tuKhoa') ?? '');
+      setTrang(1);
+    },
+    [datThamSoUrl],
+  );
 
   function dat(khoa: string, giaTri?: string | number | null) {
     const moi = new URLSearchParams(thamSoUrl);
@@ -83,15 +112,42 @@ export default function TrangTraCuu() {
 
   return (
     <Card title="Tra cứu sáng kiến">
-      <Input.Search
-        size="large"
-        placeholder="Nhập tên sáng kiến, mã hồ sơ hoặc tên tác giả (gõ không dấu vẫn ra kết quả)"
-        defaultValue={thamSo.tuKhoa}
-        allowClear
-        enterButton={<SearchOutlined />}
-        onSearch={(v) => dat('tuKhoa', v)}
-        style={{ marginBottom: 12 }}
+      <ThanhBoLocYeuThich
+        manHinh="TRA_CUU"
+        thamSoHienTai={thamSoUrl.toString()}
+        onApDung={apBoLocDaLuu}
       />
+
+      <AutoComplete
+        style={{ width: '100%', marginBottom: 12 }}
+        value={dangGo}
+        onChange={setDangGo}
+        onSelect={(v: string) => dat('tuKhoa', v)}
+        options={(goiY ?? []).map((x) => ({
+          value: x.giaTri,
+          label: (
+            <Space size={6}>
+              <Tag color={x.loai === 'TAC_GIA' ? 'purple' : 'blue'}>
+                {NHAN_LOAI_GOI_Y[x.loai] ?? x.loai}
+              </Tag>
+              <span>{x.giaTri}</span>
+              {x.moTa && (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {x.moTa}
+                </Typography.Text>
+              )}
+            </Space>
+          ),
+        }))}
+      >
+        <Input.Search
+          size="large"
+          placeholder="Nhập tên sáng kiến, mã hồ sơ hoặc tên tác giả (gõ không dấu vẫn ra kết quả)"
+          allowClear
+          enterButton={<SearchOutlined />}
+          onSearch={(v) => dat('tuKhoa', v)}
+        />
+      </AutoComplete>
 
       <Collapse
         style={{ marginBottom: 12 }}
@@ -223,6 +279,8 @@ export default function TrangTraCuu() {
           dangTai={isLoading}
           thamSoXuat={thamSo}
           tenTepXuat="ket-qua-tra-cuu.xlsx"
+          tuKhoaToDam={thamSo.tuKhoa}
+          chonCot
           onDoiTrang={(t, s) => {
             setTrang(t);
             setSoDong(s);

@@ -381,6 +381,61 @@ public sealed class DichVuTruyVanSangKien
             || x.DanhSachTacGia.Any(t => t.NguoiDungId == nguoiDungId));
     }
 
+    /// <summary>
+    /// Chuc nang 37 — Goi y tu khoa khi go o o tim kiem.
+    ///
+    /// Chay TREN TAP DU LIEU NGUOI DUNG DUOC XEM (dung dung bo loc pham vi nhu danh sach): goi y
+    /// khong duoc lo ten sang kien cua don vi ma nguoi do khong co quyen xem.
+    /// </summary>
+    public async Task<IReadOnlyList<GoiYTimKiem>> GoiYAsync(
+        string tuKhoa, int soLuong = 8, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(tuKhoa) || tuKhoa.Trim().Length < 2)
+        {
+            return Array.Empty<GoiYTimKiem>();
+        }
+
+        var khongDau = VanBanTiengViet.TaoKhongDau(tuKhoa);
+        var hoa = tuKhoa.Trim().ToUpperInvariant();
+        soLuong = Math.Clamp(soLuong, 1, 20);
+
+        var trongPhamVi = await ApDungPhamViDuLieuAsync(
+                _db.SangKien.AsNoTracking(), new ThamSoLocSangKien(), ct)
+            .ConfigureAwait(false);
+
+        var theoTen = await trongPhamVi
+            .Where(x => x.TenKhongDau.Contains(khongDau))
+            .OrderBy(x => x.TenSangKien.Length)
+            .Take(soLuong)
+            .Select(x => new GoiYTimKiem(x.TenSangKien, "SANG_KIEN", x.MaHoSo))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var theoMa = await trongPhamVi
+            .Where(x => x.MaHoSo.ToUpper().Contains(hoa))
+            .OrderBy(x => x.MaHoSo)
+            .Take(soLuong)
+            .Select(x => new GoiYTimKiem(x.MaHoSo, "MA_HO_SO", x.TenSangKien))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var theoTacGia = await _db.SangKienTacGia.AsNoTracking()
+            .Where(t => t.HoTen.ToUpper().Contains(hoa))
+            .Where(t => trongPhamVi.Any(h => h.Id == t.SangKienId))
+            .Select(t => t.HoTen)
+            .Distinct()
+            .OrderBy(x => x)
+            .Take(soLuong)
+            .Select(x => new GoiYTimKiem(x, "TAC_GIA", null))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return theoMa.Concat(theoTen).Concat(theoTacGia)
+            .DistinctBy(x => (x.Loai, x.GiaTri))
+            .Take(soLuong * 2)
+            .ToList();
+    }
+
     private IQueryable<HoSoSangKien> ApDungBoLoc(
         IQueryable<HoSoSangKien> truyVan, ThamSoLocSangKien t)
     {
