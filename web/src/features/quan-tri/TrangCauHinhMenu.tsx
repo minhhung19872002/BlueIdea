@@ -4,7 +4,6 @@ import {
   App,
   Button,
   Card,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -20,11 +19,49 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from '@ant-d
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DataNode } from 'antd/es/tree';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, soNguyen, tuyChon } from '@/components/bieu-mau/luat';
 import { apiCauHinhMenu, apiHeThong, type MucMenuQuanTri } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_CAU_HINH } from './cauHinhTab';
+
+/**
+ * Luật kiểm tra mục menu.
+ *
+ * Đường dẫn để trống nghĩa là mục này chỉ là NHÓM chứa mục con — hợp lệ, nên không bắt buộc.
+ * Nhưng nếu có nhập thì phải bắt đầu bằng "/": đường dẫn tương đối sẽ ghép sai khi người dùng
+ * đang đứng ở một trang con, và mục menu đó dẫn tới trang 404.
+ */
+const luatMucMenu = z.object({
+  ma: batBuoc('Mã', 50).regex(/^[A-Z0-9_]+$/, 'Mã chỉ gồm chữ hoa, số và dấu _'),
+  ten: batBuoc('Tên hiển thị'),
+  icon: tuyChon(8),
+  duongDan: z
+    .string()
+    .trim()
+    .startsWith('/', 'Đường dẫn phải bắt đầu bằng dấu /')
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+  menuChaId: z.string().uuid().optional().nullable(),
+  quyenMa: z.string().optional().nullable(),
+  thuTu: soNguyen('Thứ tự', 0, 999),
+  hienThi: z.boolean(),
+  moTabMoi: z.boolean(),
+});
+
+type GiaTriMucMenu = z.infer<typeof luatMucMenu>;
+
+const MAC_DINH_MENU: GiaTriMucMenu = {
+  ma: '',
+  ten: '',
+  thuTu: 0,
+  hienThi: true,
+  moTabMoi: false,
+};
 
 interface NutSapXep {
   id: string;
@@ -45,7 +82,7 @@ export default function TrangCauHinhMenu() {
   const [cayNhap, setCayNhap] = useState<DataNode[] | null>(null);
   const [dangSua, setDangSua] = useState<MucMenuQuanTri | null>(null);
   const [moForm, setMoForm] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatMucMenu, MAC_DINH_MENU);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['cau-hinh-menu', loai],
@@ -99,18 +136,18 @@ export default function TrangCauHinhMenu() {
   });
 
   const luuMuc = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriMucMenu) => {
       const duLieu = {
-        ma: (giaTri.ma as string).trim().toUpperCase(),
-        ten: giaTri.ten as string,
-        icon: (giaTri.icon as string) || null,
-        duongDan: (giaTri.duongDan as string) || null,
-        menuChaId: (giaTri.menuChaId as string) ?? null,
-        thuTu: (giaTri.thuTu as number) ?? 0,
-        quyenMa: (giaTri.quyenMa as string) || null,
+        ma: giaTri.ma.trim().toUpperCase(),
+        ten: giaTri.ten,
+        icon: giaTri.icon ?? null,
+        duongDan: giaTri.duongDan ?? null,
+        menuChaId: giaTri.menuChaId ?? null,
+        thuTu: giaTri.thuTu,
+        quyenMa: giaTri.quyenMa ?? null,
         loai,
-        hienThi: giaTri.hienThi !== false,
-        moTabMoi: !!giaTri.moTabMoi,
+        hienThi: giaTri.hienThi,
+        moTabMoi: giaTri.moTabMoi,
       };
 
       return dangSua ? apiCauHinhMenu.sua(dangSua.id, duLieu) : apiCauHinhMenu.them(duLieu);
@@ -119,7 +156,7 @@ export default function TrangCauHinhMenu() {
       message.success(dangSua ? 'Đã cập nhật mục menu' : 'Đã thêm mục menu');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH_MENU);
       setCayNhap(null);
       void queryClient.invalidateQueries({ queryKey: ['cau-hinh-menu'] });
       void queryClient.invalidateQueries({ queryKey: ['menu'] });
@@ -167,7 +204,7 @@ export default function TrangCauHinhMenu() {
             icon={<PlusOutlined />}
             onClick={() => {
               setDangSua(null);
-              form.resetFields();
+              form.reset(MAC_DINH_MENU);
               setMoForm(true);
             }}
           >
@@ -225,7 +262,17 @@ export default function TrangCauHinhMenu() {
                       if (!muc) return;
 
                       setDangSua(muc);
-                      form.setFieldsValue(muc);
+                      form.reset({
+                        ma: muc.ma,
+                        ten: muc.ten,
+                        icon: muc.icon ?? undefined,
+                        duongDan: muc.duongDan ?? undefined,
+                        menuChaId: muc.menuChaId ?? undefined,
+                        quyenMa: muc.quyenMa ?? undefined,
+                        thuTu: muc.thuTu,
+                        hienThi: muc.hienThi,
+                        moTabMoi: muc.moTabMoi,
+                      });
                       setMoForm(true);
                     }}
                   />
@@ -265,81 +312,112 @@ export default function TrangCauHinhMenu() {
         title={dangSua ? `Sửa mục menu: ${dangSua.ten}` : `Thêm mục menu ${loai}`}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luuMuc.isPending}
+        confirmLoading={luuMuc.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luuMuc.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-muc-menu' }}
       >
-        <Form form={form} layout="vertical" initialValues={{ hienThi: true, thuTu: 0 }}>
+        <BieuMau id="form-muc-menu" form={form} onGui={(giaTri) => luuMuc.mutateAsync(giaTri)}>
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item
-              name="ma"
-              label="Mã"
-              rules={[
-                { required: true, message: 'Nhập mã' },
-                { pattern: /^[A-Z0-9_]+$/, message: 'Mã chỉ gồm chữ hoa, số và dấu _' },
-              ]}
-            >
-              <Input style={{ width: 220 }} placeholder="VD: BC_TAC_GIA" />
-            </Form.Item>
-            <Form.Item name="ten" label="Tên hiển thị" rules={[{ required: true, message: 'Nhập tên' }]}>
-              <Input style={{ width: 300 }} />
-            </Form.Item>
+            <Truong<GiaTriMucMenu> ten="ma" label="Mã" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 220 }}
+                  placeholder="VD: BC_TAC_GIA"
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriMucMenu> ten="ten" label="Tên hiển thị" required>
+              {(o) => <Input {...o} value={o.value as string} style={{ width: 300 }} />}
+            </Truong>
           </Space>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="icon" label="Icon (emoji)">
-              <Input style={{ width: 120 }} placeholder="📊" maxLength={4} />
-            </Form.Item>
-            <Form.Item
-              name="duongDan"
+            <Truong<GiaTriMucMenu> ten="icon" label="Icon (emoji)">
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 120 }}
+                  placeholder="📊"
+                  maxLength={4}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriMucMenu>
+              ten="duongDan"
               label="Đường dẫn"
               tooltip="Để trống nếu đây là nhóm chỉ chứa mục con."
             >
-              <Input style={{ width: 380 }} placeholder="/bao-cao/theo-tac-gia" />
-            </Form.Item>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 380 }}
+                  placeholder="/bao-cao/theo-tac-gia"
+                />
+              )}
+            </Truong>
           </Space>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="menuChaId" label="Thuộc nhóm">
-              <Select
-                style={{ width: 300 }}
-                allowClear
-                placeholder="(mục gốc)"
-                options={(data ?? [])
-                  .filter((x) => x.id !== dangSua?.id)
-                  .map((x) => ({ value: x.id, label: x.ten }))}
-              />
-            </Form.Item>
-            <Form.Item
-              name="quyenMa"
+            <Truong<GiaTriMucMenu> ten="menuChaId" label="Thuộc nhóm">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  style={{ width: 300 }}
+                  allowClear
+                  placeholder="(mục gốc)"
+                  options={(data ?? [])
+                    .filter((x) => x.id !== dangSua?.id)
+                    .map((x) => ({ value: x.id, label: x.ten }))}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriMucMenu>
+              ten="quyenMa"
               label="Quyền cần có"
               tooltip="Để trống thì mọi người đăng nhập đều thấy mục này."
             >
-              <Select
-                style={{ width: 280 }}
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="(ai cũng thấy)"
-                options={(
-                  (dsQuyen as { quyen?: { ma: string; ten: string }[] } | undefined)?.quyen ?? []
-                ).map((q) => ({ value: q.ma, label: `${q.ma} — ${q.ten}` }))}
-              />
-            </Form.Item>
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  style={{ width: 280 }}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="(ai cũng thấy)"
+                  options={(
+                    (dsQuyen as { quyen?: { ma: string; ten: string }[] } | undefined)?.quyen ?? []
+                  ).map((q) => ({ value: q.ma, label: `${q.ma} — ${q.ten}` }))}
+                />
+              )}
+            </Truong>
           </Space>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="thuTu" label="Thứ tự">
-              <InputNumber min={0} max={999} style={{ width: 120 }} />
-            </Form.Item>
-            <Form.Item name="hienThi" label="Hiển thị" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item name="moTabMoi" label="Mở tab mới" valuePropName="checked">
-              <Switch />
-            </Form.Item>
+            <Truong<GiaTriMucMenu> ten="thuTu" label="Thứ tự">
+              {(o) => (
+                <InputNumber
+                  {...o}
+                  value={o.value as number}
+                  min={0}
+                  max={999}
+                  style={{ width: 120 }}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriMucMenu> ten="hienThi" label="Hiển thị">
+              {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+            </Truong>
+            <Truong<GiaTriMucMenu> ten="moTabMoi" label="Mở tab mới">
+              {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+            </Truong>
           </Space>
-        </Form>
+        </BieuMau>
       </Modal>
     </Card>
   );

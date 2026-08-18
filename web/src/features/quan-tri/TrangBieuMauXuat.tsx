@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Descriptions,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -27,7 +26,11 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi, taiTep } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, maDanhMuc, soNguyen, trangThai, tuyChon } from '@/components/bieu-mau/luat';
 import {
   apiBieuMauXuat,
   apiNhapXuat,
@@ -39,6 +42,28 @@ import {
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_DANH_MUC } from '@/features/quan-tri/danhMucTab';
+
+/** Luật kiểm tra biểu mẫu xuất. */
+const luatBieuMau = z.object({
+  ma: maDanhMuc(),
+  ten: batBuoc('Tên biểu mẫu'),
+  moTa: tuyChon(),
+  loai: z.string(),
+  dinhDang: z.string(),
+  thuTu: soNguyen('Thứ tự', 0, 9999),
+  trangThai: trangThai,
+});
+
+type GiaTriBieuMau = z.infer<typeof luatBieuMau>;
+
+const MAC_DINH_BIEU_MAU: GiaTriBieuMau = {
+  ma: '',
+  ten: '',
+  loai: 'KHAC',
+  dinhDang: 'DOCX',
+  thuTu: 0,
+  trangThai: 1,
+};
 
 const LOAI_BIEU_MAU = [
   { value: 'PHIEU_TIEP_NHAN', label: 'Phiếu tiếp nhận' },
@@ -71,7 +96,7 @@ export default function TrangBieuMauXuat() {
   const [truong, setTruong] = useState<TruongBieuMau[]>([]);
   const [canhBaoQuet, setCanhBaoQuet] = useState<string | null>(null);
   const [dangQuet, setDangQuet] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatBieuMau, MAC_DINH_BIEU_MAU);
 
   const thamSo = { trang, soDong, tuKhoa };
 
@@ -86,7 +111,7 @@ export default function TrangBieuMauXuat() {
   });
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriBieuMau) => {
       const duLieu = {
         ma: giaTri.ma as string,
         ten: giaTri.ten as string,
@@ -174,7 +199,7 @@ export default function TrangBieuMauXuat() {
     setTenTepMau(null);
     setTruong([]);
     setCanhBaoQuet(null);
-    form.resetFields();
+    form.reset(MAC_DINH_BIEU_MAU);
   }
 
   function moTaoMoi() {
@@ -190,7 +215,15 @@ export default function TrangBieuMauXuat() {
     setTenTepMau(chiTiet.fileTemplateId ? 'Tệp mẫu đã tải lên trước đó' : null);
     setTruong(chiTiet.cauHinhTruong ?? []);
     setCanhBaoQuet(null);
-    form.setFieldsValue(chiTiet);
+    form.reset({
+      ma: chiTiet.ma,
+      ten: chiTiet.ten,
+      moTa: chiTiet.moTa ?? undefined,
+      loai: chiTiet.loai,
+      dinhDang: chiTiet.dinhDang,
+      thuTu: chiTiet.thuTu,
+      trangThai: chiTiet.trangThai as 0 | 1,
+    });
     setMoForm(true);
   }
 
@@ -336,63 +369,77 @@ export default function TrangBieuMauXuat() {
         title={dangSua ? `Sửa biểu mẫu: ${dangSua.ten}` : 'Thêm biểu mẫu xuất'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={dongForm}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-bieu-mau' }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ trangThai: 1, thuTu: 0, loai: 'KHAC', dinhDang: 'DOCX' }}
-        >
+        <BieuMau id="form-bieu-mau" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item
-              name="ma"
-              label="Mã"
-              rules={[
-                { required: true, message: 'Nhập mã' },
-                { pattern: /^[A-Z0-9_-]+$/, message: 'Mã chỉ gồm chữ hoa, số, dấu _ và -' },
-              ]}
-            >
-              <Input style={{ width: 240 }} placeholder="VD: BM_QUYET_DINH" disabled={!!dangSua} />
-            </Form.Item>
-            <Form.Item name="ten" label="Tên biểu mẫu" rules={[{ required: true, message: 'Nhập tên' }]}>
-              <Input style={{ width: 400 }} />
-            </Form.Item>
+            <Truong<GiaTriBieuMau> ten="ma" label="Mã" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 240 }}
+                  placeholder="VD: BM_QUYET_DINH"
+                  disabled={!!dangSua}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriBieuMau> ten="ten" label="Tên biểu mẫu" required>
+              {(o) => <Input {...o} value={o.value as string} style={{ width: 400 }} />}
+            </Truong>
           </Space>
 
           <Space size="large" wrap style={{ display: 'flex' }}>
-            <Form.Item name="loai" label="Loại biểu mẫu">
-              <Select style={{ width: 220 }} options={LOAI_BIEU_MAU} />
-            </Form.Item>
-            <Form.Item name="dinhDang" label="Định dạng xuất">
-              <Select
-                style={{ width: 160 }}
-                options={[
-                  { value: 'DOCX', label: 'Word (.docx)' },
-                  { value: 'XLSX', label: 'Excel (.xlsx)' },
-                  { value: 'PDF', label: 'PDF' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="thuTu" label="Thứ tự">
-              <InputNumber min={0} style={{ width: 120 }} />
-            </Form.Item>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                style={{ width: 170 }}
-                options={[
-                  { value: 1, label: 'Hoạt động' },
-                  { value: 0, label: 'Ngừng' },
-                ]}
-              />
-            </Form.Item>
+            <Truong<GiaTriBieuMau> ten="loai" label="Loại biểu mẫu">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 220 }}
+                  options={LOAI_BIEU_MAU}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriBieuMau> ten="dinhDang" label="Định dạng xuất">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  style={{ width: 160 }}
+                  options={[
+                    { value: 'DOCX', label: 'Word (.docx)' },
+                    { value: 'XLSX', label: 'Excel (.xlsx)' },
+                    { value: 'PDF', label: 'PDF' },
+                  ]}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriBieuMau> ten="thuTu" label="Thứ tự">
+              {(o) => (
+                <InputNumber {...o} value={o.value as number} min={0} style={{ width: 120 }} />
+              )}
+            </Truong>
+            <Truong<GiaTriBieuMau> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 170 }}
+                  options={[
+                    { value: 1, label: 'Hoạt động' },
+                    { value: 0, label: 'Ngừng' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Space>
 
-          <Form.Item name="moTa" label="Mô tả">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
+          <Truong<GiaTriBieuMau> ten="moTa" label="Mô tả">
+            {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+          </Truong>
+        </BieuMau>
 
         <Typography.Text strong>Tệp mẫu và ánh xạ placeholder</Typography.Text>
         <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
