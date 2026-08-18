@@ -1028,8 +1028,12 @@ public sealed partial class DuLieuMau
                 + "Lý do: {{ thongBao }}."),
 
             ("MTB_MOI_HOP", SuKienThongBao.MoiHopHoiDong, "TAT_CA",
-                "Mời họp hội đồng sáng kiến",
-                "Kính mời {{ hoTen }} tham dự phiên họp hội đồng sáng kiến.")
+                "Mời họp: {{ tenPhien }}",
+                "Kính mời {{ hoTen }} tham dự phiên họp của {{ tenHoiDong }}.\n"
+                + "Phiên: {{ tenPhien }} ({{ maPhien }})\n"
+                + "Thời gian: {{ thoiGianBatDau }}\n"
+                + "Địa điểm: {{ diaDiem }} — họp {{ hinhThuc }}\n"
+                + "Số hồ sơ đưa ra xét: {{ soHoSo }}")
         };
 
         var thuTu = 1;
@@ -1045,7 +1049,12 @@ public sealed partial class DuLieuMau
                 TieuDe = tieuDe,
                 NoiDung = noiDung,
                 DanhSachBien = new List<string>
-                    { "hoTen", "maHoSo", "tenSangKien", "tenBuoc", "trangThai", "thongBao" },
+                {
+                    "hoTen", "maHoSo", "tenSangKien", "tenBuoc", "trangThai", "thongBao",
+                    // Bien cua giay moi hop hoi dong.
+                    "tenHoiDong", "tenPhien", "maPhien", "thoiGianBatDau", "diaDiem",
+                    "hinhThuc", "soHoSo", "hanHoanThanh", "hanXuLy"
+                },
                 ThuTu = thuTu++
             });
         }

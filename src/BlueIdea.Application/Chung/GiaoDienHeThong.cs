@@ -271,6 +271,14 @@ public interface IBoDayRealtime
 
     /// <summary>Bao cho phong hop rang bang diem / ket qua bo phieu vua doi.</summary>
     Task CapNhatPhienHopAsync(Guid phienHopId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Bao cho nhung ai dang mo mot ho so rang kiem tra trung lap vua chay xong.
+    ///
+    /// Kiem tra trung lap chay nen (job quet bu moi 15 phut hoac ngay khi nop), nen nguoi dung
+    /// dang mo tab Trung lap khong co cach nao biet ket qua da ve neu khong co tin hieu nay.
+    /// </summary>
+    Task KetQuaTrungLapAsync(Guid sangKienId, CancellationToken ct = default);
 }
 
 /// <summary>Sinh ma ho so theo mau cau hinh (vi du SK-{NAM}-{STT:0000}).</summary>

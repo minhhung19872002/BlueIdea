@@ -65,6 +65,54 @@ export async function dungRealtime() {
 }
 
 /**
+ * Theo dõi realtime một hồ sơ: trạng thái đổi, hoặc kiểm tra trùng lặp vừa chạy xong.
+ *
+ * Kiểm tra trùng lặp chạy nền (ngay khi nộp, và job quét bù mỗi 15 phút), nên không có tín hiệu
+ * này thì người mở tab Trùng lặp ngồi nhìn dòng "đang kiểm tra" mãi cho tới khi tự bấm tải lại.
+ *
+ * Cùng khuôn với `theoDoiPhienHop`: trả về hàm huỷ đăng ký và tự vào lại nhóm sau khi kết nối
+ * lại, vì SignalR khôi phục kết nối nhưng KHÔNG khôi phục nhóm.
+ */
+export function theoDoiHoSo(
+  sangKienId: string,
+  khiCapNhat: (suKien: 'trang-thai' | 'trung-lap') => void,
+): () => void {
+  let daHuy = false;
+  const kn = layKetNoiRealtime();
+
+  const thamGia = () => {
+    void kn.invoke('ThamGiaHoSo', sangKienId).catch(() => {
+      // Chưa kết nối xong thì lần reconnect kế tiếp sẽ tham gia lại.
+    });
+  };
+
+  const khiDoiTrangThai = () => {
+    if (!daHuy) khiCapNhat('trang-thai');
+  };
+
+  const khiCoTrungLap = () => {
+    if (!daHuy) khiCapNhat('trung-lap');
+  };
+
+  kn.on(SU_KIEN_REALTIME.capNhatTrangThaiHoSo, khiDoiTrangThai);
+  kn.on(SU_KIEN_REALTIME.ketQuaKiemTraTrungLap, khiCoTrungLap);
+  kn.onreconnected(thamGia);
+
+  void batDauRealtime().then(() => {
+    if (!daHuy) thamGia();
+  });
+
+  return () => {
+    daHuy = true;
+    kn.off(SU_KIEN_REALTIME.capNhatTrangThaiHoSo, khiDoiTrangThai);
+    kn.off(SU_KIEN_REALTIME.ketQuaKiemTraTrungLap, khiCoTrungLap);
+    void kn.invoke('RoiHoSo', sangKienId).catch(() => {
+      // Kết nối đã đóng thì máy chủ tự dọn nhóm.
+    });
+  };
+}
+
+/**
  * Theo dõi realtime một phòng họp hội đồng.
  *
  * Trả về hàm huỷ đăng ký — LUÔN gọi khi rời phiên: không rời nhóm thì sau vài lần mở/đóng phiên,
