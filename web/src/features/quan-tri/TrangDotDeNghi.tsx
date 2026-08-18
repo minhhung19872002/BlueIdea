@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   App,
   Alert,
@@ -257,7 +258,15 @@ export default function TrangDotDeNghi() {
         scroll={{ x: 1420 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 170 },
-          { title: 'Tên đợt', dataIndex: 'ten', width: 300, ellipsis: true },
+          {
+            title: 'Tên đợt',
+            dataIndex: 'ten',
+            width: 300,
+            ellipsis: true,
+            render: (v: string, dong) => (
+              <Link to={`/quan-tri/danh-muc/dot-de-nghi/${dong.id}`}>{v}</Link>
+            ),
+          },
           { title: 'Năm', dataIndex: 'nam', width: 80, align: 'right' },
           {
             title: 'Cấp',

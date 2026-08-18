@@ -90,7 +90,33 @@ export const apiDotDeNghi = {
   khoaDot: (id: string) => guiDuLieu(`/api/v1/danh-muc/dot-de-nghi/${id}/khoa-dot`),
   saoChep: (id: string, duLieu: { ma: string; ten: string; nam: number }) =>
     guiDuLieu(`/api/v1/danh-muc/dot-de-nghi/${id}/sao-chep`, duLieu),
+  /** Số liệu tổng quan của một đợt — dùng cho màn hình chi tiết đợt. */
+  tongQuan: (id: string) =>
+    layDuLieu<TongQuanDot>(`/api/v1/danh-muc/dot-de-nghi/${id}/tong-quan`),
 };
+
+export interface TongQuanDot {
+  id: string;
+  ma: string;
+  ten: string;
+  nam: number;
+  capXetDuyet: string;
+  trangThaiDot: string;
+  hanNopHoSo?: string | null;
+  hanChamDiem?: string | null;
+  tenQuyTrinh?: string | null;
+  tenBoTieuChi?: string | null;
+  donViApDung: DanhMucDto[];
+  tongHoSo: number;
+  soNhap: number;
+  soDangXuLy: number;
+  soDat: number;
+  soKhongDat: number;
+  soHoiDong: number;
+  soQuyetDinh: number;
+  soPhieuDaGui: number;
+  soPhieuCanCham: number;
+}
 
 export const apiDonVi = {
   /** Chức năng 44 — kéo thả đổi cấp trên trên cây tổ chức. */

@@ -118,6 +118,11 @@ public sealed class DotDeNghiController : ControllerBase
     }
 
     /// <summary>Sao chép cấu hình đợt từ năm trước.</summary>
+    /// <summary>Số liệu tổng quan của một đợt — dùng cho màn hình chi tiết đợt.</summary>
+    [HttpGet("{id:guid}/tong-quan")]
+    public async Task<IActionResult> LayTongQuanAsync(Guid id, CancellationToken ct)
+        => Ok(PhanHoiApi<TongQuanDotDto>.Ok(await _dichVu.LayTongQuanAsync(id, ct)));
+
     [HttpPost("{id:guid}/sao-chep")]
     public async Task<IActionResult> SaoChepAsync(
         Guid id, [FromBody] SaoChepDotDto duLieu, CancellationToken ct)

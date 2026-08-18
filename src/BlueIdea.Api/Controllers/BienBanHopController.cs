@@ -1,8 +1,10 @@
 using BlueIdea.Api.Chung;
+using BlueIdea.Application.BaoCao;
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.HoiDong;
 using BlueIdea.Application.KySo;
 using BlueIdea.Domain.Chung;
+using BlueIdea.Domain.DanhMuc;
 using BlueIdea.Domain.QuanTri;
 using BlueIdea.Domain.SangKien;
 using BlueIdea.Reporting;
@@ -26,6 +28,7 @@ namespace BlueIdea.Api.Controllers;
 public sealed class BienBanHopController : ControllerBase
 {
     private readonly DichVuBienBanHop _dichVu;
+    private readonly DichVuSinhBieuMau _sinhBieuMau;
     private readonly DichVuKySo _kySo;
     private readonly IAppDbContext _db;
     private readonly ILuuTruTep _luuTru;
@@ -33,10 +36,11 @@ public sealed class BienBanHopController : ControllerBase
     private readonly INguoiDungHienTai _nguoiDung;
 
     public BienBanHopController(
-        DichVuBienBanHop dichVu, DichVuKySo kySo, IAppDbContext db,
+        DichVuBienBanHop dichVu, DichVuSinhBieuMau sinhBieuMau, DichVuKySo kySo, IAppDbContext db,
         ILuuTruTep luuTru, IDongHoHeThong dongHo, INguoiDungHienTai nguoiDung)
     {
         _dichVu = dichVu;
+        _sinhBieuMau = sinhBieuMau;
         _kySo = kySo;
         _db = db;
         _luuTru = luuTru;
@@ -74,7 +78,7 @@ public sealed class BienBanHopController : ControllerBase
     public async Task<IActionResult> XuatPdfAsync(Guid id, CancellationToken ct)
     {
         var bienBan = await _dichVu.LayAsync(id, ct);
-        var tep = TaoPdf(bienBan);
+        var tep = await TaoPdfTheoMauAsync(bienBan, ct);
 
         return File(tep, "application/pdf",
             $"bien-ban-{bienBan.SoBienBan.Replace('/', '-')}.pdf");
@@ -91,7 +95,7 @@ public sealed class BienBanHopController : ControllerBase
     public async Task<IActionResult> KySoAsync(Guid id, CancellationToken ct)
     {
         var bienBan = await _dichVu.LayAsync(id, ct);
-        var noiDung = TaoPdf(bienBan);
+        var noiDung = await TaoPdfTheoMauAsync(bienBan, ct);
 
         var tenLuuTru = $"{Guid.NewGuid():N}.pdf";
 
@@ -136,9 +140,43 @@ public sealed class BienBanHopController : ControllerBase
 
     // -----------------------------------------------------------------------------------
 
-    private static byte[] TaoPdf(BienBanHopDto b)
+    /// <summary>
+    /// Dựng PDF biên bản, ưu tiên bố cục do quản trị viên cấu hình ở biểu mẫu loại BIEN_BAN_HOP.
+    ///
+    /// Chưa cấu hình biểu mẫu nào thì dùng bố cục mặc định: thiếu cấu hình không được làm hội đồng
+    /// mất luôn khả năng in biên bản. Bảng kết quả từng hồ sơ luôn giữ nguyên vì đó là phần số
+    /// liệu bắt buộc của biên bản, không phải phần trình bày tuỳ chọn.
+    /// </summary>
+    private async Task<byte[]> TaoPdfTheoMauAsync(BienBanHopDto b, CancellationToken ct)
     {
-        var bangHoSo = new BangPdf(
+        var mau = await _sinhBieuMau.TimMauHoatDongAsync(LoaiBieuMau.BienBanHop, ct);
+
+        if (mau is null || mau.CauHinhTruong.Count == 0)
+        {
+            return TaoPdf(b);
+        }
+
+        var daPhanGiai = await _sinhBieuMau.SinhChoPhienHopAsync(mau.Id, b.PhienHopId, ct);
+        var chuTich = b.ChuKy.FirstOrDefault(x => x.ChucDanh == ChucDanhHoiDong.ChuTich);
+
+        return BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: b.TenHoiDong,
+            tenDonVi: string.Empty,
+            tieuDe: $"BIÊN BẢN HỌP HỘI ĐỒNG SỐ {b.SoBienBan}",
+            phuDe: b.TenPhien,
+            thongTin: daPhanGiai.DongDuLieu
+                .Select(x => new DongThongTin(x.Nhan, x.GiaTri))
+                .ToList(),
+            bang: new[] { BangKetQuaHoSo(b) },
+            noiDungThem: string.IsNullOrWhiteSpace(b.KetLuanChung)
+                ? null
+                : $"KẾT LUẬN CỦA HỘI ĐỒNG: {b.KetLuanChung}",
+            nguoiKy: chuTich?.HoTen,
+            chucVuNguoiKy: chuTich is null ? null : DichVuBienBanHop.TenChucDanh(chuTich.ChucDanh));
+    }
+
+    private static BangPdf BangKetQuaHoSo(BienBanHopDto b)
+        => new(
             "KẾT QUẢ XÉT TỪNG HỒ SƠ",
             new[] { "TT", "Mã hồ sơ", "Tên sáng kiến", "Tác giả chính", "Điểm", "Đồng ý", "Tỷ lệ", "Kết luận" },
             b.DanhSachHoSo.Select((x, i) => new[]
@@ -152,6 +190,10 @@ public sealed class BienBanHopController : ControllerBase
                 $"{x.TyLeDongY:0.##}%",
                 x.DatNguong ? "Thông qua" : "Không thông qua"
             }).ToList());
+
+    private static byte[] TaoPdf(BienBanHopDto b)
+    {
+        var bangHoSo = BangKetQuaHoSo(b);
 
         var bangThanhPhan = new BangPdf(
             "THÀNH PHẦN DỰ HỌP",

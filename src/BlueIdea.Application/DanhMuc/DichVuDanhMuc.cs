@@ -368,6 +368,29 @@ public sealed record DotDeNghiQuanLyDto(
     Guid? BoTieuChiId,
     short TrangThai);
 
+/// <summary>So lieu tong quan cua mot dot — phuc vu man hinh chi tiet dot.</summary>
+public sealed record TongQuanDotDto(
+    Guid Id,
+    string Ma,
+    string Ten,
+    int Nam,
+    string CapXetDuyet,
+    string TrangThaiDot,
+    DateTimeOffset? HanNopHoSo,
+    DateTimeOffset? HanChamDiem,
+    string? TenQuyTrinh,
+    string? TenBoTieuChi,
+    IReadOnlyList<DanhMucDto> DonViApDung,
+    int TongHoSo,
+    int SoNhap,
+    int SoDangXuLy,
+    int SoDat,
+    int SoKhongDat,
+    int SoHoiDong,
+    int SoQuyetDinh,
+    int SoPhieuDaGui,
+    int SoPhieuCanCham);
+
 public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
 {
     public DichVuDotDeNghi(IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo)
@@ -378,6 +401,75 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
     protected override DbSet<DotDeNghi> BangDuLieu => Db.DotDeNghi;
 
     protected override string TenDanhMuc => "Đợt đề nghị";
+
+    /// <summary>
+    /// So lieu tong quan cua mot dot cho man hinh chi tiet.
+    ///
+    /// Gom tat ca trong MOT lan goi thay vi de man hinh goi sau bay API roi tu cong: mo mot dot
+    /// dang chay se ban ra hang chuc truy van, va cac con so lay o thoi diem khac nhau se lech.
+    /// </summary>
+    public async Task<TongQuanDotDto> LayTongQuanAsync(Guid id, CancellationToken ct = default)
+    {
+        var dot = await Db.DotDeNghi.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("đợt đề nghị", id);
+
+        var hoSo = Db.SangKien.AsNoTracking().Where(x => x.DotDeNghiId == id);
+
+        var theoTrangThai = await hoSo
+            .GroupBy(x => x.TrangThaiTong)
+            .Select(g => new { TrangThai = g.Key, SoLuong = g.Count() })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var theoKetQua = await hoSo
+            .Where(x => x.KetQua != null)
+            .GroupBy(x => x.KetQua!)
+            .Select(g => new { KetQua = g.Key, SoLuong = g.Count() })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var donViApDung = dot.DonViApDungIds.Count == 0
+            ? new List<DanhMucDto>()
+            : await Db.DonVi.AsNoTracking()
+                .Where(x => dot.DonViApDungIds.Contains(x.Id))
+                .OrderBy(x => x.ThuTu)
+                .Select(x => new DanhMucDto(x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+        var soPhieuDaGui = await Db.PhieuDanhGia.AsNoTracking()
+            .CountAsync(p => hoSo.Any(h => h.Id == p.SangKienId)
+                && (p.TrangThaiPhieu == "DA_GUI" || p.TrangThaiPhieu == "DA_KY"), ct)
+            .ConfigureAwait(false);
+
+        var soPhanCong = await Db.SangKienPhanCong.AsNoTracking()
+            .CountAsync(p => hoSo.Any(h => h.Id == p.SangKienId), ct)
+            .ConfigureAwait(false);
+
+        return new TongQuanDotDto(
+            dot.Id, dot.Ma, dot.Ten, dot.Nam, dot.CapXetDuyet, dot.TrangThaiDot,
+            dot.HanNopHoSo, dot.HanChamDiem,
+            dot.QuyTrinhId is null
+                ? null
+                : await Db.QuyTrinh.AsNoTracking().Where(x => x.Id == dot.QuyTrinhId)
+                    .Select(x => x.Ten).FirstOrDefaultAsync(ct).ConfigureAwait(false),
+            dot.BoTieuChiId is null
+                ? null
+                : await Db.BoTieuChi.AsNoTracking().Where(x => x.Id == dot.BoTieuChiId)
+                    .Select(x => x.Ten).FirstOrDefaultAsync(ct).ConfigureAwait(false),
+            donViApDung,
+            theoTrangThai.Sum(x => x.SoLuong),
+            theoTrangThai.FirstOrDefault(x => x.TrangThai == TrangThaiTongHoSo.Nhap)?.SoLuong ?? 0,
+            theoTrangThai.FirstOrDefault(x => x.TrangThai == TrangThaiTongHoSo.DangXuLy)?.SoLuong ?? 0,
+            theoKetQua.FirstOrDefault(x => x.KetQua == Domain.SangKien.KetQuaXetDuyetGiaTri.Dat)?.SoLuong ?? 0,
+            theoKetQua.FirstOrDefault(x => x.KetQua == Domain.SangKien.KetQuaXetDuyetGiaTri.KhongDat)?.SoLuong ?? 0,
+            await Db.HoiDong.AsNoTracking().CountAsync(x => x.DotDeNghiId == id, ct)
+                .ConfigureAwait(false),
+            await Db.QuyetDinh.AsNoTracking().CountAsync(x => x.DotDeNghiId == id, ct)
+                .ConfigureAwait(false),
+            soPhieuDaGui,
+            Math.Max(0, soPhanCong - soPhieuDaGui));
+    }
 
     /// <summary>
     /// Danh sach dot kem trang thai vong doi - man hinh quan tri dung de bat/tat nut
