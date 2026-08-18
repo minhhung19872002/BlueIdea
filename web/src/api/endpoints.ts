@@ -1579,6 +1579,77 @@ export interface TepTinDaTaiLen {
   ngayTaiLen: string;
 }
 
+/** Kích thước mỗi mảnh khi tải tệp lớn — phải khớp TepTinController.KichThuocManhToiDa. */
+export const KICH_THUOC_MANH = 5 * 1024 * 1024;
+
+/** Ngưỡng chuyển sang tải theo mảnh. Dưới ngưỡng thì gửi một lần cho nhanh. */
+export const NGUONG_TAI_THEO_MANH = 8 * 1024 * 1024;
+
+export interface PhienTaiManh {
+  phienId: string;
+  soManh: number;
+  kichThuocManhToiDa: number;
+  manhDaNhan: number[];
+}
+
+/**
+ * Tải tệp lớn theo từng mảnh, có báo tiến độ.
+ *
+ * Mạng ở nhiều đơn vị chập chờn: một tệp 80MB gửi trong một yêu cầu mà rớt giữa chừng là mất
+ * trắng. Chia mảnh thì chỉ phải gửi lại đúng mảnh hỏng.
+ */
+export async function taiTepLenTheoManh(
+  tep: File,
+  gan?: { sangKienId?: string; thanhPhanHoSoMa?: string; moTa?: string },
+  onTienDo?: (phanTram: number) => void,
+): Promise<TepTinDaTaiLen> {
+  const soManh = Math.max(1, Math.ceil(tep.size / KICH_THUOC_MANH));
+
+  const { data: batDau } = await http.post<{ duLieu: PhienTaiManh }>('/api/v1/tep-tin/manh/bat-dau', {
+    tenTep: tep.name,
+    tongKichThuoc: tep.size,
+    soManh,
+  });
+
+  const phienId = batDau.duLieu.phienId;
+
+  try {
+    for (let i = 0; i < soManh; i += 1) {
+      const form = new FormData();
+      form.append('manh', tep.slice(i * KICH_THUOC_MANH, (i + 1) * KICH_THUOC_MANH));
+
+      await http.post(`/api/v1/tep-tin/manh/${phienId}/${i}`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      onTienDo?.(Math.round(((i + 1) / soManh) * 100));
+    }
+
+    const { data } = await http.post<{ duLieu: TepTinDaTaiLen }>(
+      `/api/v1/tep-tin/manh/${phienId}/hoan-tat`,
+      undefined,
+      { params: gan },
+    );
+
+    return data.duLieu;
+  } catch (loi) {
+    // Huỷ phiên để mảnh dở không nằm lại chiếm đĩa máy chủ cho tới khi hết hạn 6 giờ.
+    await http.delete(`/api/v1/tep-tin/manh/${phienId}`).catch(() => undefined);
+    throw loi;
+  }
+}
+
+/** Đường dẫn xem trước tệp ngay trong trình duyệt (chỉ PDF và ảnh). */
+export const duongDanXemTruocTep = (id: string) => `/api/v1/tep-tin/${id}/xem-truoc`;
+
+export const apiTepTin = {
+  lienKetTaiXuong: (id: string, soPhut = 10) =>
+    layDuLieu<{ url: string; tenGoc: string; hetHanSauPhut: number }>(
+      `/api/v1/tep-tin/${id}/lien-ket-tai-xuong`,
+      { params: { soPhut } },
+    ),
+};
+
 /** Tải một tệp lên kho dùng chung (không gắn vào hồ sơ nào). */
 export async function taiTepLen(tep: File): Promise<TepTinDaTaiLen> {
   const form = new FormData();

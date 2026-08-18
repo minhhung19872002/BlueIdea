@@ -3,6 +3,8 @@ using BlueIdea.Api.Chung;
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.SangKien;
+using BlueIdea.Infrastructure.DichVu;
+using BlueIdea.Shared.KetQua;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +20,7 @@ public sealed record TepTinDto(
 [Route("api/v1/tep-tin")]
 [Authorize]
 [Produces("application/json")]
-public sealed class TepTinController : ControllerBase
+public sealed partial class TepTinController : ControllerBase
 {
     /// <summary>
     /// "Magic number" của các định dạng được phép — KHÔNG tin phần mở rộng do client gửi
@@ -39,6 +41,24 @@ public sealed class TepTinController : ControllerBase
         [".doc"] = new[] { new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 } },
         [".xls"] = new[] { new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 } },
         [".ppt"] = new[] { new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 } }
+    };
+
+    /// <summary>
+    /// Định dạng mở inline được trong trình duyệt.
+    ///
+    /// Cố ý KHÔNG có .html và .svg: cả hai chạy được script, mở inline dưới tên miền hệ thống là
+    /// để mã của người tải lên đọc phiên đăng nhập của người xem.
+    /// </summary>
+    private static readonly HashSet<string> XemTruocDuoc =
+        new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp" };
+
+    private static string MimeXemTruoc(string phanMoRong) => phanMoRong switch
+    {
+        ".pdf" => "application/pdf",
+        ".png" => "image/png",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        _ => "image/jpeg",
     };
 
     /// <summary>Phần mở rộng bị chặn tuyệt đối (tệp thực thi / script).</summary>
@@ -213,6 +233,98 @@ public sealed class TepTinController : ControllerBase
             new TepTinDto(tepTin.Id, tepTin.TenGoc, tepTin.KichThuoc, tepTin.MimeType,
                 tepTin.PhanMoRong, tepTin.HashSha256 ?? string.Empty, tepTin.NgayTaiLen),
             "Tải tệp lên thành công"));
+    }
+
+    /// <summary>
+    /// Sinh liên kết tải xuống có thời hạn cho một tệp.
+    ///
+    /// Với kho MinIO đây là presigned URL: trình duyệt tải thẳng từ kho đối tượng, luồng tệp
+    /// không phải đi xuyên qua tiến trình API. Với kho đĩa cục bộ là liên kết có ký HMAC và có
+    /// hạn, kiểm tra ở <see cref="TaiXuongTheoLienKetAsync"/>.
+    ///
+    /// Quyền được kiểm tra Ở ĐÂY, lúc phát liên kết — sau đó liên kết tự đứng một mình, nên
+    /// thời hạn để ngắn (mặc định 10 phút) thay vì hàng giờ.
+    /// </summary>
+    [HttpGet("{id:guid}/lien-ket-tai-xuong")]
+    public async Task<IActionResult> LayLienKetTaiXuongAsync(
+        Guid id, [FromQuery] int soPhut = 10, CancellationToken ct = default)
+    {
+        var tepTin = await _db.TepTin.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("tệp tin", id);
+
+        var url = await _luuTru.TaoUrlCoThoiHanAsync(
+            tepTin.Bucket, tepTin.DuongDan, TimeSpan.FromMinutes(Math.Clamp(soPhut, 1, 60)), ct);
+
+        return Ok(PhanHoiApi<object>.Ok(new
+        {
+            url,
+            tenGoc = tepTin.TenGoc,
+            hetHanSauPhut = Math.Clamp(soPhut, 1, 60)
+        }));
+    }
+
+    /// <summary>
+    /// Tải tệp bằng liên kết đã ký — dùng cho kho đĩa cục bộ.
+    ///
+    /// Không đòi đăng nhập vì liên kết tự mang chữ ký và thời hạn: đó chính là điểm của liên kết
+    /// có thời hạn (nhúng được vào thẻ img, mở được ở tab mới). Chữ ký sai hoặc quá hạn thì trả
+    /// 404 chứ không phải 403 — báo "hết hạn" cho một đường dẫn đoán mò cũng là xác nhận tệp đó
+    /// có thật.
+    /// </summary>
+    [HttpGet("tai-xuong")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TaiXuongTheoLienKetAsync(
+        [FromQuery] string bucket, [FromQuery] string duongDan, [FromQuery] long hetHan,
+        [FromQuery] string chuKy, CancellationToken ct)
+    {
+        if (_luuTru is not LuuTruTepCucBo cucBo || !cucBo.KiemTraChuKy(bucket, duongDan, hetHan, chuKy))
+        {
+            return NotFound();
+        }
+
+        var tepTin = await _db.TepTin.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Bucket == bucket && x.DuongDan == duongDan, ct)
+            .ConfigureAwait(false);
+
+        if (tepTin is null) return NotFound();
+
+        var luong = await _luuTru.TaiXuongAsync(bucket, duongDan, ct).ConfigureAwait(false);
+
+        return File(luong, tepTin.MimeType ?? "application/octet-stream", tepTin.TenGoc);
+    }
+
+    /// <summary>
+    /// Xem trước tệp ngay trong trình duyệt (không tải về).
+    ///
+    /// Chỉ mở inline các định dạng trình duyệt tự dựng được và KHÔNG chạy mã của tệp: PDF và ảnh.
+    /// Mở inline một tệp HTML/SVG do người dùng tải lên là mở đường cho mã chạy dưới tên miền của
+    /// hệ thống, đọc được phiên đăng nhập của người xem.
+    /// </summary>
+    [HttpGet("{id:guid}/xem-truoc")]
+    public async Task<IActionResult> XemTruocAsync(Guid id, CancellationToken ct)
+    {
+        var tepTin = await _db.TepTin.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("tệp tin", id);
+
+        var phanMoRong = (tepTin.PhanMoRong ?? string.Empty).ToLowerInvariant();
+
+        if (!XemTruocDuoc.Contains(phanMoRong))
+        {
+            throw new NghiepVuException(MaLoiHeThong.TepKhongHopLe,
+                $"Định dạng {phanMoRong} không xem trước được trong trình duyệt — hãy tải về.");
+        }
+
+        var luong = await _luuTru.TaiXuongAsync(tepTin.Bucket, tepTin.DuongDan, ct)
+            .ConfigureAwait(false);
+
+        // Chan trinh duyet tu doan lai kieu noi dung: mot tep .png chua ma HTML ma bi doan thanh
+        // text/html se duoc chay nhu trang web.
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers.ContentDisposition = $"inline; filename=\"{tepTin.Id}{phanMoRong}\"";
+
+        return File(luong, MimeXemTruoc(phanMoRong));
     }
 
     /// <summary>Tải tệp về (kiểm tra quyền trên từng tệp — chống IDOR).</summary>

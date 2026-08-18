@@ -59,7 +59,18 @@ public static class DangKyHaTang
         services.AddSingleton<IDichVuMatKhau, DichVuMatKhauArgon2>();
         services.AddSingleton<IDichVuToken, DichVuTokenJwt>();
         services.AddSingleton<IDichVuMaHoa, DichVuMaHoaAes>();
-        services.AddSingleton<ILuuTruTep, LuuTruTepCucBo>();
+        // Kho luu tru tep chon theo cau hinh. Mac dinh la dia cuc bo — may chu san xuat hien
+        // tai khong chay MinIO (xem ghi chu dau deploy/docker-compose.prod.yml).
+        if (string.Equals(cauHinh[$"{TuyChonLuuTru.Muc}:Loai"], "MINIO",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<ILuuTruTep, LuuTruTepMinio>();
+        }
+        else
+        {
+            services.AddSingleton<ILuuTruTep, LuuTruTepCucBo>();
+        }
+
         services.AddSingleton<INguonNgayNghiLe, NguonNgayNghiLeTuCsdl>();
 
         services.AddScoped<INguoiDungHienTai, NguoiDungHienTai>();

@@ -34,8 +34,10 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { boNhoToken, LoiApi, xoaDuLieu } from '@/api/client';
+import { boNhoToken, http, LoiApi, xoaDuLieu } from '@/api/client';
 import {
+  NGUONG_TAI_THEO_MANH,
+  taiTepLenTheoManh,
   apiDoiTuong,
   apiDotDeNghi,
   apiLinhVuc,
@@ -506,6 +508,42 @@ export default function TrangNopHoSo() {
                     data={{ sangKienId: hoSoId, thanhPhanHoSoMa: tp.ma }}
                     name="tep"
                     accept={tp.dinhDangChoPhep.join(',')}
+                    /*
+                     * Tệp lớn đi đường tải theo mảnh: gửi cả tệp 80MB trong một yêu cầu mà rớt
+                     * mạng giữa chừng là mất trắng, người nộp phải chọn lại từ đầu.
+                     */
+                    customRequest={(tuyChon) => {
+                      const tep = tuyChon.file as File;
+
+                      if (tep.size <= NGUONG_TAI_THEO_MANH) {
+                        // Tệp nhỏ: để antd gửi một lần như cũ, nhanh hơn chia mảnh.
+                        const form = new FormData();
+                        form.append('tep', tep);
+                        form.append('sangKienId', hoSoId ?? '');
+                        form.append('thanhPhanHoSoMa', tp.ma);
+
+                        http
+                          .post('/api/v1/tep-tin/tai-len', form, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                            onUploadProgress: (su) =>
+                              tuyChon.onProgress?.({
+                                percent: su.total ? (su.loaded / su.total) * 100 : 0,
+                              }),
+                          })
+                          .then((kq) => tuyChon.onSuccess?.(kq.data))
+                          .catch((loi: unknown) => tuyChon.onError?.(loi as Error));
+
+                        return;
+                      }
+
+                      taiTepLenTheoManh(
+                        tep,
+                        { sangKienId: hoSoId, thanhPhanHoSoMa: tp.ma },
+                        (phanTram) => tuyChon.onProgress?.({ percent: phanTram }),
+                      )
+                        .then((daTaiLen) => tuyChon.onSuccess?.(daTaiLen))
+                        .catch((loi: unknown) => tuyChon.onError?.(loi as Error));
+                    }}
                     defaultFileList={(chiTiet?.tepDinhKem ?? [])
                       .filter((t) => t.thanhPhanHoSoMa === tp.ma)
                       .map((t) => ({
