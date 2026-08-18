@@ -238,14 +238,16 @@ requirements:
     title: "Cau hinh lien thong"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: integration
-    status: PARTIAL
+    status: IMPLEMENTED_NOT_VERIFIED
     evidence:
-      frontend: ["web/src/features/quan-tri/TrangLienThong.tsx"]
-      backend: ["src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs", "src/BlueIdea.Infrastructure/TichHop/BoGuiLienThongHttp.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs"]
+      frontend: ["web/src/features/quan-tri/TrangLienThong.tsx", "web/src/features/quy-trinh/TrangLienThongBuoc.tsx"]
+      backend: ["src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs", "src/BlueIdea.Infrastructure/TichHop/BoGuiLienThongHttp.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs", "tests/BlueIdea.UnitTests/XuLy/DieuPhaiLienThongTests.cs"]
     gaps:
-      - "Event-driven sync adapter exists but is NOT connected to workflow engine transitions"
-      - "Admin can configure integration; workflow steps do not trigger sync"
+      - "ThucThiHangLoatCommandHandler (batch processing) does not dispatch integration sync — batch transitions skip DongBoLienThong"
+      - "No runtime integration test for workflow-triggered sync end-to-end"
+      - "QuyTrinhLienThong uses live DB data (not snapshot) — deliberate: integration config is operational, but ADR should document this exception"
+    notes: "Run-002-B8: DongBoSangKienAsync added to DichVuDongBoLienThong for single-innovation sync. ThucThiBuocCommandHandler now dispatches integration sync via DieuPhaiLienThongAsync when HanhDongCanChay contains DongBoLienThong. Queries QuyTrinhLienThong scoped by QuyTrinhId, supports all 3 events (KHI_HOAN_THANH, KHI_VAO_BUOC, KHI_PHE_DUYET). Failures logged but never block workflow. SuKienLienThong constants added to Domain. DongBoSangKienAsync is internal, skips log when nothing to sync."
 
   # ── Nhom III: Tieu chi dong ────────────────────────────────────────
 

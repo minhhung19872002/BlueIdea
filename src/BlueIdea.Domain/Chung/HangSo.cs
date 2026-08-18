@@ -310,3 +310,11 @@ public static class HanhDongTuDong
     public const string PhanCongCham = "PHAN_CONG_CHAM";
     public const string CongBoKetQua = "CONG_BO_KET_QUA";
 }
+
+/// <summary>Su kien lien thong — khi nao dong bo du lieu sang he thong ngoai (QuyTrinhLienThong.SuKien).</summary>
+public static class SuKienLienThong
+{
+    public const string KhiVaoBuoc = "KHI_VAO_BUOC";
+    public const string KhiHoanThanh = "KHI_HOAN_THANH";
+    public const string KhiPheDuyet = "KHI_PHE_DUYET";
+}

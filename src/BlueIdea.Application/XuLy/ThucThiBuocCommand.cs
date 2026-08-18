@@ -1,4 +1,5 @@
 using BlueIdea.Application.Chung;
+using BlueIdea.Application.TichHop;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.QuanTri;
 using BlueIdea.Domain.QuyTrinh;
@@ -8,6 +9,7 @@ using BlueIdea.Workflow;
 using BlueIdea.Workflow.MoHinh;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace BlueIdea.Application.XuLy;
 
@@ -38,16 +40,21 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
     private readonly IAppDbContext _db;
     private readonly IDichVuThongBao _thongBao;
     private readonly IDongHoHeThong _dongHo;
+    private readonly DichVuDongBoLienThong _dongBo;
+    private readonly ILogger<ThucThiBuocCommandHandler> _logger;
 
     public ThucThiBuocCommandHandler(
         IWorkflowEngine engine, INguoiDungHienTai nguoiDung, IAppDbContext db,
-        IDichVuThongBao thongBao, IDongHoHeThong dongHo)
+        IDichVuThongBao thongBao, IDongHoHeThong dongHo,
+        DichVuDongBoLienThong dongBo, ILogger<ThucThiBuocCommandHandler> logger)
     {
         _engine = engine;
         _nguoiDung = nguoiDung;
         _db = db;
         _thongBao = thongBao;
         _dongHo = dongHo;
+        _dongBo = dongBo;
+        _logger = logger;
     }
 
     public async Task<KetQuaXuLy> Handle(ThucThiBuocCommand request, CancellationToken ct)
@@ -112,6 +119,7 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
         }
 
         await GuiThongBaoAsync(request.SangKienId, ketQua, ct).ConfigureAwait(false);
+        await DieuPhaiLienThongAsync(request.SangKienId, ketQua, ct).ConfigureAwait(false);
         return ketQua;
     }
 
@@ -198,6 +206,65 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
         }
 
         return kenh;
+    }
+
+    /// <summary>
+    /// REQ-16: dispatch integration sync when the transition carries DongBoLienThong.
+    /// Queries QuyTrinhLienThong (live, not snapshot — integration config is operational,
+    /// not workflow behavior) to find which external systems to push to.
+    /// Failures are logged but never block the workflow transition.
+    /// </summary>
+    private async Task DieuPhaiLienThongAsync(
+        Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)
+    {
+        if (!ketQua.HanhDongCanChay.Contains(HanhDongTuDong.DongBoLienThong))
+        {
+            return;
+        }
+
+        var quyTrinhId = await _db.SangKien.AsNoTracking()
+            .Where(x => x.Id == sangKienId)
+            .Select(x => x.QuyTrinhId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (quyTrinhId is null)
+        {
+            return;
+        }
+
+        var laPheDuyet = ketQua.TrangThaiTongMoi == TrangThaiTongHoSo.DaPheDuyet;
+
+        var cauHinhs = await _db.QuyTrinhLienThong.AsNoTracking()
+            .Where(x => x.QuyTrinhId == quyTrinhId.Value
+                && x.TrangThai == TrangThaiDanhMuc.HoatDong
+                && (
+                    (x.BuocId == ketQua.BuocTruocId && x.SuKien == SuKienLienThong.KhiHoanThanh)
+                    || (x.BuocId == ketQua.BuocMoiId && x.SuKien == SuKienLienThong.KhiVaoBuoc)
+                    || (x.BuocId == ketQua.BuocTruocId && x.SuKien == SuKienLienThong.KhiPheDuyet && laPheDuyet)
+                    || (x.BuocId == null && (
+                        x.SuKien == SuKienLienThong.KhiHoanThanh
+                        || x.SuKien == SuKienLienThong.KhiVaoBuoc
+                        || (x.SuKien == SuKienLienThong.KhiPheDuyet && laPheDuyet)
+                    ))
+                ))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var cauHinh in cauHinhs)
+        {
+            try
+            {
+                await _dongBo.DongBoSangKienAsync(cauHinh.HeThongTichHopId, sangKienId, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Đồng bộ liên thông thất bại cho sáng kiến {SangKienId} sang hệ thống {HeThongId}.",
+                    sangKienId, cauHinh.HeThongTichHopId);
+            }
+        }
     }
 }
 

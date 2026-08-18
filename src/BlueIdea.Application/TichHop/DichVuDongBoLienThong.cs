@@ -90,6 +90,84 @@ public sealed class DichVuDongBoLienThong
         return await NapDuLieuAsync(dotDeNghiId, nam, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Dong bo MOT sang kien cu the sang he thong ngoai — chi goi tu workflow engine khi buoc co
+    /// hanh dong DongBoLienThong. Khong kiem tra quyen — caller phai dam bao context da xac thuc.
+    /// </summary>
+    internal async Task<KetQuaDongBo> DongBoSangKienAsync(
+        Guid heThongId, Guid sangKienId, CancellationToken ct = default)
+    {
+        var heThong = await _db.HeThongTichHop
+            .FirstOrDefaultAsync(x => x.Id == heThongId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("hệ thống tích hợp", heThongId);
+
+        if (heThong.TrangThai != TrangThaiDanhMuc.HoatDong)
+        {
+            _logger.LogWarning(
+                "Bỏ qua đồng bộ sáng kiến {SangKienId} — hệ thống '{TenHeThong}' ngừng hoạt động.",
+                sangKienId, heThong.Ten);
+            return new KetQuaDongBo(Guid.Empty, heThong.Ten, 0, 0, 0, TrangThaiDongBo.ThatBai,
+                $"Hệ thống '{heThong.Ten}' đang ngừng hoạt động.");
+        }
+
+        if (string.IsNullOrWhiteSpace(heThong.EndpointBase))
+        {
+            _logger.LogWarning(
+                "Bỏ qua đồng bộ sáng kiến {SangKienId} — hệ thống '{TenHeThong}' chưa cấu hình endpoint.",
+                sangKienId, heThong.Ten);
+            return new KetQuaDongBo(Guid.Empty, heThong.Ten, 0, 0, 0, TrangThaiDongBo.ThatBai,
+                $"Hệ thống '{heThong.Ten}' chưa cấu hình endpoint.");
+        }
+
+        var duLieu = await NapDuLieuAsync(null, null, ct, sangKienId).ConfigureAwait(false);
+
+        if (duLieu.Count == 0)
+        {
+            _logger.LogInformation(
+                "Sáng kiến {SangKienId} chưa đủ điều kiện đồng bộ (chưa công bố kết quả).", sangKienId);
+            return new KetQuaDongBo(Guid.Empty, heThong.Ten, 0, 0, 0, TrangThaiDongBo.ThanhCong,
+                "Sáng kiến chưa đủ điều kiện đồng bộ (chưa công bố kết quả).");
+        }
+
+        var banGhi = new NhatKyDongBo
+        {
+            Id = Guid.NewGuid(),
+            HeThongTichHopId = heThongId,
+            Chieu = "GUI",
+            LoaiDuLieu = "SANG_KIEN_DUOC_CONG_NHAN",
+            TongBanGhi = duLieu.Count,
+            TrangThaiDongBo = TrangThaiDongBo.DangChay,
+            ThoiGianBatDau = _dongHo.BayGio
+        };
+
+        _db.NhatKyDongBo.Add(banGhi);
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            var (thanhCong, soNhan, phanHoi) = await _boGui
+                .GuiAsync(heThong, duLieu, ct)
+                .ConfigureAwait(false);
+
+            var trangThai = thanhCong
+                ? soNhan >= duLieu.Count ? TrangThaiDongBo.ThanhCong : TrangThaiDongBo.MotPhan
+                : TrangThaiDongBo.ThatBai;
+
+            banGhi.PhanHoi = CatBot(phanHoi);
+
+            return await KetThucAsync(banGhi, heThong, soNhan, duLieu.Count - soNhan, trangThai,
+                thanhCong ? null : phanHoi, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Đồng bộ sáng kiến {SangKienId} sang {TenHeThong} thất bại.",
+                sangKienId, heThong.Ten);
+
+            return await KetThucAsync(banGhi, heThong, 0, duLieu.Count, TrangThaiDongBo.ThatBai,
+                ex.Message, ct).ConfigureAwait(false);
+        }
+    }
+
     public async Task<KetQuaDongBo> ChayAsync(
         Guid heThongId, Guid? dotDeNghiId, int? nam, CancellationToken ct = default)
     {
@@ -273,10 +351,15 @@ public sealed class DichVuDongBoLienThong
     }
 
     private async Task<List<BanGhiDongBo>> NapDuLieuAsync(
-        Guid? dotDeNghiId, int? nam, CancellationToken ct)
+        Guid? dotDeNghiId, int? nam, CancellationToken ct, Guid? sangKienId = null)
     {
         var truyVan = _db.SangKien.AsNoTracking()
             .Where(x => x.KetQua == KetQuaXetDuyetGiaTri.Dat && x.DaCongBoKetQua);
+
+        if (sangKienId.HasValue)
+        {
+            truyVan = truyVan.Where(x => x.Id == sangKienId.Value);
+        }
 
         if (dotDeNghiId.HasValue)
         {
