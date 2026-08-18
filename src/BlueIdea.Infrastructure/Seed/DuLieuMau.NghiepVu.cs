@@ -7,6 +7,7 @@ using BlueIdea.Domain.SangKien;
 using BlueIdea.Domain.TieuChi;
 using BlueIdea.Shared.TiengViet;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using EntityQuyTrinh = BlueIdea.Domain.QuyTrinh.QuyTrinh;
 
 namespace BlueIdea.Infrastructure.Seed;
@@ -985,13 +986,15 @@ public sealed partial class DuLieuMau
     // Mau thong bao
     // ------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Noi dung cu cua giay moi hop — mot cau khong gio, khong dia diem, nen nguoi nhan van phai
+    /// vao he thong tra cuu. Dung de nhan ra ban mac dinh chua ai sua ma nang cap.
+    /// </summary>
+    private const string NoiDungMoiHopCu =
+        "Kính mời {{ hoTen }} tham dự phiên họp hội đồng sáng kiến.";
+
     private async Task SeedMauThongBaoAsync(CancellationToken ct)
     {
-        if (await _db.MauThongBao.AnyAsync(ct).ConfigureAwait(false))
-        {
-            return;
-        }
-
         var mau = new (string Ma, string SuKien, string Kenh, string TieuDe, string NoiDung)[]
         {
             ("MTB_TIEP_NHAN", SuKienThongBao.HoSoDuocTiepNhan, "TAT_CA",
@@ -1036,9 +1039,45 @@ public sealed partial class DuLieuMau
                 + "Số hồ sơ đưa ra xét: {{ soHoSo }}")
         };
 
+        /*
+         * Doi chieu theo MA thay vi "bang rong thi nap".
+         *
+         * Truoc day chi nap khi bang con rong, nen mot su kien moi — hoac mot mau mac dinh duoc
+         * cai thien — khong bao gio toi duoc he thong da cai dat. Nang cap len ban moi thi quan
+         * tri vien van thay mau cu va khong hieu vi sao.
+         *
+         * Mau da co thi GIU NGUYEN: quan tri vien duoc phep sua noi dung, ghi de moi lan trien
+         * khai la xoa cong sua cua ho. Ngoai le duy nhat o duoi, co dieu kien chat.
+         */
+        var daCo = await _db.MauThongBao
+            .Where(x => !x.DaXoa)
+            .ToDictionaryAsync(x => x.Ma, ct)
+            .ConfigureAwait(false);
+
+        /*
+         * Rieng giay moi hop: ban cu chi co dung mot cau, khong gio khong dia diem, tuc la khong
+         * lam duoc viec cua mot giay moi. Nang cap NEU va CHI NEU noi dung con y nguyen ban mac
+         * dinh cu — ai da sua thi khong dung toi.
+         */
+        if (daCo.TryGetValue("MTB_MOI_HOP", out var moiHop)
+            && string.Equals(moiHop.NoiDung?.Trim(), NoiDungMoiHopCu, StringComparison.Ordinal))
+        {
+            var banMoi = mau.First(x => x.Ma == "MTB_MOI_HOP");
+            moiHop.TieuDe = banMoi.TieuDe;
+            moiHop.NoiDung = banMoi.NoiDung;
+            _logger.LogInformation("Da nang cap mau MTB_MOI_HOP len ban co gio va dia diem.");
+        }
+
         var thuTu = 1;
         foreach (var (ma, suKien, kenh, tieuDe, noiDung) in mau)
         {
+            thuTu++;
+
+            if (daCo.ContainsKey(ma))
+            {
+                continue;
+            }
+
             _db.MauThongBao.Add(new MauThongBao
             {
                 Ma = ma,
@@ -1055,7 +1094,7 @@ public sealed partial class DuLieuMau
                     "tenHoiDong", "tenPhien", "maPhien", "thoiGianBatDau", "diaDiem",
                     "hinhThuc", "soHoSo", "hanHoanThanh", "hanXuLy"
                 },
-                ThuTu = thuTu++
+                ThuTu = thuTu
             });
         }
 

@@ -171,7 +171,9 @@ public sealed class DichVuDanhGia
                 {
                     ["soHoSo"] = sangKienIds.Count,
                     ["tenHoiDong"] = hoiDong.Ten,
-                    ["hanHoanThanh"] = hanHoanThanh
+                    ["hanHoanThanh"] = hanHoanThanh,
+                    // Mot lan phan cong gom nhieu ho so nen tro ve danh sach viec, khong tro ho so le.
+                    ["duongDan"] = DuongDanGiaoDien.DanhSachViecDanhGia
                 }, ct).ConfigureAwait(false);
         }
 

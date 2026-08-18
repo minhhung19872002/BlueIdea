@@ -159,6 +159,10 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
 
         await _thongBao.GuiTheoSuKienAsync(maSuKien, tacGiaIds, new Dictionary<string, object?>
         {
+            // sangKienId va duongDan quyet dinh viec bam vao thong bao co mo duoc ho so hay khong.
+            // Thieu chung thi day la nhom thong bao thuong gap nhat ma bam vao khong co phan ung gi.
+            ["sangKienId"] = sangKienId,
+            ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(sangKienId),
             ["maHoSo"] = hoSo.MaHoSo,
             ["tenSangKien"] = hoSo.TenSangKien,
             ["trangThai"] = hoSo.TrangThaiTong,

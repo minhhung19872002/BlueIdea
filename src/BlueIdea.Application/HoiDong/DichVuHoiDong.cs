@@ -252,7 +252,8 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
                     ["thoiGianBatDau"] = phien.ThoiGianBatDau.ToString("HH:mm dd/MM/yyyy"),
                     ["diaDiem"] = string.IsNullOrWhiteSpace(phien.DiaDiem) ? "chưa xác định" : phien.DiaDiem,
                     ["hinhThuc"] = TenHinhThucHop(phien.HinhThuc),
-                    ["soHoSo"] = soHoSo
+                    ["soHoSo"] = soHoSo,
+                    ["duongDan"] = DuongDanGiaoDien.ChiTietHoiDong(phien.HoiDongId)
                 },
                 ct).ConfigureAwait(false);
         }

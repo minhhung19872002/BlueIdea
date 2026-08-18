@@ -433,7 +433,7 @@ public sealed class DichVuQuyetDinh
                     ["tenSangKien"] = hoSo.TenSangKien,
                     ["soQuyetDinh"] = quyetDinh.SoQuyetDinh,
                     ["ngayBanHanh"] = quyetDinh.NgayBanHanh.ToString("dd/MM/yyyy"),
-                    ["duongDan"] = $"/ho-so/{nhom.Key}"
+                    ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(nhom.Key)
                 },
                 ct).ConfigureAwait(false);
         }
