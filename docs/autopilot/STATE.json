@@ -1,15 +1,15 @@
 {
     "status": "RUNNING",
-    "iteration": 4,
-    "currentRequirement": "REQ-21",
-    "currentBacklogItem": "P0-security-batch: REQ-21 auth security (account enumeration + SSO state + open redirect + timing oracle + audit persistence)",
+    "iteration": 5,
+    "currentRequirement": "REQ-12",
+    "currentBacklogItem": "REQ-12: Feature toggle enforcement in BoMayQuyTrinh (ChucNangBoSung runtime filtering)",
     "phase": "committing",
-    "lastCompletedItem": "P0-security-batch: REQ-21 auth security (account enumeration + SSO state + open redirect + timing oracle + audit persistence)",
-    "lastQualityGateResult": "PASS (7/7, 281 unit tests, 0 warnings)",
+    "lastCompletedItem": "REQ-12: Feature toggle enforcement in BoMayQuyTrinh (ChucNangBoSung runtime filtering)",
+    "lastQualityGateResult": "PASS (7/7, 288 unit tests, 0 warnings)",
     "readyForDeploy": false,
-    "lastSession": "65051d80-0b04-4690-b79f-c279b127d903",
-    "lastUpdated": "2026-08-18T19:45:00+07:00",
-    "lastCommit": "2e219e5",
+    "lastSession": "ffd863a3-5490-4581-9a9e-ecd908bca352",
+    "lastUpdated": "2026-08-18T20:30:00+07:00",
+    "lastCommit": null,
     "lastPush": null,
     "consecutiveInfraFailures": 0,
     "history": [
@@ -40,6 +40,14 @@
                 "REQ-21 (timing oracle — dummy Argon2id for null accounts)",
                 "REQ-21 (audit log persistence — SaveChangesAsync on early exits)",
                 "REQ-21 (CAPTCHA side-channel — log-based check on all paths)"
+            ],
+            "result": "PASS",
+            "phase": "committing"
+        },
+        {
+            "iteration": 5,
+            "items": [
+                "REQ-12 (ChucNangBoSung runtime enforcement in BoMayQuyTrinh)"
             ],
             "result": "PASS",
             "phase": "committing"

@@ -149,12 +149,16 @@ public class BoMayQuyTrinhTests
     public void Thuc_Thi_Chuyen_Sang_Buoc_Tiep_Theo()
     {
         var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.GuiEmail, buocTiepNhan.Id);
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.KiemTraTrungLap, buocTiepNhan.Id);
+
         var hoSo = XuongDuLieuTest.TaoHoSo();
         _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
 
         var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
         var nguCanh = TaoNguCanh(hoSo, quyTrinh, nguoi);
-        var truongHopDat = quyTrinh.DanhSachBuoc[0].TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+        var truongHopDat = buocTiepNhan.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
 
         var ketQua = _boMay.ThucThi(nguCanh, new XuLyBuocRequest
         {
@@ -498,6 +502,193 @@ public class BoMayQuyTrinhTests
         boChuyenDoi.DocSnapshot("{khong-phai-json").Should().BeNull();
         boChuyenDoi.DocSnapshot(null).Should().BeNull();
         boChuyenDoi.DocSnapshot("   ").Should().BeNull();
+    }
+
+    // ---- Chuc nang bo sung (REQ-12) ----
+
+    [Fact]
+    public void Hanh_Dong_Can_Chay_Loc_Theo_Chuc_Nang_Bo_Sung_Dang_Bat()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.GuiEmail, buocTiepNhan.Id);
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.KiemTraTrungLap, buocTiepNhan.Id);
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var truongHopDat = buocTiepNhan.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, quyTrinh, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "Hợp lệ"
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.GuiEmail);
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.KiemTraTrungLap);
+    }
+
+    [Fact]
+    public void Hanh_Dong_Can_Chay_Bi_Loc_Khi_Chuc_Nang_Khong_Bat()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        // No ChucNangBoSung added — all optional features are OFF.
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var truongHopDat = quyTrinh.DanhSachBuoc[0].TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, quyTrinh, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "Hợp lệ"
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.HanhDongCanChay.Should().NotContain(HanhDongTuDong.GuiEmail,
+            "GUI_EMAIL không bật nên hành động bị lọc bỏ");
+        ketQua.HanhDongCanChay.Should().NotContain(HanhDongTuDong.KiemTraTrungLap,
+            "KIEM_TRA_TRUNG_LAP không bật nên hành động bị lọc bỏ");
+    }
+
+    [Fact]
+    public void Hanh_Dong_Khong_Chi_Phoi_Boi_Chuc_Nang_Van_Giu_Nguyen()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        // No ChucNangBoSung — but TaoQuyetDinh and CapNhatKetQua on B6 are not feature-gated.
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        hoSo.BuocHienTaiId = quyTrinh.DanhSachBuoc.First(b => b.Ma == "B6").Id;
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.LanhDaoPheDuyet);
+        var truongHop = quyTrinh.DanhSachBuoc.First(b => b.Ma == "B6").TruongHop[0];
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, quyTrinh, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHop.Id
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue();
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.TaoQuyetDinh,
+            "TAO_QUYET_DINH không bị chi phối bởi chức năng bổ sung nên luôn giữ nguyên");
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.CapNhatKetQua);
+    }
+
+    [Fact]
+    public void Chuc_Nang_Toan_Quy_Trinh_Ap_Dung_Cho_Moi_Buoc()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.GuiEmail);  // BuocId = null → toàn quy trình
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var truongHopDat = quyTrinh.DanhSachBuoc[0].TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, quyTrinh, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "OK"
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.GuiEmail,
+            "GUI_EMAIL bật toàn quy trình nên áp dụng cho bước tiếp nhận");
+        ketQua.HanhDongCanChay.Should().NotContain(HanhDongTuDong.KiemTraTrungLap,
+            "KIEM_TRA_TRUNG_LAP không bật nên vẫn bị lọc");
+    }
+
+    [Fact]
+    public void Chuc_Nang_Bat_Tra_Ve_Danh_Sach_Chuc_Nang_Dang_Bat_Cho_Buoc()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.KiemTraTrungLap, buocTiepNhan.Id);
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.ChamDiemDocLap);  // toàn quy trình
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var truongHopDat = buocTiepNhan.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, quyTrinh, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "OK"
+        }, out _);
+
+        ketQua.ChucNangBat.Should().Contain(MaChucNangBoSung.KiemTraTrungLap);
+        ketQua.ChucNangBat.Should().Contain(MaChucNangBoSung.ChamDiemDocLap);
+        ketQua.ChucNangBat.Should().NotContain(MaChucNangBoSung.GuiEmail);
+    }
+
+    [Fact]
+    public void Hanh_Dong_Kha_Dung_Bao_Gom_Chuc_Nang_Buoc()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.BoPhieuKin, buocTiepNhan.Id);
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.XuatBieuMau);  // toàn quy trình
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguCanh = TaoNguCanh(hoSo, quyTrinh, NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan));
+        var hanhDong = _boMay.LayHanhDongKhaDung(nguCanh);
+
+        hanhDong.Should().NotBeEmpty();
+        hanhDong.Should().AllSatisfy(hd =>
+        {
+            hd.ChucNangBuoc.Should().Contain(MaChucNangBoSung.BoPhieuKin);
+            hd.ChucNangBuoc.Should().Contain(MaChucNangBoSung.XuatBieuMau);
+            hd.ChucNangBuoc.Should().NotContain(MaChucNangBoSung.KySo);
+        });
+    }
+
+    [Fact]
+    public void Snapshot_Giu_Nguyen_Chuc_Nang_Bo_Sung_Qua_Vong_Doi()
+    {
+        var boChuyenDoi = new BoChuyenDoiSnapshotQuyTrinh();
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.GuiEmail, buocTiepNhan.Id);
+        quyTrinh.ThemChucNangBoSung(MaChucNangBoSung.KiemTraTrungLap, buocTiepNhan.Id);
+
+        var khoiPhuc = boChuyenDoi.DocSnapshot(boChuyenDoi.TaoSnapshot(quyTrinh))!;
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, khoiPhuc, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var truongHopDat = khoiPhuc.DanhSachBuoc[0].TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, khoiPhuc, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "OK"
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.GuiEmail);
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.KiemTraTrungLap);
+        ketQua.ChucNangBat.Should().Contain(MaChucNangBoSung.GuiEmail);
+        ketQua.ChucNangBat.Should().Contain(MaChucNangBoSung.KiemTraTrungLap);
     }
 
     // ---- Dieu kien tu ngu canh ho so ----

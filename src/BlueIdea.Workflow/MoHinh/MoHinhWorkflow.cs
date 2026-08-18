@@ -64,6 +64,9 @@ public sealed class HanhDongKhaDung
     public string? TenBuocTiepTheo { get; init; }
 
     public IReadOnlyList<string> HanhDongTuDong { get; init; } = Array.Empty<string>();
+
+    /// <summary>Chuc nang bo sung dang bat cho buoc nay (tu ChucNangBoSung cau hinh).</summary>
+    public IReadOnlyList<string> ChucNangBuoc { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>Yeu cau thuc thi mot buoc.</summary>
@@ -125,6 +128,9 @@ public sealed class KetQuaXuLy
     public int SoTacNhanCanThiet { get; init; }
 
     public IReadOnlyList<string> HanhDongCanChay { get; init; } = Array.Empty<string>();
+
+    /// <summary>Chuc nang bo sung dang bat cho buoc vua xu ly (tu ChucNangBoSung cau hinh).</summary>
+    public IReadOnlyList<string> ChucNangBat { get; init; } = Array.Empty<string>();
 
     public static KetQuaXuLy Loi(string maLoi, string thongBao)
         => new() { ThanhCong = false, MaLoi = maLoi, ThongBao = thongBao };

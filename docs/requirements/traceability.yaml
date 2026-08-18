@@ -183,14 +183,14 @@ requirements:
     title: "Chuc nang bo sung"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: workflow
-    status: PARTIAL
+    status: IMPLEMENTED_NOT_VERIFIED
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
-      backend: ["src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
-      tests: []
+      backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
+      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
     gaps:
-      - "Feature toggle flags are stored in config but NOT enforced by BoMayQuyTrinh at runtime"
-      - "Admin can configure toggles; engine ignores them during step execution"
+      - "No runtime integration test for feature toggles affecting live workflow execution"
+    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. HanhDongCanChay filtered by ChucNangBoSung (6 action-to-feature mappings). LayHanhDongKhaDung exposes ChucNangBuoc for frontend. Snapshot preserves toggles. 8 unit tests cover ON/OFF filtering, workflow-level vs step-level, non-gated actions, snapshot round-trip."
 
   - id: REQ-13
     source_number: 13

@@ -277,6 +277,21 @@ public static class XuongDuLieuTest
         return TaoPhieu(bo, diem);
     }
 
+    public static QuyTrinh ThemChucNangBoSung(
+        this QuyTrinh quyTrinh, string maChucNang, Guid? buocId = null, bool batBuoc = false)
+    {
+        quyTrinh.ChucNangBoSung.Add(new QuyTrinhChucNangBoSung
+        {
+            Id = Guid.NewGuid(),
+            QuyTrinhId = quyTrinh.Id,
+            BuocId = buocId,
+            MaChucNang = maChucNang,
+            BatBuoc = batBuoc
+        });
+
+        return quyTrinh;
+    }
+
     public static HoSoSangKien TaoHoSo(Guid? dotId = null, Guid? linhVucId = null) => new()
     {
         Id = Guid.NewGuid(),

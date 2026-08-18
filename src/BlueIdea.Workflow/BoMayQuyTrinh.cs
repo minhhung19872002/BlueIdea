@@ -121,6 +121,7 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
 
         var nguCanhDieuKien = TaoNguCanhDieuKien(nguCanh);
         var bangBuoc = nguCanh.QuyTrinh.DanhSachBuoc.Where(b => !b.DaXoa).ToDictionary(b => b.Id);
+        var chucNangBuoc = LayChucNangBuoc(nguCanh.QuyTrinh, buoc.Id);
         var ketQua = new List<HanhDongKhaDung>();
 
         foreach (var th in buoc.TruongHop.Where(t => !t.DaXoa).OrderBy(t => t.ThuTu))
@@ -147,7 +148,8 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
                 LyDoChan = danhGia.Khop ? null : danhGia.GiaiThich,
                 BuocTiepTheoId = th.BuocTiepTheoId,
                 TenBuocTiepTheo = buocTiep?.Ten,
-                HanhDongTuDong = th.HanhDong
+                HanhDongTuDong = th.HanhDong,
+                ChucNangBuoc = chucNangBuoc
             });
         }
 
@@ -331,6 +333,8 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
             }
         }
 
+        var chucNangBuocCu = LayChucNangBuoc(nguCanh.QuyTrinh, buocCu.Id);
+
         return new KetQuaXuLy
         {
             ThanhCong = true,
@@ -346,7 +350,8 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
             DaKetThucQuyTrinh = ketThuc,
             SoTacNhanDaXuLy = 0,
             SoTacNhanCanThiet = 0,
-            HanhDongCanChay = truongHop.HanhDong
+            HanhDongCanChay = LocHanhDongTheoChucNang(truongHop.HanhDong, chucNangBuocCu),
+            ChucNangBat = chucNangBuocCu
         };
     }
 
@@ -539,6 +544,43 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
             MaTruongHop.Dat when ketThuc => TrangThaiTongHoSo.DaPheDuyet,
             _ => ketThuc ? TrangThaiTongHoSo.DaPheDuyet : TrangThaiTongHoSo.DangXuLy
         };
+    }
+
+    /// <summary>
+    /// Ban do tu hanh dong tu dong sang ma chuc nang bo sung tuong ung.
+    /// Hanh dong nao khong co trong ban do thi khong bi chuc nang bo sung chi phoi.
+    /// </summary>
+    private static readonly Dictionary<string, string> BanDoHanhDongChucNang = new()
+    {
+        [HanhDongTuDong.GuiEmail] = MaChucNangBoSung.GuiEmail,
+        [HanhDongTuDong.GuiSms] = MaChucNangBoSung.GuiSms,
+        [HanhDongTuDong.YeuCauKySo] = MaChucNangBoSung.KySo,
+        [HanhDongTuDong.KiemTraTrungLap] = MaChucNangBoSung.KiemTraTrungLap,
+        [HanhDongTuDong.TaoBienBan] = MaChucNangBoSung.TaoBienBan,
+        [HanhDongTuDong.CongBoKetQua] = MaChucNangBoSung.CongKhaiKetQua,
+    };
+
+    /// <summary>Tra ve danh sach chuc nang bo sung dang bat cho buoc (gom ca cau hinh toan quy trinh).</summary>
+    private static IReadOnlyList<string> LayChucNangBuoc(QuyTrinh quyTrinh, Guid buocId)
+        => quyTrinh.ChucNangBoSung
+            .Where(c => !c.DaXoa && (c.BuocId == buocId || c.BuocId == null))
+            .Select(c => c.MaChucNang)
+            .Distinct()
+            .ToList();
+
+    /// <summary>Loc hanh dong tu dong: giu lai nhung hanh dong khong bi chuc nang bo sung chi phoi, hoac chuc nang tuong ung dang bat.</summary>
+    private static IReadOnlyList<string> LocHanhDongTheoChucNang(
+        IReadOnlyList<string> hanhDong, IReadOnlyList<string> chucNangBat)
+    {
+        if (hanhDong.Count == 0)
+        {
+            return hanhDong;
+        }
+
+        return hanhDong
+            .Where(hd => !BanDoHanhDongChucNang.TryGetValue(hd, out var maChucNang)
+                         || chucNangBat.Contains(maChucNang))
+            .ToList();
     }
 
     private static string SuyRaMauNut(string ma) => ma.ToUpperInvariant() switch
