@@ -7,7 +7,6 @@ import {
   Card,
   Col,
   Drawer,
-  Form,
   Input,
   InputNumber,
   List,
@@ -28,6 +27,7 @@ import {
   SaveOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import { toPng } from 'html-to-image';
 import ReactFlow, {
   Background,
@@ -43,6 +43,8 @@ import 'reactflow/dist/style.css';
 
 import { LoiApi } from '@/api/client';
 import { apiQuyTrinh, type BuocQuyTrinh, type SoDoQuyTrinh } from '@/api/endpoints';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, maKyThuat, soNguyen, tuyChon } from '@/components/bieu-mau/luat';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
 
 const LOAI_BUOC = [
@@ -92,6 +94,68 @@ const CHUC_NANG_BO_SUNG: { ma: string; ten: string; moTa: string }[] = [
   { ma: 'CONG_KHAI_KET_QUA', ten: 'Công khai kết quả', moTa: 'Hiển thị kết quả trên cổng tra cứu công khai' },
 ];
 
+/**
+ * Luật kiểm tra một bước trong quy trình.
+ *
+ * Một bước không thể vừa là bước bắt đầu vừa là bước kết thúc: hồ sơ vào bước đó sẽ đóng ngay
+ * mà chưa qua bất kỳ khâu xử lý nào, tức là quy trình rỗng nhưng vẫn "hợp lệ" trên giấy.
+ */
+const luatBuoc = z
+  .object({
+    ma: maKyThuat(50),
+    ten: batBuoc('Tên bước'),
+    loaiBuoc: z.string(),
+    soNgayXuLy: soNguyen('Số ngày xử lý', 0, 365),
+    tinhTheoNgayLamViec: z.boolean(),
+    batBuocNhapYKien: z.boolean(),
+    batBuocDinhKem: z.boolean(),
+    choPhepThuHoi: z.boolean(),
+    laBuocBatDau: z.boolean(),
+    laBuocKetThuc: z.boolean(),
+    moTaHuongDan: tuyChon(2000),
+  })
+  .superRefine((v, ctx) => {
+    if (v.laBuocBatDau && v.laBuocKetThuc) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['laBuocKetThuc'],
+        message: 'Một bước không thể vừa mở đầu vừa kết thúc quy trình.',
+      });
+    }
+  });
+
+type GiaTriBuoc = z.infer<typeof luatBuoc>;
+
+const MAC_DINH_BUOC: GiaTriBuoc = {
+  ma: '',
+  ten: '',
+  loaiBuoc: 'XU_LY',
+  soNgayXuLy: 0,
+  tinhTheoNgayLamViec: true,
+  batBuocNhapYKien: false,
+  batBuocDinhKem: false,
+  choPhepThuHoi: false,
+  laBuocBatDau: false,
+  laBuocKetThuc: false,
+};
+
+/** Rút phần cấu hình sửa được của một bước ra khỏi bản ghi đầy đủ. */
+function doiSangGiaTri(b: BuocQuyTrinh): GiaTriBuoc {
+  return {
+    ma: b.ma,
+    ten: b.ten,
+    loaiBuoc: b.loaiBuoc,
+    soNgayXuLy: b.soNgayXuLy,
+    tinhTheoNgayLamViec: b.tinhTheoNgayLamViec,
+    batBuocNhapYKien: b.batBuocNhapYKien,
+    batBuocDinhKem: b.batBuocDinhKem,
+    choPhepThuHoi: b.choPhepThuHoi,
+    laBuocBatDau: b.laBuocBatDau,
+    laBuocKetThuc: b.laBuocKetThuc,
+    moTaHuongDan: b.moTaHuongDan ?? undefined,
+  };
+}
+
 /** Chức năng 10–15 — Trình thiết kế quy trình trực quan trên ReactFlow. */
 export default function TrangThietKeQuyTrinh() {
   const { id = '' } = useParams<{ id: string }>();
@@ -102,7 +166,7 @@ export default function TrangThietKeQuyTrinh() {
   const [buocDangChon, setBuocDangChon] = useState<BuocQuyTrinh | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
-  const [formBuoc] = Form.useForm();
+  const formBuoc = useBieuMau(luatBuoc, MAC_DINH_BUOC);
 
   const truyVan = useQuery({
     queryKey: ['quy-trinh', id, 'so-do'],
@@ -262,6 +326,22 @@ export default function TrangThietKeQuyTrinh() {
     },
     [buocDangChon, soDo],
   );
+
+  /*
+   * Ngăn kéo cấu hình bước tự lưu: không có nút Lưu riêng, mọi thay đổi đẩy thẳng vào sơ đồ
+   * trong bộ nhớ rồi mới ghi xuống máy chủ khi bấm Lưu sơ đồ.
+   *
+   * Bỏ qua lần gọi do `reset` sinh ra (không kèm tên trường) — đó là lúc người dùng bấm sang
+   * bước khác chứ không phải sửa nội dung, và nếu xử lý sẽ ghi đè bước vừa chọn bằng chính nó.
+   */
+  useEffect(() => {
+    const dangKy = formBuoc.watch((giaTri, { name }) => {
+      if (!name) return;
+      capNhatBuoc(giaTri as Partial<BuocQuyTrinh>);
+    });
+
+    return () => dangKy.unsubscribe();
+  }, [formBuoc, capNhatBuoc]);
 
   const thongKe = useMemo(
     () => ({
@@ -476,7 +556,7 @@ export default function TrangThietKeQuyTrinh() {
           onNodeClick={(_su, node) => {
             const buoc = soDo?.danhSachBuoc.find((b) => b.id === node.id) ?? null;
             setBuocDangChon(buoc);
-            if (buoc) formBuoc.setFieldsValue(buoc);
+            if (buoc) formBuoc.reset(doiSangGiaTri(buoc));
           }}
           fitView
           proOptions={{ hideAttribution: true }}
@@ -493,73 +573,73 @@ export default function TrangThietKeQuyTrinh() {
         width={520}
         onClose={() => setBuocDangChon(null)}
       >
-        <Form
-          form={formBuoc}
-          layout="vertical"
-          onValuesChange={(_thayDoi, tatCa) => capNhatBuoc(tatCa as unknown as Partial<BuocQuyTrinh>)}
-        >
-          <Form.Item name="ma" label="Mã bước">
-            <Input />
-          </Form.Item>
-          <Form.Item name="ten" label="Tên bước">
-            <Input />
-          </Form.Item>
-          <Form.Item name="loaiBuoc" label="Loại bước">
-            <Select options={LOAI_BUOC} />
-          </Form.Item>
+        <BieuMau form={formBuoc} onGui={() => {}}>
+          <Truong<GiaTriBuoc> ten="ma" label="Mã bước">
+            {(o) => <Input {...o} value={o.value as string} />}
+          </Truong>
+          <Truong<GiaTriBuoc> ten="ten" label="Tên bước">
+            {(o) => <Input {...o} value={o.value as string} />}
+          </Truong>
+          <Truong<GiaTriBuoc> ten="loaiBuoc" label="Loại bước">
+            {(o) => <Select {...o} value={o.value as string} options={LOAI_BUOC} />}
+          </Truong>
 
           <Row gutter={8}>
             <Col span={12}>
-              <Form.Item name="soNgayXuLy" label="Số ngày xử lý">
-                <InputNumber min={0} max={365} style={{ width: '100%' }} />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="soNgayXuLy" label="Số ngày xử lý">
+                {(o) => (
+                  <InputNumber
+                    {...o}
+                    value={o.value as number}
+                    min={0}
+                    max={365}
+                    style={{ width: '100%' }}
+                  />
+                )}
+              </Truong>
             </Col>
             <Col span={12}>
-              <Form.Item
-                name="tinhTheoNgayLamViec"
-                label="Theo ngày làm việc"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="tinhTheoNgayLamViec" label="Theo ngày làm việc">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
             </Col>
           </Row>
 
           <Row gutter={8}>
             <Col span={8}>
-              <Form.Item name="batBuocNhapYKien" label="Bắt buộc ý kiến" valuePropName="checked">
-                <Switch />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="batBuocNhapYKien" label="Bắt buộc ý kiến">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
             </Col>
             <Col span={8}>
-              <Form.Item name="batBuocDinhKem" label="Bắt buộc tệp" valuePropName="checked">
-                <Switch />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="batBuocDinhKem" label="Bắt buộc tệp">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
             </Col>
             <Col span={8}>
-              <Form.Item name="choPhepThuHoi" label="Cho thu hồi" valuePropName="checked">
-                <Switch />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="choPhepThuHoi" label="Cho thu hồi">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
             </Col>
           </Row>
 
           <Row gutter={8}>
             <Col span={12}>
-              <Form.Item name="laBuocBatDau" label="Bước bắt đầu" valuePropName="checked">
-                <Switch />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="laBuocBatDau" label="Bước bắt đầu">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
             </Col>
             <Col span={12}>
-              <Form.Item name="laBuocKetThuc" label="Bước kết thúc" valuePropName="checked">
-                <Switch />
-              </Form.Item>
+              <Truong<GiaTriBuoc> ten="laBuocKetThuc" label="Bước kết thúc">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
             </Col>
           </Row>
 
-          <Form.Item name="moTaHuongDan" label="Hướng dẫn xử lý">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
+          <Truong<GiaTriBuoc> ten="moTaHuongDan" label="Hướng dẫn xử lý">
+            {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+          </Truong>
+        </BieuMau>
 
         <Card size="small" title="Tác nhân xử lý" style={{ marginBottom: 12 }}>
           <List

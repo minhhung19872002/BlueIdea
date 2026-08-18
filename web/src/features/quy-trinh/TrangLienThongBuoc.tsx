@@ -5,7 +5,6 @@ import {
   Alert,
   Button,
   Card,
-  Form,
   Input,
   Modal,
   Select,
@@ -16,6 +15,7 @@ import {
 } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { LoiApi } from '@/api/client';
 import {
@@ -25,12 +25,49 @@ import {
   type LienThongBuoc,
 } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { tuyChon } from '@/components/bieu-mau/luat';
 
 const SU_KIEN = [
   { value: 'KHI_VAO_BUOC', label: 'Khi hồ sơ vào bước' },
   { value: 'KHI_HOAN_THANH', label: 'Khi hoàn thành bước' },
   { value: 'KHI_PHE_DUYET', label: 'Khi được phê duyệt' },
 ];
+
+/**
+ * Luật kiểm tra cấu hình liên thông theo bước.
+ *
+ * Đồng bộ hai chiều bắt buộc phải khai loại dữ liệu: chiều đẩy đi thì hệ thống ngoài tự hiểu qua
+ * ngữ cảnh lời gọi, nhưng chiều nhận về đi qua API công khai dùng chung — không có nhãn loại dữ
+ * liệu thì gói tin về không biết thuộc luồng nào và bị bỏ lặng.
+ */
+const luatLienThong = z
+  .object({
+    buocId: z.string().uuid().optional().nullable(),
+    heThongTichHopId: z.string().uuid('Vui lòng chọn hệ thống liên thông.'),
+    suKien: z.string(),
+    loaiDuLieu: tuyChon(100),
+    trangThai: z.number(),
+    dongBoHaiChieu: z.boolean(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.dongBoHaiChieu && !v.loaiDuLieu?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['loaiDuLieu'],
+        message: 'Đồng bộ hai chiều phải khai loại dữ liệu để định tuyến gói tin nhận về.',
+      });
+    }
+  });
+
+type GiaTriLienThong = z.infer<typeof luatLienThong>;
+
+const MAC_DINH_LIEN_THONG: GiaTriLienThong = {
+  heThongTichHopId: '',
+  suKien: 'KHI_HOAN_THANH',
+  trangThai: 1,
+  dongBoHaiChieu: false,
+};
 
 /**
  * Chức năng 16 — Gắn hệ thống liên thông vào từng bước của quy trình.
@@ -45,7 +82,7 @@ export default function TrangLienThongBuoc() {
 
   const [dangSua, setDangSua] = useState<LienThongBuoc | null>(null);
   const [moForm, setMoForm] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatLienThong, MAC_DINH_LIEN_THONG);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['lien-thong-buoc', id],
@@ -67,14 +104,14 @@ export default function TrangLienThongBuoc() {
   }
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriLienThong) => {
       const duLieu = {
-        buocId: (giaTri.buocId as string) || null,
-        heThongTichHopId: giaTri.heThongTichHopId as string,
-        suKien: giaTri.suKien as string,
-        loaiDuLieu: (giaTri.loaiDuLieu as string) || null,
-        dongBoHaiChieu: (giaTri.dongBoHaiChieu as boolean) ?? false,
-        trangThai: (giaTri.trangThai as number) ?? 1,
+        buocId: giaTri.buocId || null,
+        heThongTichHopId: giaTri.heThongTichHopId,
+        suKien: giaTri.suKien,
+        loaiDuLieu: giaTri.loaiDuLieu || null,
+        dongBoHaiChieu: giaTri.dongBoHaiChieu,
+        trangThai: giaTri.trangThai,
       };
 
       return dangSua
@@ -85,7 +122,7 @@ export default function TrangLienThongBuoc() {
       message.success(dangSua ? 'Đã cập nhật cấu hình liên thông' : 'Đã thêm cấu hình liên thông');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH_LIEN_THONG);
       lamMoi();
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
@@ -121,7 +158,7 @@ export default function TrangLienThongBuoc() {
             disabled={!coHeThong}
             onClick={() => {
               setDangSua(null);
-              form.resetFields();
+              form.reset(MAC_DINH_LIEN_THONG);
               setMoForm(true);
             }}
           >
@@ -196,7 +233,14 @@ export default function TrangLienThongBuoc() {
                   icon={<EditOutlined />}
                   onClick={() => {
                     setDangSua(dong);
-                    form.setFieldsValue(dong);
+                    form.reset({
+                      buocId: dong.buocId ?? null,
+                      heThongTichHopId: dong.heThongTichHopId,
+                      suKien: dong.suKien,
+                      loaiDuLieu: dong.loaiDuLieu ?? undefined,
+                      trangThai: dong.trangThai,
+                      dongBoHaiChieu: dong.dongBoHaiChieu,
+                    });
                     setMoForm(true);
                   }}
                 />
@@ -227,77 +271,91 @@ export default function TrangLienThongBuoc() {
         title={dangSua ? 'Sửa cấu hình liên thông' : 'Thêm cấu hình liên thông'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-lien-thong-buoc' }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ suKien: 'KHI_HOAN_THANH', trangThai: 1, dongBoHaiChieu: false }}
-        >
-          <Form.Item
-            name="buocId"
+        <BieuMau id="form-lien-thong-buoc" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
+          <Truong<GiaTriLienThong>
+            ten="buocId"
             label="Bước áp dụng"
             tooltip="Để trống = áp dụng cho toàn quy trình."
           >
-            <Select
-              allowClear
-              placeholder="Toàn quy trình"
-              options={(soDo?.danhSachBuoc ?? []).map((b) => ({ value: b.id, label: b.ten }))}
-            />
-          </Form.Item>
+            {(o) => (
+              <Select
+                {...o}
+                value={(o.value as string | null) ?? undefined}
+                allowClear
+                placeholder="Toàn quy trình"
+                options={(soDo?.danhSachBuoc ?? []).map((b) => ({ value: b.id, label: b.ten }))}
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="heThongTichHopId"
-            label="Hệ thống nhận dữ liệu"
-            rules={[{ required: true, message: 'Chọn hệ thống liên thông' }]}
-          >
-            <Select
-              options={(heThong ?? []).map((x) => ({
-                value: x.id,
-                label: `${x.ten} (${x.ma})`,
-              }))}
-            />
-          </Form.Item>
+          <Truong<GiaTriLienThong> ten="heThongTichHopId" label="Hệ thống nhận dữ liệu" required>
+            {(o) => (
+              <Select
+                {...o}
+                value={(o.value as string) || undefined}
+                options={(heThong ?? []).map((x) => ({
+                  value: x.id,
+                  label: `${x.ten} (${x.ma})`,
+                }))}
+              />
+            )}
+          </Truong>
 
-          <Form.Item name="suKien" label="Kích hoạt khi">
-            <Select options={SU_KIEN} />
-          </Form.Item>
+          <Truong<GiaTriLienThong> ten="suKien" label="Kích hoạt khi">
+            {(o) => <Select {...o} value={o.value as string} options={SU_KIEN} />}
+          </Truong>
 
-          <Form.Item
-            name="loaiDuLieu"
+          <Truong<GiaTriLienThong>
+            ten="loaiDuLieu"
             label="Loại dữ liệu đẩy đi"
             tooltip="Nhãn để hệ thống ngoài biết gói dữ liệu thuộc loại nào."
           >
-            <Input placeholder="VD: SANG_KIEN_DUOC_CONG_NHAN" />
-          </Form.Item>
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                placeholder="VD: SANG_KIEN_DUOC_CONG_NHAN"
+              />
+            )}
+          </Truong>
 
           <Space size="large" wrap>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                style={{ width: 180 }}
-                options={[
-                  { value: 1, label: 'Hoạt động' },
-                  { value: 0, label: 'Ngừng' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item
-              name="dongBoHaiChieu"
+            <Truong<GiaTriLienThong> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 180 }}
+                  options={[
+                    { value: 1, label: 'Hoạt động' },
+                    { value: 0, label: 'Ngừng' },
+                  ]}
+                />
+              )}
+            </Truong>
+            <Truong<GiaTriLienThong>
+              ten="dongBoHaiChieu"
               label="Đồng bộ hai chiều"
               tooltip="Bật khi hệ thống ngoài cũng đẩy trạng thái ngược lại qua API công khai."
             >
-              <Select
-                style={{ width: 180 }}
-                options={[
-                  { value: false, label: 'Một chiều (đẩy đi)' },
-                  { value: true, label: 'Hai chiều' },
-                ]}
-              />
-            </Form.Item>
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as boolean}
+                  style={{ width: 180 }}
+                  options={[
+                    { value: false, label: 'Một chiều (đẩy đi)' },
+                    { value: true, label: 'Hai chiều' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Space>
-        </Form>
+        </BieuMau>
       </Modal>
     </Card>
   );
