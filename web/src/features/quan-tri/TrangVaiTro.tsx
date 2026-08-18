@@ -6,7 +6,6 @@ import {
   Card,
   Checkbox,
   Col,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -22,7 +21,11 @@ import {
 import { CopyOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, soNguyen, tuyChon } from '@/components/bieu-mau/luat';
 import { apiDonVi, apiHeThong, type LuuVaiTro } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
 
@@ -353,14 +356,36 @@ export default function TrangVaiTro() {
 
 // ---------------------------------------------------------------------------
 
-interface GiaTriFormVaiTro {
-  ma: string;
-  ten: string;
-  moTa?: string;
-  thuTu: number;
-  loaiPhamVi: string;
-  donViIds: string[];
-}
+/**
+ * Luật kiểm tra vai trò.
+ *
+ * Phạm vi TUY_CHINH bắt buộc chọn ít nhất một đơn vị: để trống thì vai trò đó không xem được hồ
+ * sơ nào, người được gán sẽ thấy màn hình trắng mà không hiểu vì sao. Dùng `superRefine` để luật
+ * này phụ thuộc vào giá trị của trường khác — thứ mà prop `rules` rời rạc không diễn đạt được.
+ */
+const luatVaiTro = z
+  .object({
+    ma: batBuoc('Mã vai trò', 50).regex(
+      /^[A-Z0-9_]+$/,
+      'Chỉ dùng chữ HOA không dấu, số và dấu _',
+    ),
+    ten: batBuoc('Tên vai trò'),
+    moTa: tuyChon(),
+    thuTu: soNguyen('Thứ tự hiển thị', 0, 9999),
+    loaiPhamVi: z.string(),
+    donViIds: z.array(z.string()),
+  })
+  .superRefine((v, ctx) => {
+    if (v.loaiPhamVi === 'TUY_CHINH' && v.donViIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['donViIds'],
+        message: 'Chọn ít nhất một đơn vị cho phạm vi tuỳ chỉnh.',
+      });
+    }
+  });
+
+type GiaTriFormVaiTro = z.infer<typeof luatVaiTro>;
 
 function FormVaiTro({
   vaiTro,
@@ -372,8 +397,18 @@ function FormVaiTro({
   onXong: () => void;
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm<GiaTriFormVaiTro>();
-  const [loaiPhamVi, setLoaiPhamVi] = useState(vaiTro?.phamVi[0]?.loaiPhamVi ?? 'CA_NHAN');
+  const form = useBieuMau(luatVaiTro, {
+    ma: vaiTro?.ma ?? '',
+    ten: vaiTro?.ten ?? '',
+    moTa: vaiTro?.moTa ?? undefined,
+    thuTu: 0,
+    loaiPhamVi: vaiTro?.phamVi[0]?.loaiPhamVi ?? 'CA_NHAN',
+    donViIds: vaiTro?.phamVi[0]?.donViIds ?? [],
+  } as GiaTriFormVaiTro);
+
+  // Theo dõi trực tiếp giá trị trong form thay vì giữ một state song song: hai nguồn dễ lệch nhau
+  // khi form được nạp lại.
+  const loaiPhamVi = form.watch('loaiPhamVi');
 
   const { data: cacDonVi } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
 
@@ -387,10 +422,8 @@ function FormVaiTro({
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
 
-  async function xacNhan() {
-    const giaTri = await form.validateFields();
-
-    luu.mutate({
+  function xacNhan(giaTri: GiaTriFormVaiTro) {
+    return luu.mutateAsync({
       ma: giaTri.ma,
       ten: giaTri.ten,
       moTa: giaTri.moTa,
@@ -411,82 +444,78 @@ function FormVaiTro({
       title={vaiTro ? `Sửa vai trò ${vaiTro.ma}` : 'Thêm vai trò'}
       okText={vaiTro ? 'Lưu thay đổi' : 'Tạo vai trò'}
       cancelText="Huỷ"
-      confirmLoading={luu.isPending}
-      onOk={xacNhan}
+      confirmLoading={luu.isPending || form.formState.isSubmitting}
+      okButtonProps={{ htmlType: 'submit', form: 'form-vai-tro' }}
       onCancel={onDong}
       destroyOnClose
     >
-      <Form<GiaTriFormVaiTro>
-        form={form}
-        layout="vertical"
-        initialValues={{
-          ma: vaiTro?.ma ?? '',
-          ten: vaiTro?.ten ?? '',
-          moTa: vaiTro?.moTa ?? undefined,
-          thuTu: 0,
-          loaiPhamVi: vaiTro?.phamVi[0]?.loaiPhamVi ?? 'CA_NHAN',
-          donViIds: vaiTro?.phamVi[0]?.donViIds ?? [],
-        }}
-      >
+      <BieuMau id="form-vai-tro" form={form} onGui={xacNhan}>
         <Row gutter={12}>
           <Col xs={24} md={12}>
-            <Form.Item
-              name="ma"
+            <Truong<GiaTriFormVaiTro>
+              ten="ma"
               label="Mã vai trò"
+              required
               tooltip={vaiTro?.laHeThong ? 'Vai trò hệ thống không đổi được mã.' : undefined}
-              rules={[
-                { required: true, message: 'Nhập mã vai trò' },
-                { pattern: /^[A-Z0-9_]+$/, message: 'Chỉ dùng chữ HOA không dấu, số và dấu _' },
-              ]}
             >
-              <Input disabled={vaiTro?.laHeThong} placeholder="VD: THU_KY_HOI_DONG" />
-            </Form.Item>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  disabled={vaiTro?.laHeThong}
+                  placeholder="VD: THU_KY_HOI_DONG"
+                />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item
-              name="ten"
-              label="Tên vai trò"
-              rules={[{ required: true, message: 'Nhập tên vai trò' }]}
-            >
-              <Input placeholder="Thư ký hội đồng" />
-            </Form.Item>
+            <Truong<GiaTriFormVaiTro> ten="ten" label="Tên vai trò" required>
+              {(o) => <Input {...o} value={o.value as string} placeholder="Thư ký hội đồng" />}
+            </Truong>
           </Col>
         </Row>
 
-        <Form.Item name="moTa" label="Mô tả">
-          <Input.TextArea rows={2} />
-        </Form.Item>
+        <Truong<GiaTriFormVaiTro> ten="moTa" label="Mô tả">
+          {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+        </Truong>
 
         <Row gutter={12}>
           <Col xs={24} md={16}>
-            <Form.Item
-              name="loaiPhamVi"
+            <Truong<GiaTriFormVaiTro>
+              ten="loaiPhamVi"
               label="Phạm vi dữ liệu"
               tooltip="Quyết định vai trò này được xem hồ sơ của những đơn vị nào."
             >
-              <Select options={LOAI_PHAM_VI} onChange={setLoaiPhamVi} />
-            </Form.Item>
+              {(o) => <Select {...o} value={o.value as string} options={LOAI_PHAM_VI} />}
+            </Truong>
           </Col>
           <Col xs={24} md={8}>
-            <Form.Item name="thuTu" label="Thứ tự hiển thị">
-              <InputNumber<number> min={0} style={{ width: '100%' }} />
-            </Form.Item>
+            <Truong<GiaTriFormVaiTro> ten="thuTu" label="Thứ tự hiển thị">
+              {(o) => (
+                <InputNumber<number>
+                  {...o}
+                  value={o.value as number}
+                  min={0}
+                  style={{ width: '100%' }}
+                />
+              )}
+            </Truong>
           </Col>
         </Row>
 
         {loaiPhamVi === 'TUY_CHINH' && (
-          <Form.Item
-            name="donViIds"
-            label="Đơn vị được xem"
-            rules={[{ required: true, message: 'Chọn ít nhất một đơn vị' }]}
-          >
-            <Select
-              mode="multiple"
-              optionFilterProp="label"
-              placeholder="Chọn các đơn vị"
-              options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-            />
-          </Form.Item>
+          <Truong<GiaTriFormVaiTro> ten="donViIds" label="Đơn vị được xem" required>
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string[]}
+                mode="multiple"
+                optionFilterProp="label"
+                placeholder="Chọn các đơn vị"
+                options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+              />
+            )}
+          </Truong>
         )}
 
         {vaiTro && (
@@ -495,10 +524,20 @@ function FormVaiTro({
             “Lưu ma trận”.
           </Typography.Text>
         )}
-      </Form>
+      </BieuMau>
     </Modal>
   );
 }
+
+const luatSaoChepVaiTro = z.object({
+  ma: batBuoc('Mã vai trò', 50).regex(
+    /^[A-Za-z0-9_]+$/,
+    'Mã chỉ gồm chữ, số và dấu gạch dưới.',
+  ),
+  ten: batBuoc('Tên vai trò mới'),
+});
+
+type GiaTriSaoChepVaiTro = z.infer<typeof luatSaoChepVaiTro>;
 
 /**
  * Sao chép vai trò — nhân bản đúng bộ quyền và phạm vi dữ liệu sang một vai trò mới.
@@ -516,10 +555,10 @@ function HopThoaiSaoChepVaiTro({
   onXong: () => void;
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm<{ ma: string; ten: string }>();
+  const form = useBieuMau(luatSaoChepVaiTro, { ten: `${nguon.ten} (bản sao)` } as GiaTriSaoChepVaiTro);
 
   const luu = useMutation({
-    mutationFn: (giaTri: { ma: string; ten: string }) =>
+    mutationFn: (giaTri: GiaTriSaoChepVaiTro) =>
       apiHeThong.saoChepVaiTro(nguon.id, { ma: giaTri.ma.trim().toUpperCase(), ten: giaTri.ten }),
     onSuccess: () => {
       message.success('Đã tạo vai trò mới từ bản sao');
@@ -534,9 +573,9 @@ function HopThoaiSaoChepVaiTro({
       title={`Sao chép vai trò: ${nguon.ten}`}
       okText="Tạo bản sao"
       cancelText="Huỷ"
-      confirmLoading={luu.isPending}
+      confirmLoading={luu.isPending || form.formState.isSubmitting}
       onCancel={onDong}
-      onOk={async () => luu.mutate(await form.validateFields())}
+      okButtonProps={{ htmlType: 'submit', form: 'form-sao-chep-vai-tro' }}
     >
       <Alert
         type="info"
@@ -545,21 +584,14 @@ function HopThoaiSaoChepVaiTro({
         message={`Bản sao nhận đủ ${nguon.quyenIds.length} quyền và ${nguon.phamVi.length} phạm vi dữ liệu của vai trò gốc.`}
         description="Sau khi tạo, chỉnh lại quyền trên ma trận bên dưới — sửa bản sao không ảnh hưởng vai trò gốc."
       />
-      <Form form={form} layout="vertical" initialValues={{ ten: `${nguon.ten} (bản sao)` }}>
-        <Form.Item
-          name="ma"
-          label="Mã vai trò mới"
-          rules={[
-            { required: true, message: 'Nhập mã vai trò' },
-            { pattern: /^[A-Za-z0-9_]+$/, message: 'Mã chỉ gồm chữ, số và dấu gạch dưới' },
-          ]}
-        >
-          <Input placeholder="VD: THU_KY_HOI_DONG_2" />
-        </Form.Item>
-        <Form.Item name="ten" label="Tên vai trò mới" rules={[{ required: true, message: 'Nhập tên' }]}>
-          <Input />
-        </Form.Item>
-      </Form>
+      <BieuMau id="form-sao-chep-vai-tro" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
+        <Truong<GiaTriSaoChepVaiTro> ten="ma" label="Mã vai trò mới" required>
+          {(o) => <Input {...o} value={o.value as string} placeholder="VD: THU_KY_HOI_DONG_2" />}
+        </Truong>
+        <Truong<GiaTriSaoChepVaiTro> ten="ten" label="Tên vai trò mới" required>
+          {(o) => <Input {...o} value={o.value as string} />}
+        </Truong>
+      </BieuMau>
     </Modal>
   );
 }
