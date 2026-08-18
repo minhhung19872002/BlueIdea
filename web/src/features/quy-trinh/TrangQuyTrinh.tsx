@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { App, Button, Card, Form, Input, Modal, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Input, Modal, Space, Table, Tag, Typography } from 'antd';
 import {
   ApartmentOutlined,
   CheckCircleOutlined,
@@ -11,9 +11,36 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, maDanhMuc, trangThai, tuyChon } from '@/components/bieu-mau/luat';
 import { apiQuyTrinh, type DanhMucDto } from '@/api/endpoints';
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
+
+/**
+ * Luật kiểm tra khi tạo quy trình mới.
+ *
+ * Mã quy trình được đưa vào snapshot của từng hồ sơ khi nộp, nên chốt định dạng ngay từ lúc tạo:
+ * đổi mã sau khi đã có hồ sơ chạy theo quy trình đó là việc rất tốn công.
+ */
+const luatQuyTrinh = z.object({
+  ma: maDanhMuc(),
+  ten: batBuoc('Tên quy trình'),
+  moTa: tuyChon(),
+  cap: z.string(),
+  trangThai: trangThai,
+});
+
+type GiaTriQuyTrinh = z.infer<typeof luatQuyTrinh>;
+
+const MAC_DINH_QUY_TRINH: GiaTriQuyTrinh = {
+  ma: '',
+  ten: '',
+  cap: 'CO_SO',
+  trangThai: 1,
+};
 
 /** Chức năng 9 — Danh sách quy trình xử lý và các thao tác vòng đời. */
 export default function TrangQuyTrinh() {
@@ -23,7 +50,7 @@ export default function TrangQuyTrinh() {
   const [trang, setTrang] = useState(1);
   const [soDong, setSoDong] = useState(20);
   const [moTao, setMoTao] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatQuyTrinh, MAC_DINH_QUY_TRINH);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['quy-trinh', { trang, soDong }],
@@ -86,11 +113,11 @@ export default function TrangQuyTrinh() {
   });
 
   const tao = useMutation({
-    mutationFn: (giaTri: Record<string, unknown>) => apiQuyTrinh.them(giaTri),
+    mutationFn: (giaTri: GiaTriQuyTrinh) => apiQuyTrinh.them(giaTri),
     onSuccess: () => {
       message.success('Đã tạo quy trình');
       setMoTao(false);
-      form.resetFields();
+      form.reset(MAC_DINH_QUY_TRINH);
       void lamMoi();
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không tạo được.'),
@@ -239,21 +266,21 @@ export default function TrangQuyTrinh() {
         title="Tạo quy trình mới"
         okText="Tạo"
         cancelText="Hủy"
-        confirmLoading={tao.isPending}
+        confirmLoading={tao.isPending || form.formState.isSubmitting}
         onCancel={() => setMoTao(false)}
-        onOk={async () => tao.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-quy-trinh' }}
       >
-        <Form form={form} layout="vertical" initialValues={{ cap: 'CO_SO', trangThai: 1 }}>
-          <Form.Item name="ma" label="Mã" rules={[{ required: true, message: 'Nhập mã quy trình' }]}>
-            <Input placeholder="VD: QT-CO-SO-2027" />
-          </Form.Item>
-          <Form.Item name="ten" label="Tên" rules={[{ required: true, message: 'Nhập tên' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="moTa" label="Mô tả">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
+        <BieuMau id="form-quy-trinh" form={form} onGui={(giaTri) => tao.mutateAsync(giaTri)}>
+          <Truong<GiaTriQuyTrinh> ten="ma" label="Mã" required>
+            {(o) => <Input {...o} value={o.value as string} placeholder="VD: QT-CO-SO-2027" />}
+          </Truong>
+          <Truong<GiaTriQuyTrinh> ten="ten" label="Tên" required>
+            {(o) => <Input {...o} value={o.value as string} />}
+          </Truong>
+          <Truong<GiaTriQuyTrinh> ten="moTa" label="Mô tả">
+            {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+          </Truong>
+        </BieuMau>
       </Modal>
     </Card>
   );

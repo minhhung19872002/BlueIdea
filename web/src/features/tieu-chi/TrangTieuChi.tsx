@@ -5,7 +5,6 @@ import {
   App,
   Button,
   Card,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -18,9 +17,57 @@ import {
 import { CopyOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, maDanhMuc, soNguyen, trangThai } from '@/components/bieu-mau/luat';
 import { apiTieuChi, type DanhMucDto } from '@/api/endpoints';
 import { KhoiLoi } from '@/components/ThanhPhanChung';
+
+/**
+ * Luật kiểm tra bộ tiêu chí.
+ *
+ * Chặn "điểm đạt tối thiểu > thang điểm" ngay tại đây: cấu hình đó khiến KHÔNG hồ sơ nào đạt
+ * được, và lỗi chỉ lộ ra sau khi cả hội đồng đã chấm xong — lúc đó sửa lại là phải chấm lại.
+ */
+const luatBoTieuChi = z
+  .object({
+    ma: maDanhMuc(),
+    ten: batBuoc('Tên bộ tiêu chí'),
+    nam: soNguyen('Năm', 2000, 2100),
+    thangDiemToiDa: soNguyen('Thang điểm', 1, 1000),
+    diemDatToiThieu: soNguyen('Điểm đạt tối thiểu', 0, 1000),
+    cachTinh: z.string(),
+    lamTron: soNguyen('Làm tròn', 0, 4),
+    trangThai: trangThai,
+  })
+  .refine((v) => v.diemDatToiThieu <= v.thangDiemToiDa, {
+    path: ['diemDatToiThieu'],
+    message: 'Điểm đạt tối thiểu không được lớn hơn thang điểm.',
+  });
+
+type GiaTriBoTieuChi = z.infer<typeof luatBoTieuChi>;
+
+const MAC_DINH_TIEU_CHI: GiaTriBoTieuChi = {
+  ma: '',
+  ten: '',
+  nam: new Date().getFullYear(),
+  thangDiemToiDa: 100,
+  diemDatToiThieu: 50,
+  cachTinh: 'TONG_DIEM',
+  lamTron: 2,
+  trangThai: 1,
+};
+
+/** Luật cho hộp thoại sao chép — chỉ cần mã, tên và năm áp dụng của bản sao. */
+const luatSaoChep = z.object({
+  ma: maDanhMuc(),
+  ten: batBuoc('Tên bộ mới'),
+  nam: soNguyen('Năm áp dụng', 2000, 2100),
+});
+
+type GiaTriSaoChep = z.infer<typeof luatSaoChep>;
 
 /** Chức năng 17 — Danh sách bộ tiêu chí chấm điểm. */
 export default function TrangTieuChi() {
@@ -31,11 +78,11 @@ export default function TrangTieuChi() {
   const [soDong, setSoDong] = useState(20);
   const [moTao, setMoTao] = useState(false);
   const [saoChep, setSaoChep] = useState<DanhMucDto | null>(null);
-  const [form] = Form.useForm();
-  const [formSaoChep] = Form.useForm();
+  const form = useBieuMau(luatBoTieuChi, MAC_DINH_TIEU_CHI);
+  const formSaoChep = useBieuMau(luatSaoChep);
 
   const taoBanSao = useMutation({
-    mutationFn: (giaTri: { ma: string; ten: string; nam: number }) =>
+    mutationFn: (giaTri: GiaTriSaoChep) =>
       apiTieuChi.saoChep(saoChep!.id, {
         ma: giaTri.ma.trim().toUpperCase(),
         ten: giaTri.ten,
@@ -44,7 +91,7 @@ export default function TrangTieuChi() {
     onSuccess: () => {
       message.success('Đã sao chép bộ tiêu chí');
       setSaoChep(null);
-      formSaoChep.resetFields();
+      formSaoChep.reset();
       void queryClient.invalidateQueries({ queryKey: ['bo-tieu-chi'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không sao chép được.'),
@@ -56,11 +103,11 @@ export default function TrangTieuChi() {
   });
 
   const tao = useMutation({
-    mutationFn: (giaTri: Record<string, unknown>) => apiTieuChi.them(giaTri),
+    mutationFn: (giaTri: GiaTriBoTieuChi) => apiTieuChi.them(giaTri),
     onSuccess: () => {
       message.success('Đã tạo bộ tiêu chí');
       setMoTao(false);
-      form.resetFields();
+      form.reset(MAC_DINH_TIEU_CHI);
       void queryClient.invalidateQueries({ queryKey: ['bo-tieu-chi'] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không tạo được.'),
@@ -111,7 +158,7 @@ export default function TrangTieuChi() {
                     icon={<CopyOutlined />}
                     onClick={() => {
                       setSaoChep(dong);
-                      formSaoChep.setFieldsValue({
+                      formSaoChep.reset({
                         ma: `${dong.ma}-SAO-CHEP`,
                         ten: `${dong.ten} (bản sao)`,
                         nam: new Date().getFullYear() + 1,
@@ -141,9 +188,9 @@ export default function TrangTieuChi() {
         title={`Sao chép bộ tiêu chí: ${saoChep?.ten ?? ''}`}
         okText="Tạo bản sao"
         cancelText="Huỷ"
-        confirmLoading={taoBanSao.isPending}
+        confirmLoading={taoBanSao.isPending || formSaoChep.formState.isSubmitting}
         onCancel={() => setSaoChep(null)}
-        onOk={async () => taoBanSao.mutate(await formSaoChep.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-sao-chep-tieu-chi' }}
       >
         <Alert
           type="info"
@@ -152,17 +199,29 @@ export default function TrangTieuChi() {
           message="Bản sao nhận đủ cây tiêu chí, thang điểm và các mức công nhận của bộ gốc."
           description="Dùng khi sang năm mới: sửa vài tiêu chí trên bản sao thay vì gõ lại từ đầu, và bộ cũ vẫn giữ nguyên để tra cứu hồ sơ các năm trước."
         />
-        <Form form={formSaoChep} layout="vertical">
-          <Form.Item name="ma" label="Mã bộ mới" rules={[{ required: true, message: 'Nhập mã' }]}>
-            <Input placeholder="VD: BTC-CO-SO-2027" />
-          </Form.Item>
-          <Form.Item name="ten" label="Tên bộ mới" rules={[{ required: true, message: 'Nhập tên' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="nam" label="Năm áp dụng" rules={[{ required: true, message: 'Nhập năm' }]}>
-            <InputNumber min={2000} max={2100} style={{ width: 160 }} />
-          </Form.Item>
-        </Form>
+        <BieuMau
+          id="form-sao-chep-tieu-chi"
+          form={formSaoChep}
+          onGui={(giaTri) => taoBanSao.mutateAsync(giaTri)}
+        >
+          <Truong<GiaTriSaoChep> ten="ma" label="Mã bộ mới" required>
+            {(o) => <Input {...o} value={o.value as string} placeholder="VD: BTC-CO-SO-2027" />}
+          </Truong>
+          <Truong<GiaTriSaoChep> ten="ten" label="Tên bộ mới" required>
+            {(o) => <Input {...o} value={o.value as string} />}
+          </Truong>
+          <Truong<GiaTriSaoChep> ten="nam" label="Năm áp dụng" required>
+            {(o) => (
+              <InputNumber
+                {...o}
+                value={o.value as number}
+                min={2000}
+                max={2100}
+                style={{ width: 160 }}
+              />
+            )}
+          </Truong>
+        </BieuMau>
       </Modal>
 
       <Modal
@@ -170,49 +229,42 @@ export default function TrangTieuChi() {
         title="Tạo bộ tiêu chí"
         okText="Tạo"
         cancelText="Hủy"
-        confirmLoading={tao.isPending}
+        confirmLoading={tao.isPending || form.formState.isSubmitting}
         onCancel={() => setMoTao(false)}
-        onOk={async () => tao.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-tao-tieu-chi' }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{
-            nam: new Date().getFullYear(),
-            thangDiemToiDa: 100,
-            diemDatToiThieu: 50,
-            cachTinh: 'TONG_DIEM',
-            lamTron: 2,
-            trangThai: 1,
-          }}
-        >
-          <Form.Item name="ma" label="Mã" rules={[{ required: true, message: 'Nhập mã' }]}>
-            <Input placeholder="VD: BTC-CO-SO-2027" />
-          </Form.Item>
-          <Form.Item name="ten" label="Tên" rules={[{ required: true, message: 'Nhập tên' }]}>
-            <Input />
-          </Form.Item>
+        <BieuMau id="form-tao-tieu-chi" form={form} onGui={(giaTri) => tao.mutateAsync(giaTri)}>
+          <Truong<GiaTriBoTieuChi> ten="ma" label="Mã" required>
+            {(o) => <Input {...o} value={o.value as string} placeholder="VD: BTC-CO-SO-2027" />}
+          </Truong>
+          <Truong<GiaTriBoTieuChi> ten="ten" label="Tên" required>
+            {(o) => <Input {...o} value={o.value as string} />}
+          </Truong>
           <Space size="large">
-            <Form.Item name="nam" label="Năm">
-              <InputNumber min={2000} max={2100} />
-            </Form.Item>
-            <Form.Item name="thangDiemToiDa" label="Thang điểm">
-              <InputNumber min={1} max={1000} />
-            </Form.Item>
-            <Form.Item name="diemDatToiThieu" label="Điểm đạt tối thiểu">
-              <InputNumber min={0} max={1000} />
-            </Form.Item>
+            <Truong<GiaTriBoTieuChi> ten="nam" label="Năm">
+              {(o) => <InputNumber {...o} value={o.value as number} min={2000} max={2100} />}
+            </Truong>
+            <Truong<GiaTriBoTieuChi> ten="thangDiemToiDa" label="Thang điểm">
+              {(o) => <InputNumber {...o} value={o.value as number} min={1} max={1000} />}
+            </Truong>
+            <Truong<GiaTriBoTieuChi> ten="diemDatToiThieu" label="Điểm đạt tối thiểu">
+              {(o) => <InputNumber {...o} value={o.value as number} min={0} max={1000} />}
+            </Truong>
           </Space>
-          <Form.Item name="cachTinh" label="Cách tính điểm">
-            <Select
-              options={[
-                { value: 'TONG_DIEM', label: 'Tổng điểm các tiêu chí' },
-                { value: 'TRUNG_BINH_CONG', label: 'Trung bình cộng' },
-                { value: 'TRUNG_BINH_TRONG_SO', label: 'Trung bình theo trọng số nhóm' },
-              ]}
-            />
-          </Form.Item>
-        </Form>
+          <Truong<GiaTriBoTieuChi> ten="cachTinh" label="Cách tính điểm">
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as string}
+                options={[
+                  { value: 'TONG_DIEM', label: 'Tổng điểm các tiêu chí' },
+                  { value: 'TRUNG_BINH_CONG', label: 'Trung bình cộng' },
+                  { value: 'TRUNG_BINH_TRONG_SO', label: 'Trung bình theo trọng số nhóm' },
+                ]}
+              />
+            )}
+          </Truong>
+        </BieuMau>
       </Modal>
     </Card>
   );
