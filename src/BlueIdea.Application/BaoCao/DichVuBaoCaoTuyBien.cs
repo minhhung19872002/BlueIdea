@@ -15,7 +15,18 @@ public sealed record KetQuaBaoCaoTuyBien(
     IReadOnlyList<string> TieuDeCot,
     IReadOnlyList<IReadOnlyList<string>> CacDong,
     IReadOnlyDictionary<string, string> BoLocDaApDung,
-    int TongSo);
+    int TongSo,
+    /// <summary>Dinh dang quan tri vien cho phep xuat cho bieu mau nay (XLSX, PDF).</summary>
+    IReadOnlyList<string> DinhDangXuat);
+
+/// <summary>Dinh dang xuat bao cao ma he thong dung duoc.</summary>
+public static class DinhDangXuatBaoCao
+{
+    public const string Excel = "XLSX";
+    public const string Pdf = "PDF";
+
+    public static readonly IReadOnlyList<string> TatCa = new[] { Excel, Pdf };
+}
 
 /// <summary>
 /// Chuc nang 7 - Sinh bao cao thong ke tu cau hinh trong bang <c>bieu_mau_thong_ke</c>,
@@ -85,6 +96,26 @@ public sealed class DichVuBaoCaoTuyBien
         ("phamViApDung", "Phạm vi áp dụng"),
         ("giaTriLamLoi", "Giá trị làm lợi ước tính")
     };
+
+    /// <summary>
+    /// Chi giu dinh dang he thong that su xuat duoc.
+    ///
+    /// Danh sach nay do quan tri vien khai; go nham mot ma la ca nut xuat bien mat ma khong hieu
+    /// vi sao. De trong thi mac dinh cho phep ca hai — bieu mau cu tao truoc khi co o nay khong
+    /// duoc bong dung mat kha nang xuat.
+    /// </summary>
+    private static IReadOnlyList<string> LocDinhDangHopLe(IReadOnlyList<string>? khaiBao)
+    {
+        if (khaiBao is null || khaiBao.Count == 0) return DinhDangXuatBaoCao.TatCa;
+
+        var loc = khaiBao
+            .Where(x => DinhDangXuatBaoCao.TatCa.Contains(x, StringComparer.OrdinalIgnoreCase))
+            .Select(x => x.ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+        return loc.Count == 0 ? DinhDangXuatBaoCao.TatCa : loc;
+    }
 
     /// <summary>Kiem tra cau hinh bao cao truoc khi luu — bao loi ro thay vi de vo luc chay.</summary>
     public static IReadOnlyList<string> KiemTraCauHinh(IReadOnlyList<CotBaoCao> cacCot)
@@ -169,7 +200,8 @@ public sealed class DichVuBaoCaoTuyBien
             cot.Select(c => c.TieuDe).ToList(),
             cacDong,
             boLoc,
-            duLieu.Count);
+            duLieu.Count,
+            LocDinhDangHopLe(bieuMau.DinhDangXuat));
     }
 
     // -----------------------------------------------------------------------------------

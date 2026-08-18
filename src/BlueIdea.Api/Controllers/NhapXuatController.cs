@@ -197,6 +197,8 @@ public sealed class NhapXuatController : ControllerBase
     {
         var bc = await _baoCaoTuyBien.ChayAsync(bieuMauId, dotDeNghiId, donViId, linhVucId, ketQua, ct);
 
+        BatBuocChoPhepDinhDang(bc, DinhDangXuatBaoCao.Excel);
+
         var cacCot = bc.TieuDeCot
             .Select((tieuDe, chiMuc) => new CotXuat<IReadOnlyList<string>>(
                 tieuDe,
@@ -208,6 +210,59 @@ public sealed class NhapXuatController : ControllerBase
         return File(tep,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"{TaoTenTep(bc.TenBaoCao)}.xlsx");
+    }
+
+    /// <summary>Xuất báo cáo tuỳ biến ra PDF.</summary>
+    [HttpGet("bao-cao-tuy-bien/{bieuMauId:guid}/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.BaoCaoXuat)]
+    public async Task<IActionResult> XuatBaoCaoTuyBienPdfAsync(
+        Guid bieuMauId,
+        [FromQuery] Guid? dotDeNghiId,
+        [FromQuery] Guid? donViId,
+        [FromQuery] Guid? linhVucId,
+        [FromQuery] string? ketQua,
+        CancellationToken ct)
+    {
+        var bc = await _baoCaoTuyBien.ChayAsync(bieuMauId, dotDeNghiId, donViId, linhVucId, ketQua, ct);
+
+        BatBuocChoPhepDinhDang(bc, DinhDangXuatBaoCao.Pdf);
+
+        var bang = new List<BangPdf>
+        {
+            new(bc.TenBaoCao.ToUpperInvariant(), bc.TieuDeCot,
+                bc.CacDong.Select(d => d.ToArray()).ToList())
+        };
+
+        var thongTin = bc.BoLocDaApDung
+            .Select(x => new DongThongTin(x.Key, x.Value))
+            .Append(new DongThongTin("Số dòng", bc.TongSo.ToString()))
+            .ToList();
+
+        var tep = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: string.Empty,
+            tenDonVi: string.Empty,
+            tieuDe: bc.TenBaoCao,
+            phuDe: null,
+            thongTin: thongTin,
+            bang: bang);
+
+        return File(tep, "application/pdf", $"{TaoTenTep(bc.TenBaoCao)}.pdf");
+    }
+
+    /// <summary>
+    /// Chan xuat khi quan tri vien khong cho phep dinh dang do.
+    ///
+    /// Truoc day o "Dinh dang cho phep xuat" duoc luu nhung khong nhanh code nao doc: bo chon
+    /// XLSX xong van xuat Excel binh thuong, va chon PDF thi khong co gi xay ra vi khong he co
+    /// duong xuat PDF. Mot o cau hinh khong lam gi ca con te hon la khong co o do.
+    /// </summary>
+    private static void BatBuocChoPhepDinhDang(KetQuaBaoCaoTuyBien bc, string dinhDang)
+    {
+        if (bc.DinhDangXuat.Contains(dinhDang, StringComparer.OrdinalIgnoreCase)) return;
+
+        throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+            $"Biểu mẫu \"{bc.TenBaoCao}\" không cho phép xuất {dinhDang}. "
+            + $"Định dạng được phép: {string.Join(", ", bc.DinhDangXuat)}.");
     }
 
     // --------------------------------------------------- Nhập danh mục từ Excel

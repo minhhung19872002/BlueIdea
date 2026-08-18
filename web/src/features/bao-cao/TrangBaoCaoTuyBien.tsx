@@ -13,7 +13,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { FileExcelOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, FilePdfOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 
 import { LoiApi, taiTep } from '@/api/client';
@@ -80,13 +80,29 @@ export default function TrangBaoCaoTuyBien() {
 
   if (loiBieuMau) return <KhoiLoi loi={loiBieuMau} thuLai={refetch} />;
 
-  async function xuatExcel() {
+  /*
+   * Chỉ hiện nút của định dạng mà biểu mẫu cho phép.
+   *
+   * Máy chủ vẫn chặn lần nữa khi nhận yêu cầu — nhưng để nút hiện rồi báo lỗi khi bấm thì người
+   * dùng không hiểu vì sao mình bị từ chối một việc mà giao diện vừa mời làm.
+   *
+   * Biểu mẫu chưa khai gì thì máy chủ trả về cả hai, nên không màn hình nào mất nút.
+   */
+  const choPhep = baoCao?.dinhDangXuat ?? [];
+  const coDuLieu = !!baoCao && baoCao.cacDong.length > 0;
+
+  async function xuat(dinhDang: 'XLSX' | 'PDF') {
     if (!bieuMauId) return;
+
+    const duongDan =
+      dinhDang === 'PDF'
+        ? apiNhapXuat.duongDanXuatBaoCaoTuyBienPdf(bieuMauId)
+        : apiNhapXuat.duongDanXuatBaoCaoTuyBien(bieuMauId);
 
     try {
       await taiTep(
-        apiNhapXuat.duongDanXuatBaoCaoTuyBien(bieuMauId),
-        `${baoCao?.tenBaoCao ?? 'bao-cao'}.xlsx`,
+        duongDan,
+        `${baoCao?.tenBaoCao ?? 'bao-cao'}.${dinhDang.toLowerCase()}`,
         thamSo,
       );
     } catch (loi) {
@@ -108,13 +124,24 @@ export default function TrangBaoCaoTuyBien() {
           >
             Chạy báo cáo
           </Button>
-          <Button
-            icon={<FileExcelOutlined />}
-            disabled={!baoCao || baoCao.cacDong.length === 0}
-            onClick={xuatExcel}
-          >
-            Xuất Excel
-          </Button>
+          {choPhep.includes('XLSX') && (
+            <Button
+              icon={<FileExcelOutlined />}
+              disabled={!coDuLieu}
+              onClick={() => void xuat('XLSX')}
+            >
+              Xuất Excel
+            </Button>
+          )}
+          {choPhep.includes('PDF') && (
+            <Button
+              icon={<FilePdfOutlined />}
+              disabled={!coDuLieu}
+              onClick={() => void xuat('PDF')}
+            >
+              Xuất PDF
+            </Button>
+          )}
         </Space>
       }
     >
