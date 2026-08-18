@@ -17,6 +17,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="ClosedXML" />
     <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="prometheus-net.AspNetCore" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
