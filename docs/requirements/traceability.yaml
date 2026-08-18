@@ -30,10 +30,13 @@ requirements:
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDanhMuc.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DanhMucController.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
+      tests:
+        - "tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"
+        - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "No CRUD-specific authorization policy — any authenticated user can create/edit/delete"
       - "No dedicated integration test for CRUD, hierarchy, unaccented search, Excel export"
+    notes:
+      - "Run-002-B17: Controller-level [Authorize(Policy)] + service-level BatBuocCoQuyenAsync defense-in-depth added"
 
   - id: REQ-02
     source_number: 2
@@ -44,10 +47,12 @@ requirements:
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDanhMuc.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DanhMucController.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "Same authorization gap as REQ-01"
       - "No integration test"
+    notes:
+      - "Run-002-B17: Authorization gap closed — controller + service permission enforcement"
 
   - id: REQ-03
     source_number: 3
@@ -58,10 +63,13 @@ requirements:
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDotDeNghi.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "No policy for open/close/lock lifecycle transitions"
       - "No integration test for lifecycle management or auto-lock job"
+    notes:
+      - "Run-002-B17: Authorization gap closed — lifecycle transitions (mo/dong/khoa) now require DanhMucSua"
+      - "Run-002-B17: LayTongQuanAsync/LayDanhSachQuanLyAsync service-level DanhMucXem check added"
 
   - id: REQ-04
     source_number: 4
@@ -72,10 +80,12 @@ requirements:
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDanhMuc.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DanhMucController.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "Authorization gap — class-level [Authorize] only"
       - "No dedicated test for max-author constraint enforcement"
+    notes:
+      - "Run-002-B17: Authorization gap closed — controller + service permission enforcement"
 
   - id: REQ-05
     source_number: 5
@@ -86,10 +96,13 @@ requirements:
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "Authorization gap"
       - "No test for tree-path auto-calculation or data scope enforcement"
+      - "DonViController dual-permission gate: DonViXem at controller vs DanhMucXem at service (MEDIUM)"
+    notes:
+      - "Run-002-B17: Authorization gap closed — ChuyenCha/Gop now require DonViCauHinh at service + controller level"
 
   - id: REQ-06
     source_number: 6
@@ -683,10 +696,14 @@ requirements:
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "Authorization gap — class-level [Authorize] only"
       - "No test for tree-path auto-update when moving nodes"
+      - "ChuyenCha/Gop lack org-scope check — caller with DonViCauHinh can affect any unit (MEDIUM)"
+    notes:
+      - "Run-002-B17 SEC HIGH: ChuyenChaAsync/GopAsync now require DonViCauHinh permission"
+      - "Run-002-B17: DonViController defense-in-depth — DonViXem for reads, DonViCauHinh for mutations"
 
   - id: REQ-45
     source_number: 45

@@ -50,6 +50,7 @@ public sealed class DotDeNghiController : ControllerBase
     public DotDeNghiController(DichVuDotDeNghi dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -59,6 +60,7 @@ public sealed class DotDeNghiController : ControllerBase
     /// Mở / Đóng / Khoá đợt.
     /// </summary>
     [HttpGet("quan-ly")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachQuanLyAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DotDeNghiQuanLyDto>.Tu(
@@ -84,10 +86,12 @@ public sealed class DotDeNghiController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDotDangMoAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<DotDeNghi>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> ThemAsync([FromBody] LuuDotDeNghiDto duLieu, CancellationToken ct)
     {
         var banGhi = await _dichVu.ThemAsync(TaoThucThe(new DotDeNghi(), duLieu), ct);
@@ -95,6 +99,7 @@ public sealed class DotDeNghiController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuDotDeNghiDto duLieu, CancellationToken ct)
     {
@@ -103,6 +108,7 @@ public sealed class DotDeNghiController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXoa)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);
@@ -111,6 +117,7 @@ public sealed class DotDeNghiController : ControllerBase
 
     /// <summary>Mở đợt — bắt đầu nhận hồ sơ.</summary>
     [HttpPost("{id:guid}/mo-dot")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> MoDotAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.DoiTrangThaiDotAsync(id, TrangThaiDot.DangMo, ct);
@@ -119,6 +126,7 @@ public sealed class DotDeNghiController : ControllerBase
 
     /// <summary>Đóng đợt — ngừng nhận hồ sơ mới nhưng vẫn xử lý hồ sơ đã nộp.</summary>
     [HttpPost("{id:guid}/dong-dot")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> DongDotAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.DoiTrangThaiDotAsync(id, TrangThaiDot.DaDong, ct);
@@ -127,6 +135,7 @@ public sealed class DotDeNghiController : ControllerBase
 
     /// <summary>Khóa đợt — toàn bộ dữ liệu chỉ đọc.</summary>
     [HttpPost("{id:guid}/khoa-dot")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> KhoaDotAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.DoiTrangThaiDotAsync(id, TrangThaiDot.DaKhoa, ct);
@@ -136,10 +145,12 @@ public sealed class DotDeNghiController : ControllerBase
     /// <summary>Sao chép cấu hình đợt từ năm trước.</summary>
     /// <summary>Số liệu tổng quan của một đợt — dùng cho màn hình chi tiết đợt.</summary>
     [HttpGet("{id:guid}/tong-quan")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTongQuanAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<TongQuanDotDto>.Ok(await _dichVu.LayTongQuanAsync(id, ct)));
 
     [HttpPost("{id:guid}/sao-chep")]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> SaoChepAsync(
         Guid id, [FromBody] SaoChepDotDto duLieu, CancellationToken ct)
     {
@@ -224,6 +235,7 @@ public sealed class DonViController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DonViXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -238,6 +250,7 @@ public sealed class DonViController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DonViXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<DonVi>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
@@ -286,6 +299,7 @@ public sealed class DonViController : ControllerBase
         new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DonViCauHinh)]
     public async Task<IActionResult> ThemAsync([FromBody] LuuDonViDto duLieu, CancellationToken ct)
     {
         var banGhi = await _dichVu.ThemAsync(TaoThucThe(new DonVi(), duLieu), ct);
@@ -294,6 +308,7 @@ public sealed class DonViController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DonViCauHinh)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuDonViDto duLieu, CancellationToken ct)
     {
@@ -303,6 +318,7 @@ public sealed class DonViController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DonViCauHinh)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);
@@ -311,6 +327,7 @@ public sealed class DonViController : ControllerBase
 
     /// <summary>Chức năng 44 — Chuyển đơn vị sang cấp trên khác (kéo thả trên cây tổ chức).</summary>
     [HttpPost("{id:guid}/chuyen-cha")]
+    [Authorize(Policy = MaQuyen.DonViCauHinh)]
     public async Task<IActionResult> ChuyenChaAsync(
         Guid id, [FromBody] ChuyenChaDonViDto duLieu, CancellationToken ct)
     {
@@ -320,6 +337,7 @@ public sealed class DonViController : ControllerBase
 
     /// <summary>Chức năng 44 — Gộp đơn vị khi sáp nhập.</summary>
     [HttpPost("{id:guid}/gop-vao/{dichId:guid}")]
+    [Authorize(Policy = MaQuyen.DonViCauHinh)]
     public async Task<IActionResult> GopAsync(Guid id, Guid dichId, CancellationToken ct)
     {
         var soBanGhi = await _dichVu.GopAsync(id, dichId, ct);

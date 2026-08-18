@@ -1,15 +1,15 @@
 {
     "status":  "RUNNING",
-    "iteration":  16,
-    "currentRequirement":  "REQ-12",
-    "currentBacklogItem":  "REQ-12: HanhDongCanChay full dispatch loop — centralized DichVuDieuPhaiHanhDong",
+    "iteration":  17,
+    "currentRequirement":  "REQ-01/REQ-44",
+    "currentBacklogItem":  "REQ-01/REQ-44 SEC: Close catalog/org authorization gaps — controller + service permission enforcement",
     "phase":  "committing",
-    "lastCompletedItem":  "REQ-12: HanhDongCanChay full dispatch loop — centralized DichVuDieuPhaiHanhDong",
-    "lastQualityGateResult":  "PASS (7/7, 319 unit tests, 165 integration tests, 0 warnings)",
+    "lastCompletedItem":  "REQ-01/REQ-44 SEC: Close catalog/org authorization gaps — controller + service permission enforcement",
+    "lastQualityGateResult":  "PASS (7/7, 369 unit tests, 184 integration tests, 0 warnings)",
     "readyForDeploy":  false,
-    "lastSession":  "13059f4b-ca33-41a0-b3b3-079e568515b0",
-    "lastUpdated":  "2026-08-18T23:30:00+07:00",
-    "lastCommit":  "1c1537b",
+    "lastSession":  "autopilot-iter-17",
+    "lastUpdated":  "2026-08-18T23:45:00+07:00",
+    "lastCommit":  null,
     "lastPush":  null,
     "consecutiveInfraFailures":  0,
     "history":  [
@@ -145,6 +145,17 @@
                         "iteration":  16,
                         "items":  [
                                       "REQ-12 (HanhDongCanChay full dispatch loop — centralized DichVuDieuPhaiHanhDong replacing duplicated DieuPhaiLienThongAsync)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  17,
+                        "items":  [
+                                      "REQ-01/REQ-05/REQ-44 SEC HIGH (ChuyenChaAsync/GopAsync unauthz — DonViCauHinh permission enforcement)",
+                                      "REQ-03 SEC MEDIUM (LayTongQuanAsync/LayDanhSachQuanLyAsync — DanhMucXem permission enforcement)",
+                                      "REQ-01 through REQ-05/REQ-44 (controller-level [Authorize(Policy)] defense-in-depth)",
+                                      "XacThucController merge conflict resolution"
                                   ],
                         "result":  "PASS",
                         "phase":  "committing"

@@ -213,6 +213,8 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     /// </summary>
     public async Task ChuyenChaAsync(Guid id, Guid? donViChaMoiId, CancellationToken ct = default)
     {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DonViCauHinh, id, ct).ConfigureAwait(false);
+
         var donVi = await Db.DonVi.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
             ?? throw new KhongTimThayException("đơn vị", id);
 
@@ -281,6 +283,8 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     /// </summary>
     public async Task<int> GopAsync(Guid nguonId, Guid dichId, CancellationToken ct = default)
     {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DonViCauHinh, ct: ct).ConfigureAwait(false);
+
         if (nguonId == dichId)
         {
             throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
@@ -439,6 +443,8 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
     /// </summary>
     public async Task<TongQuanDotDto> LayTongQuanAsync(Guid id, CancellationToken ct = default)
     {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, id, ct).ConfigureAwait(false);
+
         var dot = await Db.DotDeNghi.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("đợt đề nghị", id);
 
@@ -507,6 +513,8 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
     public async Task<PagedResult<DotDeNghiQuanLyDto>> LayDanhSachQuanLyAsync(
         ThamSoLocDanhMuc thamSo, CancellationToken ct = default)
     {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, ct: ct).ConfigureAwait(false);
+
         var truyVan = Db.DotDeNghi.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(thamSo.TuKhoa))

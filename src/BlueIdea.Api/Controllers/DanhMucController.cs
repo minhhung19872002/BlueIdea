@@ -64,6 +64,7 @@ public sealed class LinhVucController : ControllerBase
 
     /// <summary>Danh sách lĩnh vực có phân trang, tìm kiếm không dấu.</summary>
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -75,14 +76,17 @@ public sealed class LinhVucController : ControllerBase
 
     /// <summary>Cây lĩnh vực (hiển thị dạng Tree trên giao diện).</summary>
     [HttpGet("cay")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayCayAsync(CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<NutCay>>.Ok(await _dichVu.LayCayAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<LinhVuc>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> ThemAsync([FromBody] LuuLinhVucDto duLieu, CancellationToken ct)
     {
         var banGhi = await _dichVu.ThemAsync(new LinhVuc
@@ -99,6 +103,7 @@ public sealed class LinhVucController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuLinhVucDto duLieu, CancellationToken ct)
     {
@@ -116,6 +121,7 @@ public sealed class LinhVucController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXoa)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);
@@ -123,6 +129,7 @@ public sealed class LinhVucController : ControllerBase
     }
 
     [HttpPatch("{id:guid}/trang-thai")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> DoiTrangThaiAsync(
         Guid id, [FromQuery] short trangThai, CancellationToken ct)
     {
@@ -131,6 +138,7 @@ public sealed class LinhVucController : ControllerBase
     }
 
     [HttpPut("sap-xep")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SapXepAsync([FromBody] List<Guid> thuTu, CancellationToken ct)
     {
         await _dichVu.SapXepAsync(thuTu, ct);
@@ -139,6 +147,7 @@ public sealed class LinhVucController : ControllerBase
 
     /// <summary>Xuất danh sách ra Excel theo bộ lọc hiện tại.</summary>
     [HttpGet("xuat-excel")]
+    [Authorize(Policy = MaQuyen.DanhMucXuat)]
     public async Task<IActionResult> XuatExcelAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
     {
@@ -171,6 +180,7 @@ public sealed class DoiTuongController : ControllerBase
     public DoiTuongController(DichVuDoiTuong dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -180,10 +190,12 @@ public sealed class DoiTuongController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<DoiTuong>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> ThemAsync([FromBody] LuuDanhMucDto duLieu, CancellationToken ct)
     {
         var banGhi = await _dichVu.ThemAsync(new DoiTuong
@@ -199,6 +211,7 @@ public sealed class DoiTuongController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuDanhMucDto duLieu, CancellationToken ct)
     {
@@ -215,6 +228,7 @@ public sealed class DoiTuongController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXoa)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);
@@ -234,6 +248,7 @@ public sealed class LoaiTacGiaController : ControllerBase
     public LoaiTacGiaController(DichVuLoaiTacGia dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -243,10 +258,12 @@ public sealed class LoaiTacGiaController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<LoaiTacGia>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> ThemAsync(
         [FromBody] LuuLoaiTacGiaDto duLieu, CancellationToken ct)
     {
@@ -265,6 +282,7 @@ public sealed class LoaiTacGiaController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuLoaiTacGiaDto duLieu, CancellationToken ct)
     {
@@ -283,6 +301,7 @@ public sealed class LoaiTacGiaController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXoa)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);

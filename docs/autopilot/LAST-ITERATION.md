@@ -1,44 +1,57 @@
-# Iteration 16 — REQ-12: HanhDongCanChay Full Dispatch Loop
+# Iteration 17 — SEC: Close catalog/org authorization gaps (REQ-01 through REQ-05, REQ-44)
 
 ## What Was Worked On
 
-REQ-12 gap: 7 of 10 configured workflow action types (HanhDongCanChay) were silently dropped after workflow transitions. Both `ThucThiBuocCommandHandler` and `ThucThiHangLoatCommandHandler` had duplicated `DieuPhaiLienThongAsync` methods that only handled `DONG_BO_LIEN_THONG` and ignored the other 7 non-notification actions.
+Multiple HIGH-severity authorization gaps across catalog management (REQ-01 through REQ-05) and organization management (REQ-44):
+1. `DichVuDonVi.ChuyenChaAsync` — restructure org tree with NO permission check
+2. `DichVuDonVi.GopAsync` — destructive unit merge with NO permission check
+3. `DichVuDotDeNghi.LayTongQuanAsync` — admin aggregate stats with no permission check
+4. `DichVuDotDeNghi.LayDanhSachQuanLyAsync` — admin management list with no permission check
+5. All catalog controllers (LinhVuc, DoiTuong, LoaiTacGia, DotDeNghi, DonVi) had only bare `[Authorize]` at class level — no policy-level authorization at the controller boundary
+
+Additionally resolved a pre-existing merge conflict in XacThucController.cs (conflicting `IConfiguration` vs `IDichVuCauHinh` fields).
 
 ## What Was Accomplished
 
-1. **Created `DichVuDieuPhaiHanhDong`** — centralized dispatch service that routes all 10 action types:
-   - `DONG_BO_LIEN_THONG`: Implemented (absorbed from handlers)
-   - `KIEM_TRA_TRUNG_LAP`: Implemented (schedules background similarity check)
-   - `CAP_NHAT_KET_QUA`: Recognized but deferred — `BoMayQuyTrinh.ChuyenBuoc` already writes `hoSo.KetQua` at engine level (lines 328/332), making a dispatch handler redundant
-   - `GUI_EMAIL`/`GUI_SMS`: Skipped (handled via `GuiThongBaoAsync` + `ChucNangBat` channel gating)
-   - 5 remaining actions log warnings for manual handling
+1. **Service-level permission checks** added to 4 methods:
+   - `ChuyenChaAsync` → `BatBuocCoQuyenAsync(DonViCauHinh, id)`
+   - `GopAsync` → `BatBuocCoQuyenAsync(DonViCauHinh)`
+   - `LayTongQuanAsync` → `BatBuocCoQuyenAsync(DanhMucXem, id)`
+   - `LayDanhSachQuanLyAsync` → `BatBuocCoQuyenAsync(DanhMucXem)`
 
-2. **Removed duplicated code** — deleted `DieuPhaiLienThongAsync` from both handlers (~106 lines of duplication), replaced with single `_dieuPhai.DieuPhaiAsync()` call
+2. **Controller-level authorization policies** (defense-in-depth) across 5 controllers:
+   - LinhVucController: 9 endpoints with policies (DanhMucXem/Them/Sua/Xoa/Xuat)
+   - DoiTuongController: 5 endpoints with policies
+   - LoaiTacGiaController: 5 endpoints with policies
+   - DotDeNghiController: 11 endpoints with policies (incl. lifecycle transitions)
+   - DonViController: 7 endpoints with policies (DonViXem/DonViCauHinh)
+   - Dropdown/selection endpoints (`chon`, `dang-mo`, `cay`, `logo`) intentionally kept bare `[Authorize]`
 
-3. **Error isolation** — per-action try/catch ensures one failure cannot block others
+3. **Merge conflict resolved** in XacThucController.cs — `_cauHinh` (IConfiguration) + `_dichVuCauHinh` (IDichVuCauHinh)
 
-4. **Removed redundant CAP_NHAT_KET_QUA handler** — security review discovered that `BoMayQuyTrinh.ChuyenBuoc` already writes `hoSo.KetQua` before the dispatch runs. The handler would have produced a misleading audit trail (before=DAT, after=DAT). Converted to a debug log.
-
-5. **10 unit tests** verify constant values, action routing, and dispatch filtering logic
+4. **45 unit tests** verifying controller authorization attributes via reflection (includes class-level Authorize check)
 
 ## Files Changed
 
-- `src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs` (NEW)
-- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` (MODIFIED — removed duplication, wired dispatch)
-- `src/BlueIdea.Application/Chung/DangKyDichVuUngDung.cs` (MODIFIED — DI registration)
-- `tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs` (NEW)
-- `docs/requirements/traceability.yaml` (MODIFIED — updated REQ-12 evidence and gaps)
+- `src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs` (MODIFIED — 4 permission checks added)
+- `src/BlueIdea.Api/Controllers/DanhMucController.cs` (MODIFIED — 19 policy attributes)
+- `src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs` (MODIFIED — 18 policy attributes)
+- `src/BlueIdea.Api/Controllers/XacThucController.cs` (MODIFIED — merge conflict resolved)
+- `tests/BlueIdea.UnitTests/BlueIdea.UnitTests.csproj` (MODIFIED — added API project reference)
+- `tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs` (NEW — 45 tests)
+- `docs/requirements/traceability.yaml` (MODIFIED — updated REQ-01 through REQ-05, REQ-44)
 
 ## Quality Gate
 
-PASS (7/7, 319 unit tests + 165 integration tests, 0 warnings)
-
-## Commit
-
-`1c1537b` — `feat: centralize HanhDongCanChay dispatch loop (REQ-12)`
+PASS (7/7, 369 unit tests + 184 integration tests, 0 warnings)
 
 ## Remaining Gaps
 
-- 5 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, TAO_BIEN_BAN, PHAN_CONG_CHAM, CONG_BO_KET_QUA) log warnings — require future implementation when business logic is defined
-- No runtime integration test for feature toggles affecting live workflow execution
-- Change tracker pollution between dispatch actions sharing scoped DbContext (pre-existing architectural pattern)
+- `DichVuPhanQuyen.KiemTraQuyenAsync` discards `doiTuongId` — resource-level scope enforcement is not implemented for mutations (CRITICAL pre-existing, tracked for future iteration)
+- DonViController uses DonViXem/DonViCauHinh but base service checks DanhMucXem/Sua/Xoa — dual-permission gate (no regression with current seed data but fragile)
+- `LayCayAsync` and `LayDanhSachChonAsync` have no service-level permission check (by design — dropdown/tree for all users)
+- No integration tests for catalog CRUD authorization denial
+
+## Next Priority Item
+
+Implement resource-level scope validation in `DichVuPhanQuyen.BatBuocCoQuyenAsync` (CRITICAL security gap from review).
