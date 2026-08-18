@@ -1217,6 +1217,8 @@ export interface KetQuaBaoCaoTuyBien {
   cacDong: string[][];
   boLocDaApDung: Record<string, string>;
   tongSo: number;
+  /** Định dạng quản trị viên cho phép xuất với biểu mẫu này (XLSX, PDF). */
+  dinhDangXuat: string[];
 }
 
 export interface NguonDuLieuBaoCao {
@@ -1291,6 +1293,8 @@ export const apiNhapXuat = {
     layDuLieu<KetQuaBaoCaoTuyBien>(`/api/v1/nhap-xuat/bao-cao-tuy-bien/${bieuMauId}`, {
       params: thamSo,
     }),
+  duongDanXuatBaoCaoTuyBienPdf: (bieuMauId: string) =>
+    `/api/v1/nhap-xuat/bao-cao-tuy-bien/${bieuMauId}/xuat-pdf`,
   duongDanXuatBaoCaoTuyBien: (bieuMauId: string) =>
     `/api/v1/nhap-xuat/bao-cao-tuy-bien/${bieuMauId}/xuat-excel`,
 };

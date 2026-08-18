@@ -86,6 +86,54 @@ public sealed class BieuMauThongKeTests
         sauXoa.IsSuccessStatusCode.Should().BeFalse("biểu mẫu đã xoá thì không đọc lại được");
     }
 
+    /// <summary>
+    /// O "Dinh dang cho phep xuat" phai that su quyet dinh duoc gi.
+    ///
+    /// Truoc day gia tri nay duoc luu nhung khong nhanh code nao doc: bo chon XLSX xong van xuat
+    /// Excel binh thuong, va chon PDF thi khong co gi xay ra vi khong he co duong xuat PDF.
+    /// </summary>
+    [Fact]
+    public async Task Chi_Xuat_Duoc_Dinh_Dang_Bieu_Mau_Cho_Phep()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+
+        var chiPdf = await TaoBieuMauAsync(admin, new[] { "PDF" });
+        var chiExcel = await TaoBieuMauAsync(admin, new[] { "XLSX" });
+
+        // Bieu mau chi cho PDF: xuat PDF duoc, xuat Excel bi tu choi.
+        (await admin.GetAsync($"/api/v1/nhap-xuat/bao-cao-tuy-bien/{chiPdf}/xuat-pdf"))
+            .EnsureSuccessStatusCode();
+
+        var excelBiChan = await admin.GetAsync(
+            $"/api/v1/nhap-xuat/bao-cao-tuy-bien/{chiPdf}/xuat-excel");
+
+        excelBiChan.IsSuccessStatusCode.Should().BeFalse();
+        (await excelBiChan.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("thongBao").GetString().Should().Contain("không cho phép xuất XLSX");
+
+        // Va nguoc lai.
+        (await admin.GetAsync($"/api/v1/nhap-xuat/bao-cao-tuy-bien/{chiExcel}/xuat-excel"))
+            .EnsureSuccessStatusCode();
+
+        (await admin.GetAsync($"/api/v1/nhap-xuat/bao-cao-tuy-bien/{chiExcel}/xuat-pdf"))
+            .IsSuccessStatusCode.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Xuat_Pdf_Tra_Ve_Dung_Tep_Pdf()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var id = await TaoBieuMauAsync(admin, new[] { "XLSX", "PDF" });
+
+        var phanHoi = await admin.GetAsync($"/api/v1/nhap-xuat/bao-cao-tuy-bien/{id}/xuat-pdf");
+        phanHoi.EnsureSuccessStatusCode();
+
+        phanHoi.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
+
+        var byteDau = await phanHoi.Content.ReadAsByteArrayAsync();
+        System.Text.Encoding.ASCII.GetString(byteDau, 0, 4).Should().Be("%PDF");
+    }
+
     [Fact]
     public async Task Bieu_Mau_Khong_Co_Cot_Bi_Chan_Ngay_Khi_Luu()
     {
@@ -148,6 +196,27 @@ public sealed class BieuMauThongKeTests
         ds.EnumerateArray().Should().OnlyContain(
             x => !string.IsNullOrWhiteSpace(x.GetProperty("tieuDeGoiY").GetString()),
             "màn hình hiển thị tiêu đề gợi ý trong ô chọn, thiếu là ô chọn trống trơn");
+    }
+
+    private static async Task<string> TaoBieuMauAsync(HttpClient client, string[] dinhDangXuat)
+    {
+        var tao = await client.PostAsJsonAsync(Goc, new
+        {
+            ma = $"BMTK_DD_{Guid.NewGuid():N}"[..24].ToUpperInvariant(),
+            ten = $"Biểu mẫu {string.Join("-", dinhDangXuat)}",
+            thuTu = 0,
+            trangThai = 1,
+            cauHinhCot = new[]
+            {
+                new { ma = "maHoSo", tieuDe = "Mã hồ sơ", nguon = "maHoSo", hamTongHop = (string?)null, thuTu = 1 }
+            },
+            dinhDangXuat
+        });
+
+        tao.EnsureSuccessStatusCode();
+
+        return (await tao.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetProperty("id").GetString()!;
     }
 
     private static async Task<JsonElement> LayDuLieuAsync(HttpClient client, string duongDan)
