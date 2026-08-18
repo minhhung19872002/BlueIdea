@@ -8,11 +8,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace BlueIdea.Api.Controllers;
 
 /// <summary>Dữ liệu client gửi lên để đổi authorization code lấy token.</summary>
-public sealed record DoiMaSsoDto(string Code, string CodeVerifier, string DuongDanTraVe);
+public sealed record DoiMaSsoDto(string Code, string CodeVerifier, string DuongDanTraVe, string State);
 
 /// <summary>Yêu cầu gửi mã đặt lại mật khẩu — nhận tên đăng nhập hoặc email.</summary>
 public sealed record YeuCauQuenMatKhauDto(string DinhDanh);
@@ -29,12 +30,17 @@ public sealed record DiaChiDangXuatSsoDto(string? IdToken, string DuongDanTraVe)
 [Produces("application/json")]
 public sealed class XacThucController : ControllerBase
 {
+    private const string TienToSsoState = "SSO_STATE:";
+    private static readonly TimeSpan ThoiGianSongState = TimeSpan.FromMinutes(5);
+
     private readonly IMediator _mediator;
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IAppDbContext _db;
     private readonly DichVuDangNhapSso _sso;
     private readonly DichVuCaptcha _captcha;
     private readonly DichVuQuenMatKhau _quenMatKhau;
+    private readonly IMemoryCache _cache;
+    private readonly IConfiguration _cauHinh;
 
     public XacThucController(
         IMediator mediator,
@@ -42,7 +48,9 @@ public sealed class XacThucController : ControllerBase
         IAppDbContext db,
         DichVuDangNhapSso sso,
         DichVuCaptcha captcha,
-        DichVuQuenMatKhau quenMatKhau)
+        DichVuQuenMatKhau quenMatKhau,
+        IMemoryCache cache,
+        IConfiguration cauHinh)
     {
         _mediator = mediator;
         _nguoiDung = nguoiDung;
@@ -50,6 +58,8 @@ public sealed class XacThucController : ControllerBase
         _sso = sso;
         _captcha = captcha;
         _quenMatKhau = quenMatKhau;
+        _cache = cache;
+        _cauHinh = cauHinh;
     }
 
     /// <summary>Sinh ảnh CAPTCHA (SVG) cho trang đăng nhập.</summary>
@@ -115,24 +125,20 @@ public sealed class XacThucController : ControllerBase
     /// Bắt đầu luồng SSO: sinh <c>state</c> và cặp PKCE, gửi về cho client rồi chuyển hướng
     /// sang nhà cung cấp.
     ///
-    /// <c>state</c> và <c>codeVerifier</c> do CLIENT giữ và gửi lại ở bước đổi mã — máy chủ không
-    /// lưu phiên tạm, nhờ vậy chạy được nhiều bản API song song sau cân bằng tải.
+    /// <c>state</c> được lưu server-side (IMemoryCache, TTL 5 phút) và kiểm tra lại khi đổi mã
+    /// để chống CSRF. Triển khai nhiều bản API cần IDistributedCache (Redis) thay IMemoryCache.
     /// </summary>
     [HttpGet("sso/bat-dau")]
     [AllowAnonymous]
     public IActionResult BatDauSso([FromQuery] string duongDanTraVe)
     {
-        if (string.IsNullOrWhiteSpace(duongDanTraVe)
-            || !Uri.TryCreate(duongDanTraVe, UriKind.Absolute, out var uri)
-            || uri.Scheme is not ("http" or "https"))
-        {
-            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
-                "Đường dẫn trả về không hợp lệ.");
-        }
+        KiemTraDuongDanTraVe(duongDanTraVe);
 
         var state = TaoChuoiNgauNhien();
         var codeVerifier = TaoChuoiNgauNhien();
         var codeChallenge = TaoCodeChallenge(codeVerifier);
+
+        _cache.Set(TienToSsoState + state, true, ThoiGianSongState);
 
         var diaChi = _sso.TaoDiaChiDangNhap(state, codeChallenge, duongDanTraVe);
 
@@ -146,10 +152,71 @@ public sealed class XacThucController : ControllerBase
     public async Task<IActionResult> DoiMaSsoAsync(
         [FromBody] DoiMaSsoDto duLieu, CancellationToken ct)
     {
+        KiemTraDuongDanTraVe(duLieu.DuongDanTraVe);
+
+        var khoaState = TienToSsoState + duLieu.State;
+        if (!_cache.TryGetValue(khoaState, out _))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Phiên SSO không hợp lệ hoặc đã hết hạn.");
+        }
+
+        _cache.Remove(khoaState);
+
         var ketQua = await _sso.XuLyTraVeAsync(
             duLieu.Code, duLieu.CodeVerifier, duLieu.DuongDanTraVe, ct);
 
         return Ok(PhanHoiApi<KetQuaDangNhap>.Ok(ketQua, "Đăng nhập SSO thành công"));
+    }
+
+    /// <summary>
+    /// Chan open redirect: chi chap nhan duong dan tra ve co scheme+host+port trung voi
+    /// Cors:NguonChoPhep hoac Sso:AllowedRedirectHosts.
+    /// </summary>
+    private void KiemTraDuongDanTraVe(string? duongDanTraVe)
+    {
+        if (string.IsNullOrWhiteSpace(duongDanTraVe)
+            || !Uri.TryCreate(duongDanTraVe, UriKind.Absolute, out var uri)
+            || uri.Scheme is not ("http" or "https"))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Đường dẫn trả về không hợp lệ.");
+        }
+
+        var nguonChoPhep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var nguonCors = _cauHinh.GetSection("Cors:NguonChoPhep").Get<string[]>();
+        if (nguonCors is not null)
+        {
+            foreach (var nguon in nguonCors)
+            {
+                if (Uri.TryCreate(nguon, UriKind.Absolute, out var u))
+                    nguonChoPhep.Add(u.GetLeftPart(UriPartial.Authority));
+            }
+        }
+
+        var ssoHosts = _cauHinh.GetSection("Sso:AllowedRedirectHosts").Get<string[]>();
+        if (ssoHosts is not null)
+        {
+            foreach (var h in ssoHosts)
+            {
+                var trimmed = h.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+
+                if (Uri.TryCreate(trimmed, UriKind.Absolute, out var u) && u.Scheme is "http" or "https")
+                    nguonChoPhep.Add(u.GetLeftPart(UriPartial.Authority));
+                else
+                    nguonChoPhep.Add($"https://{trimmed}");
+            }
+        }
+
+        var nguonYeuCau = uri.GetLeftPart(UriPartial.Authority);
+
+        if (nguonChoPhep.Count == 0 || !nguonChoPhep.Contains(nguonYeuCau))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Đường dẫn trả về không thuộc miền được phép.");
+        }
     }
 
     /// <summary>Chuỗi ngẫu nhiên mật mã dùng cho state và code_verifier (RFC 7636).</summary>
@@ -196,10 +263,14 @@ public sealed class XacThucController : ControllerBase
     [Authorize]
     public async Task<IActionResult> LayDiaChiDangXuatSsoAsync(
         [FromBody] DiaChiDangXuatSsoDto duLieu, CancellationToken ct)
-        => Ok(PhanHoiApi<object>.Ok(new
+    {
+        KiemTraDuongDanTraVe(duLieu.DuongDanTraVe);
+
+        return Ok(PhanHoiApi<object>.Ok(new
         {
             diaChi = await _sso.TaoDiaChiDangXuatAsync(duLieu.IdToken, duLieu.DuongDanTraVe, ct)
         }));
+    }
 
     /// <summary>Đổi mật khẩu (áp dụng chính sách mật khẩu cấu hình được).</summary>
     [HttpPost("doi-mat-khau")]

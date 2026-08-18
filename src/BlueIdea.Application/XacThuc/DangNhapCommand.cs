@@ -49,6 +49,9 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
     private readonly DichVuMfa _mfa;
     private readonly DichVuCaptcha _captcha;
 
+    private static string? s_dummyHash;
+    private static string? s_dummySalt;
+
     public DangNhapCommandHandler(
         IAppDbContext db,
         IDichVuMatKhau matKhau,
@@ -67,6 +70,13 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
         _cauHinh = cauHinh;
         _mfa = mfa;
         _captcha = captcha;
+
+        if (s_dummyHash is null)
+        {
+            var (h, s) = matKhau.BamMatKhau("__timing_dummy__");
+            s_dummySalt = s;
+            s_dummyHash = h;
+        }
     }
 
     public async Task<KetQuaDangNhap> Handle(DangNhapCommand request, CancellationToken ct)
@@ -80,36 +90,50 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
 
         if (nguoiDung is null)
         {
-            // Ghi nhat ky nhung KHONG tiet lo tai khoan co ton tai hay khong.
+            // Chay Argon2id gia de thoi gian phan hoi dong nhat voi tai khoan ton tai.
+            _matKhau.KiemTra(request.MatKhau, s_dummyHash!, s_dummySalt!);
+
             await GhiNhatKyDangNhapAsync(tenDangNhap, null, false, "Tài khoản không tồn tại", ct)
                 .ConfigureAwait(false);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            await KiemTraCaptchaTheoNhatKyAsync(request, tenDangNhap, ct).ConfigureAwait(false);
+
             throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
                 "Tên đăng nhập hoặc mật khẩu không đúng.");
         }
 
+        // Tra ve cung ma loi chung cho moi trang thai tai khoan (khoa tam, khoa vinh vien,
+        // cho kich hoat) de khong lo thong tin tai khoan ton tai cho ke tan cong.
+        // Ly do that bai thuc te da ghi vao nhat_ky_dang_nhap.
         if (nguoiDung.DangBiKhoaTam(bayGio))
         {
-            var conLai = (int)Math.Ceiling((nguoiDung.KhoaDen!.Value - bayGio).TotalMinutes);
             await GhiNhatKyDangNhapAsync(tenDangNhap, nguoiDung.Id, false, "Tài khoản đang bị khóa tạm", ct)
                 .ConfigureAwait(false);
-            throw new NghiepVuException(MaLoiHeThong.TaiKhoanBiKhoa,
-                $"Tài khoản đang bị khóa, vui lòng thử lại sau {conLai} phút.");
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await KiemTraCaptchaTheoNhatKyAsync(request, tenDangNhap, ct).ConfigureAwait(false);
+            throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
+                "Tên đăng nhập hoặc mật khẩu không đúng.");
         }
 
         if (nguoiDung.TrangThaiTaiKhoan == TrangThaiNguoiDung.Khoa)
         {
             await GhiNhatKyDangNhapAsync(tenDangNhap, nguoiDung.Id, false, "Tài khoản bị khóa", ct)
                 .ConfigureAwait(false);
-            throw new NghiepVuException(MaLoiHeThong.TaiKhoanBiKhoa,
-                "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await KiemTraCaptchaTheoNhatKyAsync(request, tenDangNhap, ct).ConfigureAwait(false);
+            throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
+                "Tên đăng nhập hoặc mật khẩu không đúng.");
         }
 
         if (nguoiDung.TrangThaiTaiKhoan == TrangThaiNguoiDung.ChoKichHoat)
         {
             await GhiNhatKyDangNhapAsync(tenDangNhap, nguoiDung.Id, false, "Tài khoản chưa kích hoạt", ct)
                 .ConfigureAwait(false);
-            throw new NghiepVuException(MaLoiHeThong.TaiKhoanChuaKichHoat,
-                "Tài khoản chưa được kích hoạt.");
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await KiemTraCaptchaTheoNhatKyAsync(request, tenDangNhap, ct).ConfigureAwait(false);
+            throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
+                "Tên đăng nhập hoặc mật khẩu không đúng.");
         }
 
         // CAPTCHA kiem tra TRUOC khi so mat khau: neu so mat khau truoc roi moi doi CAPTCHA
@@ -261,6 +285,44 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
             .ConfigureAwait(false);
 
         return (vaiTro, quyen);
+    }
+
+    private async Task KiemTraCaptchaTheoNhatKyAsync(
+        DangNhapCommand request, string tenDangNhap, CancellationToken ct)
+    {
+        var soLanSaiCanCaptcha = await _cauHinh
+            .LayAsync(KhoaCauHinh.SoLanSaiCanCaptcha, SoLanSaiCanCaptchaMacDinh, ct)
+            .ConfigureAwait(false);
+
+        if (soLanSaiCanCaptcha <= 0) return;
+
+        var soPhutKhoa = await _cauHinh
+            .LayAsync(KhoaCauHinh.ThoiGianKhoaTaiKhoanPhut, SoPhutKhoaMacDinh, ct)
+            .ConfigureAwait(false);
+
+        var tuLuc = _dongHo.BayGio.AddMinutes(-soPhutKhoa);
+
+        var soLanSaiGanDay = await _db.NhatKyDangNhap
+            .CountAsync(x => x.TenDangNhap == tenDangNhap && !x.ThanhCong && x.ThoiGian >= tuLuc, ct)
+            .ConfigureAwait(false);
+
+        if (soLanSaiGanDay < soLanSaiCanCaptcha) return;
+
+        if (string.IsNullOrWhiteSpace(request.CaptchaId))
+        {
+            throw new NghiepVuException(MaLoiHeThong.CanNhapCaptcha,
+                "Vui lòng nhập mã xác nhận trong ảnh.");
+        }
+
+        var dungCaptcha = await _captcha
+            .KiemTraAsync(request.CaptchaId, request.CaptchaLoiGiai, ct)
+            .ConfigureAwait(false);
+
+        if (!dungCaptcha)
+        {
+            throw new NghiepVuException(MaLoiHeThong.CaptchaKhongDung,
+                "Mã xác nhận không đúng. Vui lòng thử lại.");
+        }
     }
 
     private Task GhiNhatKyDangNhapAsync(

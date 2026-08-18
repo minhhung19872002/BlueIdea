@@ -1762,7 +1762,7 @@ export const apiSso = {
       '/api/v1/xac-thuc/sso/bat-dau',
       { params: { duongDanTraVe } },
     ),
-  doiMa: (duLieu: { code: string; codeVerifier: string; duongDanTraVe: string }) =>
+  doiMa: (duLieu: { code: string; codeVerifier: string; duongDanTraVe: string; state: string }) =>
     guiDuLieu<KetQuaDangNhapSso>('/api/v1/xac-thuc/sso/doi-ma', duLieu),
   diaChiDangXuat: (duLieu: { idToken?: string | null; duongDanTraVe: string }) =>
     guiDuLieu<{ diaChi: string | null }>('/api/v1/xac-thuc/sso/dia-chi-dang-xuat', duLieu),

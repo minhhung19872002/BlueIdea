@@ -57,6 +57,7 @@ export default function TrangSsoTraVe() {
           code,
           codeVerifier,
           duongDanTraVe: `${window.location.origin}/dang-nhap/sso`,
+          state,
         });
 
         boNhoToken.luu(ketQua.accessToken, ketQua.refreshToken);

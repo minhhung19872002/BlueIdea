@@ -114,8 +114,10 @@ public sealed class DichVuDangNhapSso
 
         if (nguoiDung.TrangThaiTaiKhoan == TrangThaiNguoiDung.Khoa)
         {
-            throw new NghiepVuException(MaLoiHeThong.TaiKhoanBiKhoa,
-                "Tài khoản đã bị khoá trên hệ thống sáng kiến.");
+            _logger.LogWarning("SSO: tài khoản {TenDangNhap} bị khóa, từ chối đăng nhập.",
+                nguoiDung.TenDangNhap);
+            throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
+                "Không thể đăng nhập vào hệ thống. Vui lòng liên hệ quản trị viên.");
         }
 
         var bayGio = _dongHo.BayGio;

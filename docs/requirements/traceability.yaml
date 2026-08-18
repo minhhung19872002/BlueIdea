@@ -322,10 +322,11 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/XacThucNangCaoTests.cs", "tests/BlueIdea.UnitTests/XacThuc/"]
     gaps:
       - "SSO component BLOCKED_EXTERNAL — needs real city SSO credentials"
-      - "SEC: Account enumeration via distinct login error messages (HIGH)"
-      - "SEC: SSO state parameter not validated server-side (HIGH)"
-      - "SEC: Open redirect in duongDanTraVe (HIGH)"
-    notes: "Internal auth verified by 9+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes)."
+      - "SEC: IMemoryCache-based SSO state validation does not work in multi-instance deployments — upgrade to IDistributedCache (Redis) for HA (MEDIUM)"
+      - "SEC: SSO state TryGetValue+Remove not atomic — TOCTOU race window, low exploitability due to IdP code one-time-use + PKCE (LOW)"
+      - "SEC: MFA prompt (CanXacThucMfa) confirms account existence + correct password — credential-stuffing oracle (MEDIUM, rate-limited to 5/min/IP)"
+      - "SEC: MFA recovery codes hashed with unsalted SHA-256 — 40-bit entropy brute-forceable from DB dump (LOW, post-compromise only)"
+    notes: "Internal auth verified by 9+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes). Run-002-B3: Account enumeration fixed (all login errors return SaiTaiKhoanMatKhau). SSO state validated server-side (IMemoryCache, 5-min TTL). Open redirect blocked (scheme+host+port whitelist from Cors:NguonChoPhep + Sso:AllowedRedirectHosts). Run-002-B4: Timing oracle fixed (dummy Argon2id for non-existent accounts). CAPTCHA side-channel fixed (log-based CAPTCHA for null/locked/inactive paths). Audit log persistence fixed (SaveChangesAsync on early-exit paths)."
 
   - id: REQ-22
     source_number: 22
@@ -633,8 +634,7 @@ requirements:
     gaps:
       - "SSO needs real SSO_ISSUER/CLIENT_ID/CLIENT_SECRET"
       - "IOC/TDKT needs real endpoint and API key"
-      - "SEC: SSO state parameter not validated server-side (HIGH)"
-      - "SEC: Open redirect in duongDanTraVe (HIGH)"
+      - "SEC: IMemoryCache-based SSO state validation needs IDistributedCache for multi-instance HA (MEDIUM)"
     dependencies: ["external-sso-provider", "external-ioc-system", "external-tdkt-system"]
 
   # ── Nhom XII: Ung dung di dong ─────────────────────────────────────
