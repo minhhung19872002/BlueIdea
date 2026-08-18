@@ -79,6 +79,13 @@ public sealed class DichVuKiemTraTrungLap
     public async Task<KetQuaPhanTichTrungLap?> ChayAsync(
         Guid sangKienId, bool batBuocChayLai = false, CancellationToken ct = default)
     {
+        // Hangfire runs without HTTP context (DaXacThuc is false); skip user-facing scope check there.
+        if (_nguoiDung.DaXacThuc)
+        {
+            await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TrungLapChayLai, ct: ct).ConfigureAwait(false);
+            await BatBuocTrongPhamViSangKienAsync(sangKienId, ct).ConfigureAwait(false);
+        }
+
         var hoSo = await _db.SangKien.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
             .ConfigureAwait(false);
@@ -230,11 +237,13 @@ public sealed class DichVuKiemTraTrungLap
     public async Task DanhDauDaXemXetAsync(
         Guid kiemTraId, string? yKien, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TrungLapXem, kiemTraId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TrungLapXem, ct: ct).ConfigureAwait(false);
 
         var banGhi = await _db.KiemTraTrungLap
             .FirstOrDefaultAsync(x => x.Id == kiemTraId, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("kết quả kiểm tra trùng lặp", kiemTraId);
+
+        await BatBuocTrongPhamViSangKienAsync(banGhi.SangKienId, ct).ConfigureAwait(false);
 
         banGhi.DaXemXet = true;
         banGhi.YKienHoiDong = yKien;

@@ -402,9 +402,10 @@ requirements:
     gaps:
       - "ONNX model not deployed — semantic embedding uses lexical hashing (BLOCKED_EXTERNAL)"
       - "Brute-force O(n^2) pairwise comparison — no backfill mechanism"
-      - "SEC: ChayAsync IDOR — no org scoping on similarity re-run, cross-org content disclosure + write (HIGH)"
-      - "SEC: DanhDauDaXemXetAsync latent IDOR — no org scoping but NOT wired to any endpoint (MEDIUM, latent)"
-    notes: "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. ChayAsync and DanhDauDaXemXetAsync NOT fixed (queued for Run-002-B2). AI compliance fully satisfied — zero third-party AI references."
+      - "DanhDauDaXemXetAsync uses TrungLapXem (view) for a write op — needs dedicated permission when endpoint is wired (LOW, latent)"
+      - "DanhDauDaXemXetAsync has no HTTP endpoint — IDOR fix is latent until controller wires it"
+      - "No integration test for POST chay-lai cross-org denial"
+    notes: "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. Run-002-B2: ChayAsync IDOR fixed (conditional org-scope check, safe for Hangfire caller). DanhDauDaXemXetAsync IDOR fixed (resolves parent SangKienId for scope check). AI compliance fully satisfied — zero third-party AI references."
 
   # ── Nhom VI: Tiep nhan va xu ly ────────────────────────────────────
 
