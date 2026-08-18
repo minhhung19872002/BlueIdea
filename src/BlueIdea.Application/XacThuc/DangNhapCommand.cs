@@ -161,6 +161,27 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
             }
         }
 
+        // SEC: Khi MFA bat va chua gui ma TOTP, tra ve CAN_XAC_THUC_MFA KHONG kiem tra
+        // mat khau — tranh credential-stuffing oracle. Chay Argon2id de timing dong nhat.
+        // Khong goi XuLyDangNhapSaiAsync: neu tang bo dem thi ke tan cong dua vao lockout
+        // de xac nhan mat khau dung (DoS oracle). Rate limiter 5/min/IP la lop bao ve duy nhat.
+        if (nguoiDung.MfaEnabled && string.IsNullOrWhiteSpace(request.MaMfa))
+        {
+            if (!string.IsNullOrEmpty(nguoiDung.MatKhauHash))
+                _matKhau.KiemTra(request.MatKhau, nguoiDung.MatKhauHash,
+                    nguoiDung.MatKhauSalt ?? string.Empty);
+            else
+                _matKhau.KiemTra(request.MatKhau, s_dummyHash!, s_dummySalt!);
+
+            await GhiNhatKyDangNhapAsync(tenDangNhap, nguoiDung.Id, false,
+                    "Yêu cầu mã xác thực hai lớp", ct)
+                .ConfigureAwait(false);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            throw new NghiepVuException(MaLoiHeThong.CanXacThucMfa,
+                "Tài khoản đang bật xác thực hai lớp. Vui lòng nhập mã từ ứng dụng xác thực.");
+        }
+
         var dungMatKhau = !string.IsNullOrEmpty(nguoiDung.MatKhauHash)
                           && _matKhau.KiemTra(request.MatKhau, nguoiDung.MatKhauHash,
                               nguoiDung.MatKhauSalt ?? string.Empty);
@@ -172,29 +193,14 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
                 "Tên đăng nhập hoặc mật khẩu không đúng.");
         }
 
-        // Lop thu hai: dung mat khau van CHUA duoc cap token neu tai khoan bat MFA.
         if (nguoiDung.MfaEnabled)
         {
-            if (string.IsNullOrWhiteSpace(request.MaMfa))
+            // SEC: Tra ve cung ma loi cho sai mat khau va sai TOTP — tranh Phase 2 oracle.
+            if (!_mfa.KiemTraKhiDangNhap(nguoiDung, request.MaMfa!))
             {
-                // Khong tinh la dang nhap sai: nguoi dung moi nhap dung mat khau va chua co co
-                // hoi nhap ma. Dem vao bo dem khoa tai khoan thi ho bi khoa oan sau vai lan
-                // dang nhap binh thuong.
-                await GhiNhatKyDangNhapAsync(tenDangNhap, nguoiDung.Id, false, "Chờ mã xác thực hai lớp", ct)
-                    .ConfigureAwait(false);
-                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-
-                throw new NghiepVuException(MaLoiHeThong.CanXacThucMfa,
-                    "Tài khoản đang bật xác thực hai lớp. Vui lòng nhập mã từ ứng dụng xác thực.");
-            }
-
-            if (!_mfa.KiemTraKhiDangNhap(nguoiDung, request.MaMfa))
-            {
-                // Ma sai thi PHAI dem vao bo dem khoa: ma chi co 6 chu so, khong gioi han so
-                // lan thu thi do het khong gian ma la chuyen lam duoc.
                 await XuLyDangNhapSaiAsync(nguoiDung, bayGio, ct).ConfigureAwait(false);
-                throw new NghiepVuException(MaLoiHeThong.MaXacThucKhongDung,
-                    "Mã xác thực không đúng hoặc đã được sử dụng.");
+                throw new NghiepVuException(MaLoiHeThong.SaiTaiKhoanMatKhau,
+                    "Tên đăng nhập hoặc mật khẩu không đúng.");
             }
         }
 

@@ -128,14 +128,9 @@ export default function TrangDangNhap() {
       const maLoi = loi instanceof LoiApi ? loi.maLoi : undefined;
 
       if (maLoi === 'CAN_XAC_THUC_MFA') {
-        // Không tính là nhập sai: mật khẩu đã đúng, người dùng chỉ chưa nhập mã.
         setCanMfa(true);
         message.info('Vui lòng nhập mã từ ứng dụng xác thực.');
         return;
-      }
-
-      if (maLoi === 'MA_XAC_THUC_KHONG_DUNG') {
-        setCanMfa(true);
       }
 
       if (maLoi === 'CAN_NHAP_CAPTCHA' || maLoi === 'CAPTCHA_KHONG_DUNG') {

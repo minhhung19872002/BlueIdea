@@ -163,7 +163,7 @@ public sealed class MiddlewareXuLyLoi
         MaLoiHeThong.ChuaXacThuc or MaLoiHeThong.SaiTaiKhoanMatKhau
             or MaLoiHeThong.TaiKhoanBiKhoa or MaLoiHeThong.TaiKhoanChuaKichHoat
             or MaLoiHeThong.TokenKhongHopLe or MaLoiHeThong.TokenHetHan
-            or MaLoiHeThong.CanXacThucMfa
+            or MaLoiHeThong.CanXacThucMfa or MaLoiHeThong.MaXacThucKhongDung
             => (int)HttpStatusCode.Unauthorized,
 
         MaLoiHeThong.KhongCoQuyen or MaLoiHeThong.KhongCoQuyenXuLyBuoc

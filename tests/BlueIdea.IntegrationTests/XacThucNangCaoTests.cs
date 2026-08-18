@@ -47,6 +47,58 @@ public sealed class XacThucNangCaoTests
     }
 
     [Fact]
+    public async Task Sai_Mat_Khau_Voi_Mfa_Van_Tra_Ve_Can_Xac_Thuc_Mfa()
+    {
+        var (client, biMat) = await BatMfaAsync("cb.linh");
+
+        try
+        {
+            var dungMk = await _ungDung.CreateClient().PostAsJsonAsync(
+                "/api/v1/xac-thuc/dang-nhap", new { tenDangNhap = "cb.linh", matKhau = MatKhau });
+
+            var saiMk = await _ungDung.CreateClient().PostAsJsonAsync(
+                "/api/v1/xac-thuc/dang-nhap",
+                new { tenDangNhap = "cb.linh", matKhau = "MatKhauSai!123" });
+
+            var maDung = await MaLoiAsync(dungMk);
+            var maSai = await MaLoiAsync(saiMk);
+
+            maDung.Should().Be("CAN_XAC_THUC_MFA");
+            maSai.Should().Be("CAN_XAC_THUC_MFA",
+                "sai mat khau phai tra ve cung ma loi de khong lo thong tin mat khau dung/sai");
+
+            dungMk.StatusCode.Should().Be(saiMk.StatusCode,
+                "HTTP status code phai dong nhat giua dung va sai mat khau");
+        }
+        finally
+        {
+            await TatMfaAsync(client, biMat);
+        }
+    }
+
+    [Fact]
+    public async Task Sai_Mat_Khau_Voi_Totp_Hop_Le_Bi_Tu_Choi()
+    {
+        var (client, biMat) = await BatMfaAsync("cb.trang");
+
+        try
+        {
+            var ma = BoTotp.SinhMa(biMat, BoTotp.TinhBuoc(DateTimeOffset.UtcNow) + 1);
+
+            var phanHoi = await _ungDung.CreateClient().PostAsJsonAsync(
+                "/api/v1/xac-thuc/dang-nhap",
+                new { tenDangNhap = "cb.trang", matKhau = "MatKhauSai!999", maMfa = ma });
+
+            phanHoi.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            (await MaLoiAsync(phanHoi)).Should().Be("SAI_TAI_KHOAN_MAT_KHAU");
+        }
+        finally
+        {
+            await TatMfaAsync(client, biMat);
+        }
+    }
+
+    [Fact]
     public async Task Dang_Nhap_Duoc_Khi_Nhap_Dung_Ma()
     {
         var (client, biMat) = await BatMfaAsync("cb.long");
