@@ -1,20 +1,21 @@
-# Iteration 2 — P0 Scoring Engine Fixes
+# Iteration 3 — P0 Security: REQ-26 Similarity IDOR Fixes
 
 ## What Was Worked On
 
-Three P0 scoring engine bugs (REQ-17, REQ-34):
+Two IDOR vulnerabilities in `DichVuKiemTraTrungLap` (REQ-26, similarity checking service):
 
-1. **TrungBinhCong computes sum instead of average** (BoTinhDiem.cs): Changed ternary to switch expression with proper `diemTheoNhom.Values.Sum() / nhomTheoId.Count` branch.
-2. **BoTieuChiSnapshot never written** (DichVuDanhGia.cs): Added `JsonSerializer.Serialize(ChuyenDoiBoTieuChi(boTieuChi))` to persist criteria snapshot in evaluation form save.
-3. **KiemTraBoTieuChi not called during save** (DichVuTieuChi.cs): Added validation call before SaveChangesAsync, changed to navigation property Add for correct in-memory state, included MucCongNhan for overlap validation.
+1. **ChayAsync IDOR (HIGH)**: `POST /api/v1/sang-kien/{id}/trung-lap/chay-lai` allowed any user with `TrungLapChayLai` permission to re-run similarity check on any sangKien across all organizations. Added conditional org-scope check using `DaXacThuc` sentinel (safe for Hangfire background job caller which has no HTTP context).
+
+2. **DanhDauDaXemXetAsync latent IDOR (MEDIUM)**: Could mark any `KiemTraTrungLap` record as reviewed and overwrite council opinion regardless of org scope. Added `BatBuocTrongPhamViSangKienAsync` after resolving parent `SangKienId` from the fetched record. Also fixed incorrect `BatBuocCoQuyenAsync` signature (was passing `kiemTraId` as `doiTuongId`).
 
 ## What Was Accomplished
 
-- All three fixes verified correct by direct file inspection and code review
-- 2 new unit tests added for TrungBinhCong (with HopLe assertions)
-- All 269 unit tests pass
-- Quality gate: PASS (7/7 checks)
-- Traceability updated: REQ-17 PARTIAL -> IMPLEMENTED_NOT_VERIFIED, REQ-34 PARTIAL -> IMPLEMENTED_NOT_VERIFIED
+- Both IDOR vulnerabilities fixed following established pattern from `LayKetQuaGanNhatAsync`
+- Code review: confirmed both fixes mechanically correct, no regressions
+- Security review: confirmed both fixes effective, no bypass possible
+- Security reviewer recommended `DaXacThuc` over `_nguoiDung.Id is not null` as sentinel — adopted
+- Quality gate: PASS (7/7 checks, 269 unit tests, 0 warnings)
+- Traceability updated: REQ-26 SEC gaps removed, pre-existing gaps documented
 
 ## Quality Gate Result
 
@@ -22,27 +23,32 @@ PASS — 7/7 checks, 269 unit tests, 0 warnings, frontend typecheck + build clea
 
 ## Files Changed
 
-- `src/BlueIdea.Scoring/BoTinhDiem.cs` — TrungBinhCong switch branch
-- `src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs` — BoTieuChiSnapshot serialization
-- `src/BlueIdea.Application/TieuChi/DichVuTieuChi.cs` — KiemTraBoTieuChi validation + Include fix
-- `tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs` — 2 new TrungBinhCong tests
-- `docs/requirements/traceability.yaml` — REQ-17, REQ-34 status updates
+- `src/BlueIdea.Application/TrungLap/DichVuKiemTraTrungLap.cs` — Both IDOR fixes
+- `docs/requirements/traceability.yaml` — REQ-26 gap updates
 - `docs/autopilot/STATE.json` — iteration state
-- `.gitignore` — minor cleanup
+- `docs/autopilot/LAST-ITERATION.md` — this file
 
 ## Commit Hash
 
-5c7edc9
+93dfdf7
 
-## Next Priority Item
+## Next Priority Items
 
-- REQ-26 SEC HIGH: ChayAsync IDOR — no org scoping on similarity re-run (queued for Run-002-B2)
-- REQ-12: Feature toggle flags not enforced at runtime by BoMayQuyTrinh
+Remaining HIGH security issues (REQ-21):
+- SEC: Account enumeration via distinct login error messages (HIGH)
+- SEC: SSO state parameter not validated server-side (HIGH)
+- SEC: Open redirect in duongDanTraVe (HIGH)
+
+Pre-existing lower-priority items from reviews:
+- REQ-26: DanhDauDaXemXetAsync uses TrungLapXem (view) for a write op — needs dedicated permission when endpoint is wired
+- REQ-26: No integration test for POST chay-lai cross-org denial
+- REQ-26: ThongBaoLoi raw exception messages exposed in API response (info disclosure)
 
 ## Known Limitations
 
-- BoTieuChiSnapshot does not include DanhSachMucCongNhan (recognition level labels). Core scoring data IS captured; only recognition level label auditing from snapshot is incomplete.
-- Tests are unit-only; no integration test with real DB for criteria save validation.
+- DanhDauDaXemXetAsync is not wired to any HTTP endpoint — the IDOR fix is latent (correct but unreachable until endpoint is created)
+- No integration test for the ChayAsync IDOR fix (env lacks full .NET runtime for integration tests)
+- Pre-existing: DanhDauDaXemXetAsync uses view permission (TrungLapXem) for a write operation
 
 ## Blockers Discovered
 
