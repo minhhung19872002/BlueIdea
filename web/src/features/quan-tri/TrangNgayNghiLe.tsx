@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   DatePicker,
-  Form,
   Input,
   Modal,
   Select,
@@ -17,12 +16,38 @@ import {
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { z } from 'zod';
 
 import { LoiApi } from '@/api/client';
 import { apiNgayNghiLe, type NgayNghiLe } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, trangThai } from '@/components/bieu-mau/luat';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_DANH_MUC } from './danhMucTab';
+
+/**
+ * Luật kiểm tra ngày nghỉ lễ.
+ *
+ * `ngay` là đối tượng dayjs do DatePicker trả về, không phải chuỗi — kiểm tra bằng `instanceof`
+ * thay vì ép sang chuỗi ở đây: đổi kiểu sớm sẽ mất múi giờ và ngày bị lệch một hôm.
+ */
+const luatNgayNghi = z.object({
+  ngay: z.custom<Dayjs>((v) => dayjs.isDayjs(v) && v.isValid(), 'Vui lòng chọn ngày.'),
+  ten: batBuoc('Tên ngày nghỉ'),
+  lapLaiHangNam: z.boolean(),
+  trangThai: trangThai,
+});
+
+type GiaTriNgayNghi = z.infer<typeof luatNgayNghi>;
+
+const MAC_DINH: GiaTriNgayNghi = {
+  ngay: dayjs(),
+  ten: '',
+  lapLaiHangNam: false,
+  trangThai: 1,
+};
 
 const NAM_HIEN_TAI = dayjs().year();
 const DS_NAM = [NAM_HIEN_TAI - 1, NAM_HIEN_TAI, NAM_HIEN_TAI + 1];
@@ -40,7 +65,7 @@ export default function TrangNgayNghiLe() {
   const [nam, setNam] = useState<number>(NAM_HIEN_TAI);
   const [dangSua, setDangSua] = useState<NgayNghiLe | null>(null);
   const [moForm, setMoForm] = useState(false);
-  const [form] = Form.useForm();
+  const form = useBieuMau(luatNgayNghi, MAC_DINH);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['ngay-nghi-le', nam],
@@ -52,12 +77,12 @@ export default function TrangNgayNghiLe() {
   }
 
   const luu = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) => {
+    mutationFn: async (giaTri: GiaTriNgayNghi) => {
       const duLieu = {
-        ngay: (giaTri.ngay as dayjs.Dayjs).format('YYYY-MM-DD'),
-        ten: giaTri.ten as string,
-        lapLaiHangNam: !!giaTri.lapLaiHangNam,
-        trangThai: (giaTri.trangThai as number) ?? 1,
+        ngay: giaTri.ngay.format('YYYY-MM-DD'),
+        ten: giaTri.ten,
+        lapLaiHangNam: giaTri.lapLaiHangNam,
+        trangThai: giaTri.trangThai,
       };
       return dangSua ? apiNgayNghiLe.sua(dangSua.id, duLieu) : apiNgayNghiLe.them(duLieu);
     },
@@ -65,7 +90,7 @@ export default function TrangNgayNghiLe() {
       message.success(dangSua ? 'Đã cập nhật ngày nghỉ' : 'Đã thêm ngày nghỉ');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset(MAC_DINH);
       lamMoi();
     },
     onError: (loi) =>
@@ -102,8 +127,7 @@ export default function TrangNgayNghiLe() {
             icon={<PlusOutlined />}
             onClick={() => {
               setDangSua(null);
-              form.resetFields();
-              form.setFieldValue('ngay', dayjs().year(nam).startOf('year'));
+              form.reset({ ...MAC_DINH, ngay: dayjs().year(nam).startOf('year') });
               setMoForm(true);
             }}
           >
@@ -164,7 +188,12 @@ export default function TrangNgayNghiLe() {
                   icon={<EditOutlined />}
                   onClick={() => {
                     setDangSua(dong);
-                    form.setFieldsValue({ ...dong, ngay: dayjs(dong.ngay) });
+                    form.reset({
+                      ngay: dayjs(dong.ngay),
+                      ten: dong.ten,
+                      lapLaiHangNam: dong.lapLaiHangNam,
+                      trangThai: dong.trangThai as 0 | 1,
+                    });
                     setMoForm(true);
                   }}
                 />
@@ -196,38 +225,49 @@ export default function TrangNgayNghiLe() {
         title={dangSua ? `Sửa: ${dangSua.ten}` : 'Thêm ngày nghỉ lễ'}
         okText="Lưu"
         cancelText="Huỷ"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => luu.mutate(await form.validateFields())}
+        okButtonProps={{ htmlType: 'submit', form: 'form-ngay-nghi' }}
       >
-        <Form form={form} layout="vertical" initialValues={{ lapLaiHangNam: false, trangThai: 1 }}>
-          <Form.Item name="ngay" label="Ngày" rules={[{ required: true, message: 'Chọn ngày' }]}>
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-          </Form.Item>
-          <Form.Item
-            name="ten"
-            label="Tên ngày nghỉ"
-            rules={[{ required: true, message: 'Nhập tên' }]}
-          >
-            <Input placeholder="VD: Quốc khánh 2/9" />
-          </Form.Item>
-          <Form.Item
-            name="lapLaiHangNam"
+        <BieuMau id="form-ngay-nghi" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
+          <Truong<GiaTriNgayNghi> ten="ngay" label="Ngày" required>
+            {(o) => (
+              <DatePicker
+                value={o.value as Dayjs}
+                onChange={o.onChange}
+                onBlur={o.onBlur}
+                status={o.status}
+                style={{ width: '100%' }}
+                format="DD/MM/YYYY"
+              />
+            )}
+          </Truong>
+
+          <Truong<GiaTriNgayNghi> ten="ten" label="Tên ngày nghỉ" required>
+            {(o) => <Input {...o} value={o.value as string} placeholder="VD: Quốc khánh 2/9" />}
+          </Truong>
+
+          <Truong<GiaTriNgayNghi>
+            ten="lapLaiHangNam"
             label="Lặp hàng năm"
-            valuePropName="checked"
             tooltip="Chỉ bật với ngày lễ dương lịch cố định. Ngày lễ âm lịch phải khai báo riêng từng năm."
           >
-            <Switch />
-          </Form.Item>
-          <Form.Item name="trangThai" label="Trạng thái">
-            <Select
-              options={[
-                { value: 1, label: 'Áp dụng' },
-                { value: 0, label: 'Ngừng' },
-              ]}
-            />
-          </Form.Item>
-        </Form>
+            {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+          </Truong>
+
+          <Truong<GiaTriNgayNghi> ten="trangThai" label="Trạng thái">
+            {(o) => (
+              <Select
+                {...o}
+                value={o.value as number}
+                options={[
+                  { value: 1, label: 'Áp dụng' },
+                  { value: 0, label: 'Ngừng' },
+                ]}
+              />
+            )}
+          </Truong>
+        </BieuMau>
       </Modal>
     </Card>
   );

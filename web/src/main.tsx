@@ -39,11 +39,18 @@ function Goc() {
 
   return (
     <ConfigProvider locale={viVN} theme={taoChuDe(mauChuDao)}>
-      <AntApp>
-        <QueryClientProvider client={queryClient}>
+      {/*
+       * QueryClientProvider phải nằm NGOÀI AntApp.
+       *
+       * `modal.confirm` của Ant Design dựng nội dung vào cây con của AntApp. Đặt AntApp ở ngoài
+       * thì nội dung hộp thoại nằm ngoài phạm vi QueryClient, và mọi thành phần gọi `useQuery`
+       * bên trong hộp thoại sẽ vỡ với lỗi "No QueryClient set" — đúng lúc người dùng vừa bấm nút.
+       */}
+      <QueryClientProvider client={queryClient}>
+        <AntApp>
           <RouterProvider router={router} />
-        </QueryClientProvider>
-      </AntApp>
+        </AntApp>
+      </QueryClientProvider>
     </ConfigProvider>
   );
 }
