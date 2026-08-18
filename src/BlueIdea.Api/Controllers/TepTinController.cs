@@ -209,6 +209,27 @@ public sealed partial class TepTinController : ControllerBase
                 .CountAsync(x => x.SangKienId == hoSo.Id, ct)
                 .ConfigureAwait(false);
 
+            /*
+             * Gioi han so tep moi ho so.
+             *
+             * Truoc day khoa SO_TEP_TOI_DA duoc seed, hien tren man hinh cau hinh, sua duoc va luu
+             * duoc — nhung khong noi nao doc, nen quan tri vien dat gioi han 20 tep roi nguoi dung
+             * van tai len bao nhieu cung duoc. O ngay ben canh (dung luong toi da) thi lai co hieu
+             * luc, nen khong ai nghi rang o nay khong chay.
+             *
+             * Dat 0 de bo gioi han — cung quy uoc voi cac nguong khac trong he thong.
+             */
+            var soTepToiDa = await _cauHinh
+                .LayAsync(KhoaCauHinh.SoTepToiDa, 20, ct)
+                .ConfigureAwait(false);
+
+            if (soTepToiDa > 0 && soHienCo >= soTepToiDa)
+            {
+                throw new NghiepVuException(Shared.KetQua.MaLoiHeThong.VuotDungLuongToiDa,
+                    $"Hồ sơ chỉ cho phép tối đa {soTepToiDa} tệp, hiện đã có {soHienCo}. "
+                    + "Hãy xoá bớt tệp không cần thiết trước khi tải thêm.");
+            }
+
             _db.SangKienTepDinhKem.Add(new SangKienTepDinhKem
             {
                 Id = Guid.NewGuid(),

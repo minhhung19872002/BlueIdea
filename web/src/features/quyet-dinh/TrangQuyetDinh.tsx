@@ -483,6 +483,36 @@ function FormQuyetDinh({
   const { data: cacDot } = useQuery({ queryKey: ['dot-chon'], queryFn: apiDotDeNghi.chon });
   const { data: cacDonVi } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
 
+  const donViBanHanhId = form.watch('donViBanHanhId');
+
+  /*
+   * Điền sẵn người ký từ cấu hình của đơn vị ban hành (chức năng 47).
+   *
+   * Đơn vị khai được "người ký mặc định" và "chức vụ người ký mặc định", nhưng trước đây hai giá
+   * trị đó chỉ nằm im trong cơ sở dữ liệu — người soạn quyết định vẫn gõ lại tên lãnh đạo mỗi lần,
+   * đúng cái việc mà "mặc định" sinh ra để khỏi phải làm.
+   *
+   * Chỉ điền khi ô còn trống: người dùng đã gõ tên khác thì đó là chủ ý (ký thay, uỷ quyền ký), và
+   * ghi đè lên lựa chọn của họ còn tệ hơn là không điền gì.
+   */
+  const { data: donViBanHanh } = useQuery({
+    queryKey: ['don-vi-chi-tiet', donViBanHanhId],
+    queryFn: () => apiDonVi.theoId(donViBanHanhId!),
+    enabled: !!donViBanHanhId,
+  });
+
+  useEffect(() => {
+    if (!donViBanHanh) return;
+
+    if (!form.getValues('nguoiKy')?.trim() && donViBanHanh.nguoiKyMacDinh) {
+      form.setValue('nguoiKy', donViBanHanh.nguoiKyMacDinh);
+    }
+
+    if (!form.getValues('chucVuNguoiKy')?.trim() && donViBanHanh.chucVuNguoiKyMacDinh) {
+      form.setValue('chucVuNguoiKy', donViBanHanh.chucVuNguoiKyMacDinh);
+    }
+  }, [donViBanHanh, form]);
+
   // Khi mở form sửa, nạp sẵn danh sách sáng kiến đang thuộc quyết định.
   const idDangThuoc = useMemo(
     () => (chiTiet?.danhSachSangKien ?? []).map((x) => x.id),

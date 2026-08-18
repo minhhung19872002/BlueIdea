@@ -287,11 +287,6 @@ public sealed partial class DuLieuMau
 
     private async Task SeedCauHinhHeThongAsync(CancellationToken ct)
     {
-        if (await _db.CauHinhHeThong.AnyAsync(ct).ConfigureAwait(false))
-        {
-            return;
-        }
-
         var cauHinh = new (string Nhom, string Khoa, string GiaTri, string Kieu, string TenHienThi)[]
         {
             ("CHUNG", KhoaCauHinh.TenHeThong, "Nền tảng số dùng chung phục vụ hoạt động sáng kiến",
@@ -318,12 +313,47 @@ public sealed partial class DuLieuMau
             ("BAO_MAT", KhoaCauHinh.ChinhSachMatKhauSoLanKhongTrung, "3", "NUMBER",
                 "Không trùng N mật khẩu gần nhất"),
             ("BAO_MAT", KhoaCauHinh.SoLanDangNhapSaiToiDa, "5", "NUMBER", "Số lần đăng nhập sai tối đa"),
+
+            // Hai cong tac duoi day duoc code doc tu truoc nhung KHONG duoc seed, nen khong hien
+            // tren man hinh cau hinh: muon bat/tat phai sua thang co so du lieu. Dac ta yeu cau
+            // moi quyet dinh nghiep vu deu chinh duoc tren giao dien quan tri.
+            ("BAO_MAT", KhoaCauHinh.SoLanSaiCanCaptcha, "3", "NUMBER",
+                "Số lần sai trước khi bắt nhập CAPTCHA (đặt 0 để tắt CAPTCHA)"),
+            ("TICH_HOP", KhoaCauHinh.SsoTuDongTaoTaiKhoan, "false", "BOOLEAN",
+                "Tự tạo tài khoản khi đăng nhập SSO lần đầu"),
             ("BAO_MAT", KhoaCauHinh.ThoiGianKhoaTaiKhoanPhut, "15", "NUMBER", "Thời gian khóa (phút)")
         };
 
+        /*
+         * Doi chieu theo KHOA thay vi "bang rong thi nap".
+         *
+         * Truoc day chi nap khi bang con rong, nen mot khoa cau hinh moi khong bao gio toi duoc
+         * he thong da cai dat: nang cap len ban moi thi o cau hinh tuong ung khong hien ra, va
+         * cach duy nhat de bat/tat la sua thang co so du lieu.
+         *
+         * Khoa da co thi GIU NGUYEN GIA TRI: day la thiet lap van hanh cua don vi, ghi de moi lan
+         * trien khai la lang le dat lai chinh sach cua ho ve mac dinh.
+         */
+        var khoaDaCo = await _db.CauHinhHeThong
+            .Where(x => !x.DaXoa)
+            .Select(x => x.Khoa)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var daCo = new HashSet<string>(khoaDaCo, StringComparer.Ordinal);
+
         var thuTu = 1;
+        var soThem = 0;
+
         foreach (var (nhom, khoa, giaTri, kieu, ten) in cauHinh)
         {
+            var viTri = thuTu++;
+
+            if (daCo.Contains(khoa))
+            {
+                continue;
+            }
+
             _db.CauHinhHeThong.Add(new CauHinhHeThong
             {
                 Nhom = nhom,
@@ -331,11 +361,17 @@ public sealed partial class DuLieuMau
                 GiaTri = giaTri,
                 KieuDuLieu = kieu,
                 TenHienThi = ten,
-                ThuTu = thuTu++
+                ThuTu = viTri
             });
+
+            soThem++;
         }
 
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        if (soThem > 0)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("Da bo sung {SoKhoa} khoa cau hinh con thieu.", soThem);
+        }
     }
 
     private async Task SeedNgayNghiLeAsync(CancellationToken ct)
