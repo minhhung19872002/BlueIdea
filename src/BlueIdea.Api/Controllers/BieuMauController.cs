@@ -48,6 +48,7 @@ public sealed class BieuMauXuatController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -57,21 +58,25 @@ public sealed class BieuMauXuatController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<BieuMauXuat>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> ThemAsync([FromBody] LuuBieuMauXuatDto duLieu, CancellationToken ct)
         => Ok(PhanHoiApi<BieuMauXuat>.Ok(
             await _dichVu.ThemAsync(ApDung(new BieuMauXuat(), duLieu), ct), "Đã thêm biểu mẫu"));
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuBieuMauXuatDto duLieu, CancellationToken ct)
         => Ok(PhanHoiApi<BieuMauXuat>.Ok(
             await _dichVu.CapNhatAsync(id, x => ApDung(x, duLieu), ct), "Đã cập nhật"));
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXoa)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);
@@ -80,6 +85,7 @@ public sealed class BieuMauXuatController : ControllerBase
 
     /// <summary>Danh sách trường dữ liệu dùng được cho một loại biểu mẫu.</summary>
     [HttpGet("truong-kha-dung")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public IActionResult LayTruongKhaDung([FromQuery] string loai)
         => Ok(PhanHoiApi<IReadOnlyList<TruongBieuMauKhaDung>>.Ok(
             DichVuSinhBieuMau.TruongKhaDung(loai)));
@@ -89,6 +95,7 @@ public sealed class BieuMauXuatController : ControllerBase
     /// kiểm tra bố cục ngay lúc soạn mà không cần đi tìm một hồ sơ thật.
     /// </summary>
     [HttpGet("{id:guid}/xem-truoc")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> XemTruocAsync(
         Guid id, [FromQuery] Guid? hoSoId, [FromQuery] Guid? phienHopId, CancellationToken ct)
     {
@@ -101,6 +108,7 @@ public sealed class BieuMauXuatController : ControllerBase
 
     /// <summary>Xem trước biểu mẫu dưới dạng PDF đúng bố cục văn bản hành chính.</summary>
     [HttpGet("{id:guid}/xem-truoc.pdf")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> XemTruocPdfAsync(
         Guid id, [FromQuery] Guid? hoSoId, [FromQuery] Guid? phienHopId, CancellationToken ct)
     {
@@ -147,6 +155,7 @@ public sealed class BieuMauThongKeController : ControllerBase
     public BieuMauThongKeController(DichVuBieuMauThongKe dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -156,10 +165,12 @@ public sealed class BieuMauThongKeController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<BieuMauThongKe>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
+    [Authorize(Policy = MaQuyen.DanhMucThem)]
     public async Task<IActionResult> ThemAsync(
         [FromBody] LuuBieuMauThongKeDto duLieu, CancellationToken ct)
     {
@@ -170,6 +181,7 @@ public sealed class BieuMauThongKeController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucSua)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuBieuMauThongKeDto duLieu, CancellationToken ct)
     {
@@ -180,6 +192,7 @@ public sealed class BieuMauThongKeController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.DanhMucXoa)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);

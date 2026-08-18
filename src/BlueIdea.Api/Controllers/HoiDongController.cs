@@ -26,6 +26,7 @@ public sealed class HoiDongController : ControllerBase
     public HoiDongController(DichVuHoiDong dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -36,6 +37,7 @@ public sealed class HoiDongController : ControllerBase
 
     /// <summary>Chi tiết hội đồng kèm thành viên và phiên họp.</summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<HoiDongSangKien>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
@@ -88,6 +90,7 @@ public sealed class HoiDongController : ControllerBase
     }
 
     [HttpGet("phien-hop/{id:guid}")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayPhienHopAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<PhienHopHoiDong>.Ok(await _dichVu.LayPhienHopAsync(id, ct)));
 
@@ -120,6 +123,7 @@ public sealed class HoiDongController : ControllerBase
     }
 
     [HttpGet("phien-hop/{phienHopId:guid}/ket-qua-bo-phieu")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayKetQuaBoPhieuAsync(
         Guid phienHopId, [FromQuery] Guid sangKienId, CancellationToken ct)
         => Ok(PhanHoiApi<KetQuaBoPhieuDto>.Ok(

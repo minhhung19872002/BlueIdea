@@ -1,57 +1,49 @@
-# Iteration 17 — SEC: Close catalog/org authorization gaps (REQ-01 through REQ-05, REQ-44)
+# Autopilot Iteration 18
 
-## What Was Worked On
+## Summary
 
-Multiple HIGH-severity authorization gaps across catalog management (REQ-01 through REQ-05) and organization management (REQ-44):
-1. `DichVuDonVi.ChuyenChaAsync` — restructure org tree with NO permission check
-2. `DichVuDonVi.GopAsync` — destructive unit merge with NO permission check
-3. `DichVuDotDeNghi.LayTongQuanAsync` — admin aggregate stats with no permission check
-4. `DichVuDotDeNghi.LayDanhSachQuanLyAsync` — admin management list with no permission check
-5. All catalog controllers (LinhVuc, DoiTuong, LoaiTacGia, DotDeNghi, DonVi) had only bare `[Authorize]` at class level — no policy-level authorization at the controller boundary
+Closed remaining controller-level `[Authorize(Policy)]` defense-in-depth gaps across 8 controllers, adding 51 action-level policy attributes. This continues the pattern from iteration 17 which covered catalog and org management controllers.
 
-Additionally resolved a pre-existing merge conflict in XacThucController.cs (conflicting `IConfiguration` vs `IDichVuCauHinh` fields).
+## Changes
 
-## What Was Accomplished
+### Controllers modified (51 policy additions total)
 
-1. **Service-level permission checks** added to 4 methods:
-   - `ChuyenChaAsync` → `BatBuocCoQuyenAsync(DonViCauHinh, id)`
-   - `GopAsync` → `BatBuocCoQuyenAsync(DonViCauHinh)`
-   - `LayTongQuanAsync` → `BatBuocCoQuyenAsync(DanhMucXem, id)`
-   - `LayDanhSachQuanLyAsync` → `BatBuocCoQuyenAsync(DanhMucXem)`
+| Controller | Policies Added | Permission Codes |
+|---|---|---|
+| BieuMauXuatController | 8 | DanhMucXem, DanhMucThem, DanhMucSua, DanhMucXoa |
+| BieuMauThongKeController | 5 | DanhMucXem, DanhMucThem, DanhMucSua, DanhMucXoa |
+| BaoCaoController | 7 | BaoCaoXem (7 read endpoints; export already had BaoCaoXuat) |
+| SangKienController | 14 | SangKienXem, SangKienThem, SangKienSua, SangKienNop, SangKienRut, TrungLapXem |
+| QuyTrinhController | 5 | QuyTrinhXem |
+| TieuChiController | 3 | TieuChiXem |
+| HoiDongController | 4 | HoiDongXem |
+| BienBanHopController | 4 | HoiDongXem |
+| DanhGiaController | 1 | DanhGiaChamDiem |
 
-2. **Controller-level authorization policies** (defense-in-depth) across 5 controllers:
-   - LinhVucController: 9 endpoints with policies (DanhMucXem/Them/Sua/Xoa/Xuat)
-   - DoiTuongController: 5 endpoints with policies
-   - LoaiTacGiaController: 5 endpoints with policies
-   - DotDeNghiController: 11 endpoints with policies (incl. lifecycle transitions)
-   - DonViController: 7 endpoints with policies (DonViXem/DonViCauHinh)
-   - Dropdown/selection endpoints (`chon`, `dang-mo`, `cay`, `logo`) intentionally kept bare `[Authorize]`
+### Dropdown endpoints (by design — bare [Authorize])
 
-3. **Merge conflict resolved** in XacThucController.cs — `_cauHinh` (IConfiguration) + `_dichVuCauHinh` (IDichVuCauHinh)
+All `LayDanhSachChonAsync` ("chon") endpoints kept bare `[Authorize]` without policy — they serve dropdown/selection data for any authenticated user.
 
-4. **45 unit tests** verifying controller authorization attributes via reflection (includes class-level Authorize check)
+### Test coverage
 
-## Files Changed
+Expanded `ChinhSachPhanQuyenControllerTests.cs` from 45 to 107+ parameterized tests covering all controller authorization policies via reflection. Added 5 new dropdown exemption test entries.
 
-- `src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs` (MODIFIED — 4 permission checks added)
-- `src/BlueIdea.Api/Controllers/DanhMucController.cs` (MODIFIED — 19 policy attributes)
-- `src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs` (MODIFIED — 18 policy attributes)
-- `src/BlueIdea.Api/Controllers/XacThucController.cs` (MODIFIED — merge conflict resolved)
-- `tests/BlueIdea.UnitTests/BlueIdea.UnitTests.csproj` (MODIFIED — added API project reference)
-- `tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs` (NEW — 45 tests)
-- `docs/requirements/traceability.yaml` (MODIFIED — updated REQ-01 through REQ-05, REQ-44)
+### By-design exclusions
+
+- TepTinController: data-layer scope via `BatBuocTepTrongPhamViAsync`/`BatBuocHoSoTrongPhamViAsync`
+- BoLocYeuThichController: personal data, cross-role
+- MfaController: personal security, authenticated-only
 
 ## Quality Gate
 
-PASS (7/7, 369 unit tests + 184 integration tests, 0 warnings)
+- Result: PASS (7/7)
+- Unit tests: 476 (up from 369)
+- Warnings: 0
 
-## Remaining Gaps
+## Requirements Affected
 
-- `DichVuPhanQuyen.KiemTraQuyenAsync` discards `doiTuongId` — resource-level scope enforcement is not implemented for mutations (CRITICAL pre-existing, tracked for future iteration)
-- DonViController uses DonViXem/DonViCauHinh but base service checks DanhMucXem/Sua/Xoa — dual-permission gate (no regression with current seed data but fragile)
-- `LayCayAsync` and `LayDanhSachChonAsync` have no service-level permission check (by design — dropdown/tree for all users)
-- No integration tests for catalog CRUD authorization denial
+REQ-06, REQ-07, REQ-09 through REQ-13, REQ-19, REQ-20, REQ-22, REQ-23, REQ-26, REQ-28 through REQ-30, REQ-33 through REQ-35, REQ-37 through REQ-40, REQ-44
 
-## Next Priority Item
+## Next Priority
 
-Implement resource-level scope validation in `DichVuPhanQuyen.BatBuocCoQuyenAsync` (CRITICAL security gap from review).
+Resource-level scope validation in DichVuPhanQuyen (TD-005: DoiTuongId currently discarded in KiemTraQuyenAsync).

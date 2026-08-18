@@ -126,6 +126,7 @@ public sealed class DanhGiaController : ControllerBase
 
     /// <summary>Chức năng 33 — Danh sách hồ sơ được phân công cho tôi ("Việc của tôi").</summary>
     [HttpGet("viec-cua-toi")]
+    [Authorize(Policy = MaQuyen.DanhGiaChamDiem)]
     public async Task<IActionResult> LayViecCuaToiAsync(
         [FromQuery] ThamSoPhanTrang thamSo, [FromQuery] string? trangThai, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<PhanCongChamDto>.Tu(

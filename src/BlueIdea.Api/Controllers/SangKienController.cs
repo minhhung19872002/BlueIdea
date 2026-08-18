@@ -42,12 +42,14 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 28 — Danh sách hồ sơ với bộ lọc đa tiêu chí.</summary>
     [HttpGet]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocSangKien thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<SangKienTomTatDto>.Tu(await _truyVan.LayDanhSachAsync(thamSo, ct)));
 
     /// <summary>Chức năng 37 — Gợi ý từ khoá khi gõ ở ô tìm kiếm.</summary>
     [HttpGet("goi-y")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> GoiYAsync(
         [FromQuery] string tuKhoa, [FromQuery] int soLuong = 8, CancellationToken ct = default)
         => Ok(PhanHoiApi<IReadOnlyList<GoiYTimKiem>>.Ok(
@@ -61,6 +63,7 @@ public sealed class SangKienController : ControllerBase
     /// Vector nhúng sinh hoàn toàn nội bộ, không gọi API AI bên thứ ba.
     /// </summary>
     [HttpGet("tim-ngu-nghia")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> TimNguNghiaAsync(
         [FromQuery] string cauHoi,
         [FromQuery] int soKetQua = 20,
@@ -72,6 +75,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 23 — Hồ sơ của tôi.</summary>
     [HttpGet("cua-toi")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> LayHoSoCuaToiAsync(
         [FromQuery] ThamSoLocSangKien thamSo, CancellationToken ct)
     {
@@ -81,16 +85,19 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chi tiết hồ sơ kèm checklist thành phần và tệp đính kèm.</summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> LayChiTietAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<SangKienChiTietDto>.Ok(await _truyVan.LayChiTietAsync(id, ct)));
 
     /// <summary>Chức năng 30 — Timeline tiến độ xử lý.</summary>
     [HttpGet("{id:guid}/tien-do")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> LayTienDoAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<MocTienDoDto>>.Ok(await _truyVan.LayTienDoAsync(id, ct)));
 
     /// <summary>Chức năng 23 — Lịch sử chỉnh sửa (diff giá trị trước/sau).</summary>
     [HttpGet("{id:guid}/lich-su")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> LayLichSuAsync(Guid id, CancellationToken ct)
     {
         var lichSu = await _truyVan.LayLichSuAsync(id, ct);
@@ -99,6 +106,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 29 — Danh sách hành động khả dụng (frontend render nút động).</summary>
     [HttpGet("{id:guid}/hanh-dong")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> LayHanhDongAsync(Guid id, CancellationToken ct)
     {
         var hanhDong = await _mediator.Send(new LayHanhDongKhaDungQuery(id), ct);
@@ -107,6 +115,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 26 — Kết quả kiểm tra trùng lặp gần nhất.</summary>
     [HttpGet("{id:guid}/trung-lap")]
+    [Authorize(Policy = MaQuyen.TrungLapXem)]
     public async Task<IActionResult> LayTrungLapAsync(Guid id, CancellationToken ct)
     {
         var ketQua = await _trungLap.LayKetQuaGanNhatAsync(id, ct);
@@ -124,6 +133,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 22 — Tạo hồ sơ nháp.</summary>
     [HttpPost]
+    [Authorize(Policy = MaQuyen.SangKienThem)]
     public async Task<IActionResult> TaoAsync(
         [FromBody] NoiDungHoSoDto noiDung, CancellationToken ct)
     {
@@ -133,6 +143,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Cập nhật hồ sơ (chỉ khi ở trạng thái Nháp hoặc Yêu cầu bổ sung).</summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = MaQuyen.SangKienSua)]
     public async Task<IActionResult> CapNhatAsync(
         Guid id, [FromBody] NoiDungHoSoDto noiDung,
         [FromQuery] int? phienBan, CancellationToken ct)
@@ -143,6 +154,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 22 — Nộp hồ sơ chính thức, khởi tạo quy trình xử lý.</summary>
     [HttpPost("{id:guid}/nop")]
+    [Authorize(Policy = MaQuyen.SangKienNop)]
     public async Task<IActionResult> NopAsync(Guid id, CancellationToken ct)
     {
         var ketQua = await _mediator.Send(new NopHoSoCommand(id), ct);
@@ -156,6 +168,7 @@ public sealed class SangKienController : ControllerBase
     /// mẫu nào thì in bố cục mặc định — thiếu cấu hình không được làm mất luôn chức năng in.
     /// </summary>
     [HttpGet("{id:guid}/phieu-tiep-nhan")]
+    [Authorize(Policy = MaQuyen.SangKienXem)]
     public async Task<IActionResult> PhieuTiepNhanAsync(Guid id, CancellationToken ct)
     {
         var hoSo = await _truyVan.LayChiTietAsync(id, ct);
@@ -199,6 +212,7 @@ public sealed class SangKienController : ControllerBase
 
     /// <summary>Chức năng 23 — Rút hồ sơ (chỉ khi chưa vào bước chấm điểm).</summary>
     [HttpPost("{id:guid}/rut")]
+    [Authorize(Policy = MaQuyen.SangKienRut)]
     public async Task<IActionResult> RutAsync(
         Guid id, [FromBody] RutHoSoDto duLieu, CancellationToken ct)
     {

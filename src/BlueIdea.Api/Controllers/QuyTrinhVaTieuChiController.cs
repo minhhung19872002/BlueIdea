@@ -31,6 +31,7 @@ public sealed class QuyTrinhController : ControllerBase
     public QuyTrinhController(DichVuQuyTrinh dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.QuyTrinhXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -40,11 +41,13 @@ public sealed class QuyTrinhController : ControllerBase
         => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.QuyTrinhXem)]
     public async Task<IActionResult> LayTheoIdAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<EntityQuyTrinh>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     /// <summary>Sơ đồ đầy đủ để render trên ReactFlow.</summary>
     [HttpGet("{id:guid}/so-do")]
+    [Authorize(Policy = MaQuyen.QuyTrinhXem)]
     public async Task<IActionResult> LaySoDoAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<SoDoQuyTrinhDto>.Ok(await _dichVu.LaySoDoAsync(id, ct)));
 
@@ -66,6 +69,7 @@ public sealed class QuyTrinhController : ControllerBase
     /// lại cả sơ đồ: hai người cùng mở một quy trình sẽ ghi đè lên nhau.
     /// </summary>
     [HttpGet("{id:guid}/thanh-phan-ho-so")]
+    [Authorize(Policy = MaQuyen.QuyTrinhXem)]
     public async Task<IActionResult> LayThanhPhanAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<ThanhPhanHoSoCauHinhDto>>.Ok(
             await _dichVu.LayThanhPhanAsync(id, ct)));
@@ -105,6 +109,7 @@ public sealed class QuyTrinhController : ControllerBase
     }
 
     [HttpPost("{id:guid}/kiem-tra")]
+    [Authorize(Policy = MaQuyen.QuyTrinhXem)]
     public async Task<IActionResult> KiemTraAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<KetQuaKiemTraDto>.Ok(await _dichVu.KiemTraAsync(id, ct)));
 
@@ -224,6 +229,7 @@ public sealed class TieuChiController : ControllerBase
     public TieuChiController(DichVuTieuChi dichVu) => _dichVu = dichVu;
 
     [HttpGet]
+    [Authorize(Policy = MaQuyen.TieuChiXem)]
     public async Task<IActionResult> LayDanhSachAsync(
         [FromQuery] ThamSoLocDanhMuc thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<DanhMucDto>.Tu(await _dichVu.LayDanhSachAsync(thamSo, ct)));
@@ -234,11 +240,13 @@ public sealed class TieuChiController : ControllerBase
 
     /// <summary>Bộ tiêu chí đầy đủ (cây 2 cấp) để render màn hình cấu hình và chấm điểm.</summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.TieuChiXem)]
     public async Task<IActionResult> LayChiTietAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<BoTieuChiDto>.Ok(await _dichVu.LayChiTietDayDuAsync(id, ct)));
 
     /// <summary>Kiểm tra tổng trọng số, tổng điểm và khoảng điểm mức công nhận.</summary>
     [HttpPost("{id:guid}/kiem-tra")]
+    [Authorize(Policy = MaQuyen.TieuChiXem)]
     public async Task<IActionResult> KiemTraAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<string>>.Ok(await _dichVu.KiemTraAsync(id, ct)));
 

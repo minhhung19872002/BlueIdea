@@ -57,10 +57,12 @@ public sealed class BienBanHopController : ControllerBase
 
     /// <summary>Biên bản của một phiên họp — trả <c>null</c> khi chưa lập.</summary>
     [HttpGet("phien-hop/{phienHopId:guid}")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayTheoPhienAsync(Guid phienHopId, CancellationToken ct)
         => Ok(PhanHoiApi<BienBanHopDto?>.Ok(await _dichVu.LayTheoPhienAsync(phienHopId, ct)));
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<BienBanHopDto>.Ok(await _dichVu.LayAsync(id, ct)));
 
@@ -75,6 +77,7 @@ public sealed class BienBanHopController : ControllerBase
 
     /// <summary>Xuất biên bản ra PDF theo mẫu văn bản hành chính.</summary>
     [HttpGet("{id:guid}/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> XuatPdfAsync(Guid id, CancellationToken ct)
     {
         var bienBan = await _dichVu.LayAsync(id, ct);
@@ -134,6 +137,7 @@ public sealed class BienBanHopController : ControllerBase
 
     /// <summary>Lịch sử ký số của biên bản.</summary>
     [HttpGet("{id:guid}/lich-su-ky-so")]
+    [Authorize(Policy = MaQuyen.HoiDongXem)]
     public async Task<IActionResult> LayLichSuKySoAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<NhatKyKySo>>.Ok(
             await _kySo.LichSuAsync("BIEN_BAN", id, ct)));

@@ -41,6 +41,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Dashboard tổng quan (số liệu + dữ liệu biểu đồ).</summary>
     [HttpGet("tong-quan")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> TongQuanAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<ThongKeTongQuan>.Ok(await _dem.LayHoacTinhAsync(
@@ -48,6 +49,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Chức năng 38 — Danh sách sáng kiến đạt.</summary>
     [HttpGet("sang-kien-dat")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> SangKienDatAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoSangKien>>.Ok(
@@ -67,6 +69,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Chức năng 39 — Danh sách sáng kiến chưa đạt (kèm lý do và điểm).</summary>
     [HttpGet("sang-kien-chua-dat")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> SangKienChuaDatAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoSangKien>>.Ok(
@@ -86,6 +89,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Chức năng 40 — Thống kê theo đơn vị (phục vụ đánh giá thi đua).</summary>
     [HttpGet("theo-don-vi")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> TheoDonViAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoDonVi>>.Ok(await _dem.LayHoacTinhAsync(
@@ -115,6 +119,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Thống kê theo tác giả — ai có bao nhiêu sáng kiến, bao nhiêu đạt.</summary>
     [HttpGet("theo-tac-gia")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> TheoTacGiaAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoTacGia>>.Ok(await _dem.LayHoacTinhAsync(
@@ -145,6 +150,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Thời gian xử lý trung bình theo từng bước quy trình.</summary>
     [HttpGet("thoi-gian-xu-ly")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> ThoiGianXuLyAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<DongThoiGianXuLy>>.Ok(await _dem.LayHoacTinhAsync(
@@ -173,6 +179,7 @@ public sealed class BaoCaoController : ControllerBase
 
     /// <summary>Báo cáo tổng hợp một năm — số liệu cho báo cáo cuối năm.</summary>
     [HttpGet("tong-hop-nam/{nam:int}")]
+    [Authorize(Policy = MaQuyen.BaoCaoXem)]
     public async Task<IActionResult> TongHopNamAsync(
         int nam, [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
         => Ok(PhanHoiApi<BaoCaoTongHopNam>.Ok(await _dem.LayHoacTinhAsync(
