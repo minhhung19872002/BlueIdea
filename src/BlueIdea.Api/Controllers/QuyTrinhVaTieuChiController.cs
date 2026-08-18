@@ -59,6 +59,51 @@ public sealed class QuyTrinhController : ControllerBase
     }
 
     /// <summary>Kiểm tra tính hợp lệ theo 7 rule bắt buộc.</summary>
+    /// <summary>
+    /// Chức năng 12 — Thành phần hồ sơ của quy trình (CRUD riêng, không đi qua sơ đồ).
+    ///
+    /// Thành phần hồ sơ không phải một nút trên sơ đồ nên không có lý do bắt sửa nó bằng cách gửi
+    /// lại cả sơ đồ: hai người cùng mở một quy trình sẽ ghi đè lên nhau.
+    /// </summary>
+    [HttpGet("{id:guid}/thanh-phan-ho-so")]
+    public async Task<IActionResult> LayThanhPhanAsync(Guid id, CancellationToken ct)
+        => Ok(PhanHoiApi<IReadOnlyList<ThanhPhanHoSoCauHinhDto>>.Ok(
+            await _dichVu.LayThanhPhanAsync(id, ct)));
+
+    [HttpPost("{id:guid}/thanh-phan-ho-so")]
+    [Authorize(Policy = MaQuyen.QuyTrinhCauHinh)]
+    public async Task<IActionResult> ThemThanhPhanAsync(
+        Guid id, [FromBody] ThanhPhanHoSoCauHinhDto duLieu, CancellationToken ct)
+        => Ok(PhanHoiApi<Guid>.Ok(
+            await _dichVu.ThemThanhPhanAsync(id, duLieu, ct), "Đã thêm thành phần hồ sơ"));
+
+    [HttpPut("{id:guid}/thanh-phan-ho-so/{thanhPhanId:guid}")]
+    [Authorize(Policy = MaQuyen.QuyTrinhCauHinh)]
+    public async Task<IActionResult> SuaThanhPhanAsync(
+        Guid id, Guid thanhPhanId, [FromBody] ThanhPhanHoSoCauHinhDto duLieu, CancellationToken ct)
+    {
+        await _dichVu.SuaThanhPhanAsync(id, thanhPhanId, duLieu, ct);
+        return Ok(PhanHoiApi.Ok("Đã cập nhật thành phần hồ sơ"));
+    }
+
+    [HttpDelete("{id:guid}/thanh-phan-ho-so/{thanhPhanId:guid}")]
+    [Authorize(Policy = MaQuyen.QuyTrinhCauHinh)]
+    public async Task<IActionResult> XoaThanhPhanAsync(
+        Guid id, Guid thanhPhanId, CancellationToken ct)
+    {
+        await _dichVu.XoaThanhPhanAsync(id, thanhPhanId, ct);
+        return Ok(PhanHoiApi.Ok("Đã xoá thành phần hồ sơ"));
+    }
+
+    [HttpPut("{id:guid}/thanh-phan-ho-so/sap-xep")]
+    [Authorize(Policy = MaQuyen.QuyTrinhCauHinh)]
+    public async Task<IActionResult> SapXepThanhPhanAsync(
+        Guid id, [FromBody] List<Guid> idTheoThuTu, CancellationToken ct)
+    {
+        await _dichVu.SapXepThanhPhanAsync(id, idTheoThuTu, ct);
+        return Ok(PhanHoiApi.Ok("Đã lưu thứ tự"));
+    }
+
     [HttpPost("{id:guid}/kiem-tra")]
     public async Task<IActionResult> KiemTraAsync(Guid id, CancellationToken ct)
         => Ok(PhanHoiApi<KetQuaKiemTraDto>.Ok(await _dichVu.KiemTraAsync(id, ct)));

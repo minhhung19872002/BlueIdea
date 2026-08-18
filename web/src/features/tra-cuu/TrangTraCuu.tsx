@@ -58,6 +58,7 @@ export default function TrangTraCuu() {
     linhVucId: doc('linhVucId'),
     donViId: doc('donViId'),
     trangThaiTong: doc('trangThaiTong'),
+    nam: docSo('nam'),
     ketQua: doc('ketQua'),
     diemTu: docSo('diemTu'),
     diemDen: docSo('diemDen'),

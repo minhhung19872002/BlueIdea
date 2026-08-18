@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Select, Space } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 
@@ -9,6 +9,18 @@ import { useAuthStore } from '@/app/store/authStore';
 
 /** Bảng màu vòng tròn trạng thái — lấy đúng thứ tự trong bản thiết kế. */
 const BANG_MAU = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96'];
+
+/** Tên trạng thái máy chủ trả về -> mã dùng khi lọc danh sách. */
+const MA_TRANG_THAI: Record<string, string> = {
+  'Nháp': 'NHAP',
+  'Đã nộp': 'DA_NOP',
+  'Đang xử lý': 'DANG_XU_LY',
+  'Yêu cầu bổ sung': 'YEU_CAU_BO_SUNG',
+  'Đã phê duyệt': 'DA_PHE_DUYET',
+  'Không đạt': 'KHONG_DAT',
+  'Đã rút': 'DA_RUT',
+  'Đã hủy': 'DA_HUY',
+};
 
 const NAM_HIEN_TAI = new Date().getFullYear();
 const DS_NAM = [NAM_HIEN_TAI + 1, NAM_HIEN_TAI, NAM_HIEN_TAI - 1, NAM_HIEN_TAI - 2];
@@ -54,6 +66,38 @@ export default function TrangDashboard() {
     queryFn: apiDonVi.chon,
     enabled: duocXemBaoCao,
   });
+
+  const dieuHuong = useNavigate();
+
+  /**
+   * Bấm vào một phần của biểu đồ để xem đúng danh sách hồ sơ đứng sau con số đó.
+   *
+   * Mang theo cả bộ lọc đang đặt trên dashboard: người dùng đang xem "năm 2026, lĩnh vực CNTT"
+   * mà bấm vào cột rồi ra danh sách toàn hệ thống thì con số hai bên không khớp nhau, và họ sẽ
+   * không tin được cái nào.
+   */
+  const xemChiTiet = useCallback(
+    (them: Record<string, string | number | undefined>) => {
+      const q = new URLSearchParams();
+
+      const gop = { dotDeNghiId, linhVucId, donViId, ...them };
+
+      Object.entries(gop).forEach(([khoa, giaTri]) => {
+        if (giaTri !== undefined && giaTri !== null && giaTri !== '') {
+          q.set(khoa, String(giaTri));
+        }
+      });
+
+      dieuHuong(`/tra-cuu?${q.toString()}`);
+    },
+    [dieuHuong, dotDeNghiId, linhVucId, donViId],
+  );
+
+  // Biểu đồ chỉ có TÊN lĩnh vực; muốn lọc thì cần Id, nên tra ngược từ danh mục đã tải sẵn.
+  const idLinhVuc = useMemo(
+    () => new Map((cacLinhVuc ?? []).map((x) => [x.ten, x.id])),
+    [cacLinhVuc],
+  );
 
   const trangThai = data?.theoTrangThai ?? [];
   const linhVuc = data?.theoLinhVuc ?? [];
@@ -191,7 +235,17 @@ export default function TrangDashboard() {
               }}
             >
               {trangThai.map((x, i) => (
-                <div key={x.ten} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <div
+                  key={x.ten}
+                  role="button"
+                  tabIndex={0}
+                  title={`Xem ${x.soLuong} hồ sơ ở trạng thái ${x.ten}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+                  onClick={() => xemChiTiet({ trangThaiTong: MA_TRANG_THAI[x.ten] })}
+                  onKeyDown={(e) =>
+                    e.key === 'Enter' && xemChiTiet({ trangThaiTong: MA_TRANG_THAI[x.ten] })
+                  }
+                >
                   <span
                     style={{
                       width: 8,
@@ -223,12 +277,20 @@ export default function TrangDashboard() {
             {linhVuc.map((x) => (
               <div
                 key={x.ten}
+                role="button"
+                tabIndex={0}
+                title={`Xem ${x.soLuong} hồ sơ thuộc lĩnh vực ${x.ten}`}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '98px 1fr 30px',
                   alignItems: 'center',
                   gap: 10,
+                  cursor: 'pointer',
                 }}
+                onClick={() => xemChiTiet({ linhVucId: idLinhVuc.get(x.ten) })}
+                onKeyDown={(e) =>
+                  e.key === 'Enter' && xemChiTiet({ linhVucId: idLinhVuc.get(x.ten) })
+                }
               >
                 <div
                   style={{
@@ -271,7 +333,18 @@ export default function TrangDashboard() {
             {xuHuong.map((x) => (
               <div
                 key={x.ten}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
+                role="button"
+                tabIndex={0}
+                title={`Xem ${x.soLuong} hồ sơ của năm ${x.ten}`}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                }}
+                onClick={() => xemChiTiet({ nam: x.ten })}
+                onKeyDown={(e) => e.key === 'Enter' && xemChiTiet({ nam: x.ten })}
               >
                 <span style={{ fontSize: 11, color: '#52c41a', fontWeight: 600 }}>
                   {x.giaTriPhu ?? 0}

@@ -454,6 +454,15 @@ public sealed class DichVuTruyVanSangKien
             truyVan = truyVan.Where(x => x.DotDeNghiId == t.DotDeNghiId.Value);
         }
 
+        // Nam nam tren DOT DE NGHI chu khong tren ho so nen phai loc qua bang dot. Truoc day
+        // tham so nay duoc khai bao nhung khong ai dung, nguoi dung loc theo nam thi ket qua
+        // giu nguyen — im lang va rat kho phat hien.
+        if (t.Nam.HasValue)
+        {
+            truyVan = truyVan.Where(x =>
+                _db.DotDeNghi.Any(d => d.Id == x.DotDeNghiId && d.Nam == t.Nam!.Value));
+        }
+
         if (t.LinhVucId.HasValue)
         {
             truyVan = truyVan.Where(x => x.LinhVucId == t.LinhVucId.Value);

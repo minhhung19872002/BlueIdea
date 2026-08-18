@@ -168,6 +168,191 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     /// Luu toan bo so do trong MOT giao dich (dac ta yeu cau PUT /quy-trinh/{id}/so-do).
     /// Chan sua khi quy trinh dang co ho so chay -> bat buoc tao phien ban moi.
     /// </summary>
+    /// <summary>
+    /// Danh sach thanh phan ho so cua mot quy trinh.
+    ///
+    /// Tach khoi so do: thanh phan ho so KHONG phai mot nut tren so do, no la cau hinh doc lap.
+    /// Bat sua no bang cach gui lai ca so do nghia la hai nguoi cung mo mot quy trinh — mot nguoi
+    /// sua buoc, mot nguoi them thanh phan — se ghi de len nhau.
+    /// </summary>
+    public async Task<IReadOnlyList<ThanhPhanHoSoCauHinhDto>> LayThanhPhanAsync(
+        Guid quyTrinhId, CancellationToken ct = default)
+        => await Db.QuyTrinhThanhPhanHoSo.AsNoTracking()
+            .Where(x => x.QuyTrinhId == quyTrinhId)
+            .OrderBy(x => x.ThuTu)
+            .Select(x => new ThanhPhanHoSoCauHinhDto
+            {
+                Id = x.Id,
+                Ma = x.Ma,
+                Ten = x.Ten,
+                BatBuoc = x.BatBuoc,
+                LoaiDuLieu = x.LoaiDuLieu,
+                DinhDangChoPhep = x.DinhDangChoPhep,
+                DungLuongToiDaMb = x.DungLuongToiDaMb,
+                SoLuongToiDa = x.SoLuongToiDa,
+                SoKyTuToiThieu = x.SoKyTuToiThieu,
+                SoKyTuToiDa = x.SoKyTuToiDa,
+                DungDeKiemTraTrungLap = x.DungDeKiemTraTrungLap,
+                ThuTu = x.ThuTu,
+            })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+    /// <summary>Them mot thanh phan ho so vao quy trinh.</summary>
+    public async Task<Guid> ThemThanhPhanAsync(
+        Guid quyTrinhId, ThanhPhanHoSoCauHinhDto duLieu, CancellationToken ct = default)
+    {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+            .ConfigureAwait(false);
+
+        await BatBuocQuyTrinhSuaDuocAsync(quyTrinhId, ct).ConfigureAwait(false);
+        KiemTraThanhPhan(duLieu);
+
+        var trung = await Db.QuyTrinhThanhPhanHoSo.AsNoTracking()
+            .AnyAsync(x => x.QuyTrinhId == quyTrinhId && x.Ma == duLieu.Ma, ct)
+            .ConfigureAwait(false);
+
+        if (trung)
+        {
+            throw new NghiepVuException(MaLoiHeThong.TrungMa,
+                $"Thành phần hồ sơ có mã \"{duLieu.Ma}\" đã tồn tại trong quy trình này.");
+        }
+
+        var banGhi = new QuyTrinhThanhPhanHoSo { Id = Guid.NewGuid(), QuyTrinhId = quyTrinhId };
+        ApDungThanhPhan(banGhi, duLieu);
+
+        Db.QuyTrinhThanhPhanHoSo.Add(banGhi);
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        return banGhi.Id;
+    }
+
+    /// <summary>Sua mot thanh phan ho so.</summary>
+    public async Task SuaThanhPhanAsync(
+        Guid quyTrinhId, Guid id, ThanhPhanHoSoCauHinhDto duLieu, CancellationToken ct = default)
+    {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+            .ConfigureAwait(false);
+
+        await BatBuocQuyTrinhSuaDuocAsync(quyTrinhId, ct).ConfigureAwait(false);
+        KiemTraThanhPhan(duLieu);
+
+        var banGhi = await Db.QuyTrinhThanhPhanHoSo
+            .FirstOrDefaultAsync(x => x.Id == id && x.QuyTrinhId == quyTrinhId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("thành phần hồ sơ", id);
+
+        var trung = await Db.QuyTrinhThanhPhanHoSo.AsNoTracking()
+            .AnyAsync(x => x.QuyTrinhId == quyTrinhId && x.Ma == duLieu.Ma && x.Id != id, ct)
+            .ConfigureAwait(false);
+
+        if (trung)
+        {
+            throw new NghiepVuException(MaLoiHeThong.TrungMa,
+                $"Thành phần hồ sơ có mã \"{duLieu.Ma}\" đã tồn tại trong quy trình này.");
+        }
+
+        ApDungThanhPhan(banGhi, duLieu);
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Xoa mot thanh phan ho so.</summary>
+    public async Task XoaThanhPhanAsync(Guid quyTrinhId, Guid id, CancellationToken ct = default)
+    {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+            .ConfigureAwait(false);
+
+        await BatBuocQuyTrinhSuaDuocAsync(quyTrinhId, ct).ConfigureAwait(false);
+
+        var banGhi = await Db.QuyTrinhThanhPhanHoSo
+            .FirstOrDefaultAsync(x => x.Id == id && x.QuyTrinhId == quyTrinhId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("thành phần hồ sơ", id);
+
+        banGhi.DaXoa = true;
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Luu lai thu tu cac thanh phan ho so sau khi keo tha.</summary>
+    public async Task SapXepThanhPhanAsync(
+        Guid quyTrinhId, IReadOnlyList<Guid> idTheoThuTu, CancellationToken ct = default)
+    {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+            .ConfigureAwait(false);
+
+        var danhSach = await Db.QuyTrinhThanhPhanHoSo
+            .Where(x => x.QuyTrinhId == quyTrinhId)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        for (var i = 0; i < idTheoThuTu.Count; i++)
+        {
+            var banGhi = danhSach.FirstOrDefault(x => x.Id == idTheoThuTu[i]);
+            if (banGhi is not null) banGhi.ThuTu = i;
+        }
+
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Quy trinh DANG AP DUNG khong sua duoc cau hinh thanh phan ho so.
+    ///
+    /// Ho so nop theo quy trinh nay da chay bang snapshot cua no; doi thanh phan giua chung se
+    /// lam checklist cua ho so dang xu ly lech voi thu ho so that su da nop.
+    /// </summary>
+    private async Task BatBuocQuyTrinhSuaDuocAsync(Guid quyTrinhId, CancellationToken ct)
+    {
+        var trangThai = await Db.QuyTrinh.AsNoTracking()
+            .Where(x => x.Id == quyTrinhId)
+            .Select(x => new { x.TrangThaiQuyTrinh, x.Ten })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("quy trình", quyTrinhId);
+
+        if (trangThai.TrangThaiQuyTrinh == TrangThaiQuyTrinh.DangApDung)
+        {
+            throw new NghiepVuException(MaLoiHeThong.QuyTrinhDangSuDung,
+                $"Quy trình \"{trangThai.Ten}\" đang áp dụng — tạo phiên bản mới rồi sửa trên đó.");
+        }
+    }
+
+    private static void KiemTraThanhPhan(ThanhPhanHoSoCauHinhDto d)
+    {
+        if (string.IsNullOrWhiteSpace(d.Ma))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe, "Thiếu mã thành phần.");
+        }
+
+        if (string.IsNullOrWhiteSpace(d.Ten))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe, "Thiếu tên thành phần.");
+        }
+
+        if (d.SoKyTuToiDa > 0 && d.SoKyTuToiThieu > d.SoKyTuToiDa)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Số ký tự tối thiểu lớn hơn tối đa — người nộp sẽ không bao giờ nhập hợp lệ được.");
+        }
+
+        if (d.DungLuongToiDaMb is < 1 or > 200)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Dung lượng tối đa phải từ 1 đến 200 MB.");
+        }
+    }
+
+    private static void ApDungThanhPhan(QuyTrinhThanhPhanHoSo x, ThanhPhanHoSoCauHinhDto d)
+    {
+        x.Ma = d.Ma.Trim().ToUpperInvariant();
+        x.Ten = d.Ten.Trim();
+        x.BatBuoc = d.BatBuoc;
+        x.LoaiDuLieu = d.LoaiDuLieu;
+        x.DinhDangChoPhep = d.DinhDangChoPhep;
+        x.DungLuongToiDaMb = d.DungLuongToiDaMb;
+        x.SoLuongToiDa = d.SoLuongToiDa;
+        x.SoKyTuToiThieu = d.SoKyTuToiThieu;
+        x.SoKyTuToiDa = d.SoKyTuToiDa;
+        x.DungDeKiemTraTrungLap = d.DungDeKiemTraTrungLap;
+        x.ThuTu = d.ThuTu;
+    }
+
     public async Task LuuSoDoAsync(Guid id, SoDoQuyTrinhDto soDo, CancellationToken ct = default)
     {
         await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, id, ct).ConfigureAwait(false);

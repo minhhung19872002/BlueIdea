@@ -15,8 +15,13 @@ namespace BlueIdea.Api.Controllers;
 public sealed class BaoCaoController : ControllerBase
 {
     private readonly DichVuBaoCao _dichVu;
+    private readonly BoNhoDemBaoCao _dem;
 
-    public BaoCaoController(DichVuBaoCao dichVu) => _dichVu = dichVu;
+    public BaoCaoController(DichVuBaoCao dichVu, BoNhoDemBaoCao dem)
+    {
+        _dichVu = dichVu;
+        _dem = dem;
+    }
 
     private static readonly List<CotXuat<DongBaoCaoSangKien>> CotSangKien = new()
     {
@@ -38,7 +43,8 @@ public sealed class BaoCaoController : ControllerBase
     [HttpGet("tong-quan")]
     public async Task<IActionResult> TongQuanAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
-        => Ok(PhanHoiApi<ThongKeTongQuan>.Ok(await _dichVu.TongQuanAsync(thamSo, ct)));
+        => Ok(PhanHoiApi<ThongKeTongQuan>.Ok(await _dem.LayHoacTinhAsync(
+            "tong-quan", thamSo, () => _dichVu.TongQuanAsync(thamSo, ct), ct)));
 
     /// <summary>Chức năng 38 — Danh sách sáng kiến đạt.</summary>
     [HttpGet("sang-kien-dat")]
@@ -82,8 +88,8 @@ public sealed class BaoCaoController : ControllerBase
     [HttpGet("theo-don-vi")]
     public async Task<IActionResult> TheoDonViAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
-        => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoDonVi>>.Ok(
-            await _dichVu.TheoDonViAsync(thamSo, ct)));
+        => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoDonVi>>.Ok(await _dem.LayHoacTinhAsync(
+            "theo-don-vi", thamSo, () => _dichVu.TheoDonViAsync(thamSo, ct), ct)));
 
     [HttpGet("theo-don-vi/xuat-excel")]
     [Authorize(Policy = MaQuyen.BaoCaoXuat)]
@@ -111,8 +117,8 @@ public sealed class BaoCaoController : ControllerBase
     [HttpGet("theo-tac-gia")]
     public async Task<IActionResult> TheoTacGiaAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
-        => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoTacGia>>.Ok(
-            await _dichVu.TheoTacGiaAsync(thamSo, ct)));
+        => Ok(PhanHoiApi<IReadOnlyList<DongBaoCaoTacGia>>.Ok(await _dem.LayHoacTinhAsync(
+            "theo-tac-gia", thamSo, () => _dichVu.TheoTacGiaAsync(thamSo, ct), ct)));
 
     [HttpGet("theo-tac-gia/xuat-excel")]
     [Authorize(Policy = MaQuyen.BaoCaoXuat)]
@@ -141,8 +147,8 @@ public sealed class BaoCaoController : ControllerBase
     [HttpGet("thoi-gian-xu-ly")]
     public async Task<IActionResult> ThoiGianXuLyAsync(
         [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
-        => Ok(PhanHoiApi<IReadOnlyList<DongThoiGianXuLy>>.Ok(
-            await _dichVu.ThoiGianXuLyAsync(thamSo, ct)));
+        => Ok(PhanHoiApi<IReadOnlyList<DongThoiGianXuLy>>.Ok(await _dem.LayHoacTinhAsync(
+            "thoi-gian-xu-ly", thamSo, () => _dichVu.ThoiGianXuLyAsync(thamSo, ct), ct)));
 
     [HttpGet("thoi-gian-xu-ly/xuat-excel")]
     [Authorize(Policy = MaQuyen.BaoCaoXuat)]
@@ -169,7 +175,8 @@ public sealed class BaoCaoController : ControllerBase
     [HttpGet("tong-hop-nam/{nam:int}")]
     public async Task<IActionResult> TongHopNamAsync(
         int nam, [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
-        => Ok(PhanHoiApi<BaoCaoTongHopNam>.Ok(await _dichVu.TongHopNamAsync(nam, thamSo, ct)));
+        => Ok(PhanHoiApi<BaoCaoTongHopNam>.Ok(await _dem.LayHoacTinhAsync(
+            "tong-hop-nam", new { nam, thamSo }, () => _dichVu.TongHopNamAsync(nam, thamSo, ct), ct)));
 
     /// <summary>Xuất báo cáo tổng hợp năm ra PDF theo mẫu văn bản hành chính.</summary>
     [HttpGet("tong-hop-nam/{nam:int}/xuat-pdf")]
