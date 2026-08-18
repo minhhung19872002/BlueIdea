@@ -72,6 +72,40 @@ public sealed class ThongKeTongQuan
 
 public sealed record MucThongKe(string Ten, int SoLuong, decimal? GiaTriPhu = null);
 
+/// <summary>Mot dong thong ke theo tac gia.</summary>
+public sealed record DongBaoCaoTacGia(
+    string HoTen,
+    string? DonViCongTac,
+    string? ChucVu,
+    int TongSo,
+    int SoDat,
+    int SoLaTacGiaChinh,
+    decimal? DiemTrungBinh,
+    decimal TyLeDat);
+
+/// <summary>Thoi gian xu ly trung binh cua mot buoc trong quy trinh.</summary>
+public sealed record DongThoiGianXuLy(
+    string TenBuoc,
+    int SoLuot,
+    decimal SoNgayTrungBinh,
+    decimal SoNgayLauNhat,
+    int SoLuotQuaHan);
+
+/// <summary>Bao cao tong hop mot nam — dung lam so lieu bao cao cuoi nam.</summary>
+public sealed record BaoCaoTongHopNam(
+    int Nam,
+    int TongHoSo,
+    int SoDat,
+    int SoKhongDat,
+    int SoDangXuLy,
+    decimal TyLeDat,
+    decimal? TongGiaTriLamLoi,
+    int SoTacGia,
+    int SoDonViThamGia,
+    IReadOnlyList<MucThongKe> TheoLinhVuc,
+    IReadOnlyList<MucThongKe> TheoDot,
+    IReadOnlyList<MucThongKe> TheoMucCongNhan);
+
 /// <summary>Chuc nang 38-40 + dashboard: bao cao thong ke sang kien.</summary>
 public sealed class DichVuBaoCao
 {
@@ -101,7 +135,7 @@ public sealed class DichVuBaoCao
     {
         await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
 
-        var truyVan = ApDungLoc(_db.SangKien.AsNoTracking(), thamSo)
+        var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo)
             .Where(x => x.KetQua == ketQua);
 
         var duLieu = await truyVan
@@ -169,7 +203,7 @@ public sealed class DichVuBaoCao
     {
         await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
 
-        var truyVan = ApDungLoc(_db.SangKien.AsNoTracking(), thamSo)
+        var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo)
             .Where(x => x.TrangThaiTong != TrangThaiTongHoSo.Nhap);
 
         var nhom = await truyVan
@@ -213,7 +247,7 @@ public sealed class DichVuBaoCao
         await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
 
         var bayGio = _dongHo.BayGio;
-        var truyVan = ApDungLoc(_db.SangKien.AsNoTracking(), thamSo);
+        var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
 
         var tong = await truyVan.CountAsync(ct).ConfigureAwait(false);
         var dat = await truyVan.CountAsync(x => x.KetQua == KetQuaXetDuyetGiaTri.Dat, ct)
@@ -305,6 +339,176 @@ public sealed class DichVuBaoCao
         };
     }
 
+    /// <summary>
+    /// Thong ke theo TAC GIA. Gom theo ho ten + don vi cong tac chu khong theo tai khoan: nhieu
+    /// tac gia khong co tai khoan trong he thong (nguoi ngoai don vi dong tac gia), gom theo
+    /// nguoi dung se lam mat han nhom nay khoi bao cao.
+    /// </summary>
+    public async Task<IReadOnlyList<DongBaoCaoTacGia>> TheoTacGiaAsync(
+        ThamSoBaoCao thamSo, CancellationToken ct = default)
+    {
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+
+        var hoSo = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
+
+        var duLieu = await _db.SangKienTacGia.AsNoTracking()
+            .Where(t => hoSo.Any(h => h.Id == t.SangKienId))
+            .Select(t => new
+            {
+                t.HoTen,
+                t.DonViCongTac,
+                t.ChucVu,
+                t.LaTacGiaChinh,
+                KetQua = _db.SangKien.Where(h => h.Id == t.SangKienId)
+                    .Select(h => h.KetQua).FirstOrDefault(),
+                Diem = _db.SangKien.Where(h => h.Id == t.SangKienId)
+                    .Select(h => h.TongDiem).FirstOrDefault(),
+            })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return duLieu
+            .GroupBy(x => new { x.HoTen, x.DonViCongTac })
+            .Select(g =>
+            {
+                var tong = g.Count();
+                var dat = g.Count(x => x.KetQua == KetQuaXetDuyetGiaTri.Dat);
+                var diem = g.Where(x => x.Diem.HasValue).Select(x => x.Diem!.Value).ToList();
+
+                return new DongBaoCaoTacGia(
+                    g.Key.HoTen,
+                    g.Key.DonViCongTac,
+                    g.Select(x => x.ChucVu).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
+                    tong,
+                    dat,
+                    g.Count(x => x.LaTacGiaChinh),
+                    diem.Count == 0 ? null : Math.Round(diem.Average(), 2),
+                    tong == 0 ? 0 : Math.Round(dat * 100m / tong, 2));
+            })
+            .OrderByDescending(x => x.SoDat)
+            .ThenByDescending(x => x.TongSo)
+            .ThenBy(x => x.HoTen, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Thoi gian xu ly trung binh theo tung buoc quy trinh, tinh tu nhat ky xu ly.
+    ///
+    /// Chi tinh cac luot DA HOAN THANH: luot dang mo chua biet ket thuc luc nao, gop vao se keo
+    /// trung binh xuong va che mat cac buoc that su cham.
+    /// </summary>
+    public async Task<IReadOnlyList<DongThoiGianXuLy>> ThoiGianXuLyAsync(
+        ThamSoBaoCao thamSo, CancellationToken ct = default)
+    {
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+
+        var hoSo = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
+
+        var luot = await _db.SangKienXuLy.AsNoTracking()
+            .Where(x => hoSo.Any(h => h.Id == x.SangKienId))
+            .Where(x => x.ThoiGianXuLy != null)
+            .Select(x => new
+            {
+                x.TenBuocSnapshot,
+                x.ThoiGianNhan,
+                ThoiGianXuLy = x.ThoiGianXuLy!.Value,
+                x.SoNgayXuLy,
+                x.QuaHan,
+            })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return luot
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.TenBuocSnapshot)
+                ? "(không rõ bước)"
+                : x.TenBuocSnapshot)
+            .Select(g =>
+            {
+                // Uu tien SoNgayXuLy da chot luc xu ly; thieu thi tinh lai tu moc thoi gian.
+                var ngay = g
+                    .Select(x => x.SoNgayXuLy
+                        ?? (decimal)(x.ThoiGianXuLy - x.ThoiGianNhan).TotalDays)
+                    .ToList();
+
+                return new DongThoiGianXuLy(
+                    g.Key,
+                    g.Count(),
+                    Math.Round(ngay.Average(), 2),
+                    Math.Round(ngay.Max(), 2),
+                    g.Count(x => x.QuaHan));
+            })
+            .OrderByDescending(x => x.SoNgayTrungBinh)
+            .ToList();
+    }
+
+    /// <summary>Bao cao tong hop mot nam — so lieu dua vao bao cao cuoi nam cua don vi.</summary>
+    public async Task<BaoCaoTongHopNam> TongHopNamAsync(
+        int nam, ThamSoBaoCao thamSo, CancellationToken ct = default)
+    {
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+
+        thamSo.Nam = nam;
+        var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
+
+        var duLieu = await truyVan
+            .Select(x => new
+            {
+                x.Id,
+                x.LinhVucId,
+                x.DotDeNghiId,
+                x.DonViId,
+                x.MucCongNhanId,
+                x.KetQua,
+                x.TrangThaiTong,
+                x.GiaTriLamLoiUocTinh,
+            })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var ids = duLieu.Select(x => x.Id).ToList();
+
+        var soTacGia = await _db.SangKienTacGia.AsNoTracking()
+            .Where(t => ids.Contains(t.SangKienId))
+            .Select(t => new { t.HoTen, t.DonViCongTac })
+            .Distinct()
+            .CountAsync(ct)
+            .ConfigureAwait(false);
+
+        var tenLinhVuc = await _db.LinhVuc.AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Ten, ct).ConfigureAwait(false);
+        var tenDot = await _db.DotDeNghi.AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Ten, ct).ConfigureAwait(false);
+        var tenMuc = await _db.MucCongNhan.AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Ten, ct).ConfigureAwait(false);
+
+        var tong = duLieu.Count;
+        var dat = duLieu.Count(x => x.KetQua == KetQuaXetDuyetGiaTri.Dat);
+
+        return new BaoCaoTongHopNam(
+            nam,
+            tong,
+            dat,
+            duLieu.Count(x => x.KetQua == KetQuaXetDuyetGiaTri.KhongDat),
+            duLieu.Count(x => x.TrangThaiTong == TrangThaiTongHoSo.DangXuLy),
+            tong == 0 ? 0 : Math.Round(dat * 100m / tong, 2),
+            duLieu.Sum(x => x.GiaTriLamLoiUocTinh),
+            soTacGia,
+            duLieu.Where(x => x.DonViId.HasValue).Select(x => x.DonViId!.Value).Distinct().Count(),
+            duLieu.GroupBy(x => x.LinhVucId)
+                .Select(g => new MucThongKe(
+                    tenLinhVuc.GetValueOrDefault(g.Key, "(không rõ)"), g.Count()))
+                .OrderByDescending(x => x.SoLuong).ToList(),
+            duLieu.GroupBy(x => x.DotDeNghiId)
+                .Select(g => new MucThongKe(
+                    tenDot.GetValueOrDefault(g.Key, "(không rõ)"), g.Count()))
+                .OrderByDescending(x => x.SoLuong).ToList(),
+            duLieu.Where(x => x.MucCongNhanId.HasValue)
+                .GroupBy(x => x.MucCongNhanId!.Value)
+                .Select(g => new MucThongKe(
+                    tenMuc.GetValueOrDefault(g.Key, "(không rõ)"), g.Count()))
+                .OrderByDescending(x => x.SoLuong).ToList());
+    }
+
     private static IQueryable<HoSoSangKien> ApDungLoc(
         IQueryable<HoSoSangKien> truyVan, ThamSoBaoCao thamSo)
     {
@@ -321,6 +525,32 @@ public sealed class DichVuBaoCao
         if (thamSo.DonViId.HasValue)
         {
             truyVan = truyVan.Where(x => x.DonViId == thamSo.DonViId.Value);
+        }
+
+        return truyVan;
+    }
+
+    /// <summary>
+    /// Loc theo nam va cap xet duyet — hai truong nay nam tren DOT DE NGHI chu khong tren ho so,
+    /// nen phai loc qua bang dot. Truoc day hai tham so nay bi bo qua im lang: nguoi dung chon
+    /// nam tren dashboard ma so lieu khong doi.
+    /// </summary>
+    private IQueryable<HoSoSangKien> ApDungLocDay(
+        IQueryable<HoSoSangKien> truyVan, ThamSoBaoCao thamSo)
+    {
+        truyVan = ApDungLoc(truyVan, thamSo);
+
+        if (thamSo.Nam.HasValue)
+        {
+            truyVan = truyVan.Where(x =>
+                _db.DotDeNghi.Any(d => d.Id == x.DotDeNghiId && d.Nam == thamSo.Nam!.Value));
+        }
+
+        if (!string.IsNullOrWhiteSpace(thamSo.CapXetDuyet))
+        {
+            truyVan = truyVan.Where(x =>
+                _db.DotDeNghi.Any(d => d.Id == x.DotDeNghiId
+                    && d.CapXetDuyet == thamSo.CapXetDuyet));
         }
 
         return truyVan;

@@ -532,6 +532,12 @@ export interface DongMaTranDiem {
 
 // --- Báo cáo ---------------------------------------------------------------
 
+export interface MucThongKe {
+  ten: string;
+  soLuong: number;
+  giaTriPhu?: number | null;
+}
+
 export interface ThongKeTongQuan {
   tongHoSo: number;
   hoSoDangXuLy: number;
@@ -581,7 +587,48 @@ export const apiBaoCao = {
     layDuLieu<DongBaoCaoSangKien[]>('/api/v1/bao-cao/sang-kien-chua-dat', { params: thamSo }),
   theoDonVi: (thamSo?: Record<string, unknown>) =>
     layDuLieu<DongBaoCaoDonVi[]>('/api/v1/bao-cao/theo-don-vi', { params: thamSo }),
+  theoTacGia: (thamSo?: Record<string, unknown>) =>
+    layDuLieu<DongBaoCaoTacGia[]>('/api/v1/bao-cao/theo-tac-gia', { params: thamSo }),
+  thoiGianXuLy: (thamSo?: Record<string, unknown>) =>
+    layDuLieu<DongThoiGianXuLy[]>('/api/v1/bao-cao/thoi-gian-xu-ly', { params: thamSo }),
+  tongHopNam: (nam: number, thamSo?: Record<string, unknown>) =>
+    layDuLieu<BaoCaoTongHopNam>(`/api/v1/bao-cao/tong-hop-nam/${nam}`, { params: thamSo }),
+  duongDanTongHopNamPdf: (nam: number) => `/api/v1/bao-cao/tong-hop-nam/${nam}/xuat-pdf`,
 };
+
+export interface DongBaoCaoTacGia {
+  hoTen: string;
+  donViCongTac?: string | null;
+  chucVu?: string | null;
+  tongSo: number;
+  soDat: number;
+  soLaTacGiaChinh: number;
+  diemTrungBinh?: number | null;
+  tyLeDat: number;
+}
+
+export interface DongThoiGianXuLy {
+  tenBuoc: string;
+  soLuot: number;
+  soNgayTrungBinh: number;
+  soNgayLauNhat: number;
+  soLuotQuaHan: number;
+}
+
+export interface BaoCaoTongHopNam {
+  nam: number;
+  tongHoSo: number;
+  soDat: number;
+  soKhongDat: number;
+  soDangXuLy: number;
+  tyLeDat: number;
+  tongGiaTriLamLoi?: number | null;
+  soTacGia: number;
+  soDonViThamGia: number;
+  theoLinhVuc: MucThongKe[];
+  theoDot: MucThongKe[];
+  theoMucCongNhan: MucThongKe[];
+}
 
 // --- Quy trình / tiêu chí / hội đồng ---------------------------------------
 

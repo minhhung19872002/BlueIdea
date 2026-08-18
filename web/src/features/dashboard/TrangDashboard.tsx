@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Select, Space } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 
-import { apiBaoCao } from '@/api/endpoints';
+import { apiBaoCao, apiDonVi, apiDotDeNghi, apiLinhVuc } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
 import { useAuthStore } from '@/app/store/authStore';
 
 /** Bảng màu vòng tròn trạng thái — lấy đúng thứ tự trong bản thiết kế. */
 const BANG_MAU = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96'];
+
+const NAM_HIEN_TAI = new Date().getFullYear();
+const DS_NAM = [NAM_HIEN_TAI + 1, NAM_HIEN_TAI, NAM_HIEN_TAI - 1, NAM_HIEN_TAI - 2];
 
 export default function TrangDashboard() {
   const nguoiDung = useAuthStore((s) => s.nguoiDung);
@@ -17,9 +21,37 @@ export default function TrangDashboard() {
   // quyền đó: gọi API rồi hiện lỗi đỏ ngay trang chủ là sai — phải hiện bảng điều hướng rút gọn.
   const duocXemBaoCao = useAuthStore((s) => s.coQuyen('BAO_CAO.XEM'));
 
+  const [nam, setNam] = useState<number | undefined>();
+  const [dotDeNghiId, setDotDeNghiId] = useState<string | undefined>();
+  const [linhVucId, setLinhVucId] = useState<string | undefined>();
+  const [donViId, setDonViId] = useState<string | undefined>();
+
+  const thamSo = useMemo(
+    () => ({ nam, dotDeNghiId, linhVucId, donViId }),
+    [nam, dotDeNghiId, linhVucId, donViId],
+  );
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['bao-cao', 'tong-quan'],
-    queryFn: () => apiBaoCao.tongQuan(),
+    queryKey: ['bao-cao', 'tong-quan', thamSo],
+    queryFn: () => apiBaoCao.tongQuan(thamSo),
+    enabled: duocXemBaoCao,
+  });
+
+  // Danh mục lọc chỉ tải khi người dùng thật sự xem được số liệu — tài khoản không có quyền
+  // báo cáo mà vẫn gọi ba API danh mục là gọi thừa và có thể dội 403 ngay trang chủ.
+  const { data: cacDot } = useQuery({
+    queryKey: ['dot-chon'],
+    queryFn: apiDotDeNghi.chon,
+    enabled: duocXemBaoCao,
+  });
+  const { data: cacLinhVuc } = useQuery({
+    queryKey: ['linh-vuc-chon'],
+    queryFn: apiLinhVuc.chon,
+    enabled: duocXemBaoCao,
+  });
+  const { data: cacDonVi } = useQuery({
+    queryKey: ['don-vi-chon'],
+    queryFn: apiDonVi.chon,
     enabled: duocXemBaoCao,
   });
 
@@ -53,6 +85,46 @@ export default function TrangDashboard() {
   return (
     <div className="tk-cot">
       <div style={{ fontSize: 20, fontWeight: 600 }}>Xin chào, {nguoiDung?.hoTen}</div>
+
+      {/* --- Bộ lọc: mọi con số bên dưới đều đổi theo bộ lọc này --- */}
+      <Space wrap style={{ marginBottom: 4 }}>
+        <Select
+          style={{ width: 150 }}
+          allowClear
+          placeholder="Tất cả các năm"
+          value={nam}
+          options={DS_NAM.map((x) => ({ value: x, label: `Năm ${x}` }))}
+          onChange={setNam}
+        />
+        <Select
+          style={{ width: 220 }}
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Tất cả đợt"
+          value={dotDeNghiId}
+          options={(cacDot ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+          onChange={setDotDeNghiId}
+        />
+        <Select
+          style={{ width: 200 }}
+          allowClear
+          placeholder="Tất cả lĩnh vực"
+          value={linhVucId}
+          options={(cacLinhVuc ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+          onChange={setLinhVucId}
+        />
+        <Select
+          style={{ width: 240 }}
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Tất cả đơn vị"
+          value={donViId}
+          options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+          onChange={setDonViId}
+        />
+      </Space>
 
       {/* --- Bốn chỉ số chính --- */}
       <div className="tk-luoi tk-luoi-4">
