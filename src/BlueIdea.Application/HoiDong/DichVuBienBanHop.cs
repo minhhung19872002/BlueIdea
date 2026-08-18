@@ -338,6 +338,7 @@ public sealed class DichVuBienBanHop
                 return new Dictionary<string, object?>
                 {
                     ["sangKienId"] = hs.SangKienId,
+                    ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(hs.SangKienId),
                     ["maHoSo"] = thongTin?.MaHoSo ?? string.Empty,
                     ["tenSangKien"] = thongTin?.TenSangKien ?? string.Empty,
                     ["tacGiaChinh"] = tacGia.FirstOrDefault(x => x.SangKienId == hs.SangKienId)?.HoTen,

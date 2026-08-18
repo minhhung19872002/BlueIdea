@@ -312,7 +312,7 @@ public sealed class CongViecNhacHan
                     ["tenBuoc"] = buoc.TenBuocSnapshot,
                     ["hanXuLy"] = buoc.HanXuLy?.ToString("dd/MM/yyyy HH:mm"),
                     ["tinhTrang"] = quaHan ? "ĐÃ QUÁ HẠN" : "sắp đến hạn",
-                    ["duongDan"] = $"/xu-ly/{buoc.SangKienId}"
+                    ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(buoc.SangKienId)
                 },
                 ct).ConfigureAwait(false);
 
@@ -369,7 +369,7 @@ public sealed class CongViecNhacHan
                     ["tenBuoc"] = "Chấm điểm",
                     ["hanXuLy"] = phanCong.HanHoanThanh?.ToString("dd/MM/yyyy HH:mm"),
                     ["tinhTrang"] = phanCong.HanHoanThanh < bayGio ? "ĐÃ QUÁ HẠN" : "sắp đến hạn",
-                    ["duongDan"] = $"/danh-gia/{phanCong.SangKienId}"
+                    ["duongDan"] = DuongDanGiaoDien.ChamDiem(phanCong.SangKienId)
                 },
                 ct).ConfigureAwait(false);
 

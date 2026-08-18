@@ -80,6 +80,38 @@ public sealed class ThongBaoSuKienTests
         giayMoi.Should().Contain(x => x.Contains(diaDiem, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Bam vao thong bao phai mo duoc thu no dang noi toi.
+    ///
+    /// Truoc day ca ba lien ket deu tro toi route khong ton tai va nhom thong bao thuong gap nhat
+    /// thi khong co lien ket, nen chuong thong bao chi de doc chu khong bam duoc.
+    /// </summary>
+    [Fact]
+    public async Task Giay_Moi_Co_Lien_Ket_Mo_Duoc_Hoi_Dong()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var chuTich = await _ungDung.TaoClientDaDangNhapAsync("chutich");
+
+        var hoiDongId = await LayHoiDongMauAsync(admin);
+
+        var taoPhien = await admin.PostAsJsonAsync("/api/v1/hoi-dong/phien-hop", new
+        {
+            hoiDongId,
+            tenPhien = "Phiên họp kiểm thử liên kết",
+            thoiGianBatDau = DateTimeOffset.UtcNow.AddDays(7),
+            hinhThuc = "TRUC_TIEP",
+            diaDiem = "Phòng họp kiểm thử liên kết",
+            sangKienIds = Array.Empty<string>()
+        });
+
+        taoPhien.EnsureSuccessStatusCode();
+
+        var giayMoi = (await LayThongBaoAsync(chuTich))
+            .First(x => x.GetProperty("loaiSuKien").GetString() == "MOI_HOP_HOI_DONG");
+
+        giayMoi.GetProperty("duongDan").GetString().Should().Be($"/hoi-dong/{hoiDongId}");
+    }
+
     [Fact]
     public async Task Mau_Thong_Bao_Tu_Choi_Va_Moi_Hop_Deu_Duoc_Khai_Bao()
     {
