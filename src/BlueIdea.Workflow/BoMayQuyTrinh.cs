@@ -548,7 +548,10 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
 
     /// <summary>
     /// Ban do tu hanh dong tu dong sang ma chuc nang bo sung tuong ung.
-    /// Hanh dong nao khong co trong ban do thi khong bi chuc nang bo sung chi phoi.
+    /// Hanh dong nao khong co trong ban do thi khong bi chuc nang bo sung chi phoi:
+    ///   - TaoQuyetDinh, CapNhatKetQua: hanh dong nghiep vu loi, luon chay khi den buoc tuong ung.
+    ///   - PhanCongCham: bat buoc cho buoc cham diem, khong tuy chon.
+    ///   - DongBoLienThong: chi phoi boi QuyTrinhLienThong (REQ-16), khong phai ChucNangBoSung.
     /// </summary>
     private static readonly Dictionary<string, string> BanDoHanhDongChucNang = new()
     {

@@ -189,8 +189,9 @@ requirements:
       backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
     gaps:
+      - "ThucThiBuocCommandHandler does not dispatch actions based on HanhDongCanChay — notifications fire unconditionally via GuiThongBaoAsync regardless of feature toggles"
       - "No runtime integration test for feature toggles affecting live workflow execution"
-    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. HanhDongCanChay filtered by ChucNangBoSung (6 action-to-feature mappings). LayHanhDongKhaDung exposes ChucNangBuoc for frontend. Snapshot preserves toggles. 8 unit tests cover ON/OFF filtering, workflow-level vs step-level, non-gated actions, snapshot round-trip."
+    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. HanhDongCanChay filtered by ChucNangBoSung (6 action-to-feature mappings). LayHanhDongKhaDung exposes ChucNangBuoc for frontend. Snapshot preserves toggles. 9 unit tests cover ON/OFF filtering, workflow-level vs step-level, mixed gated/non-gated actions, snapshot round-trip. Code review: ThucThiBuocCommandHandler sends notifications unconditionally — feature-gated dispatch is a separate follow-up."
 
   - id: REQ-13
     source_number: 13

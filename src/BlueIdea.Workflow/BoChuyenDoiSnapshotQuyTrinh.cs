@@ -96,6 +96,11 @@ public sealed class BoChuyenDoiSnapshotQuyTrinh : IBoChuyenDoiSnapshotQuyTrinh
                 }
             }
 
+            foreach (var cn in quyTrinh.ChucNangBoSung)
+            {
+                cn.QuyTrinhId = quyTrinh.Id;
+            }
+
             return quyTrinh;
         }
         catch (JsonException)

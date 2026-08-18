@@ -661,6 +661,36 @@ public class BoMayQuyTrinhTests
     }
 
     [Fact]
+    public void Hanh_Dong_Pha_Tron_Loc_Chi_Hanh_Dong_Bi_Chi_Phoi_Chua_Bat()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocBanHanh = quyTrinh.DanhSachBuoc.First(b => b.Ma == "B6");
+        // B6 has [TaoQuyetDinh (non-gated), CapNhatKetQua (non-gated)].
+        // Add GuiEmail (gated) to the transition but do NOT enable the feature toggle.
+        buocBanHanh.TruongHop[0].HanhDong.Add(HanhDongTuDong.GuiEmail);
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        hoSo.BuocHienTaiId = buocBanHanh.Id;
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.LanhDaoPheDuyet);
+
+        var ketQua = _boMay.ThucThi(TaoNguCanh(hoSo, quyTrinh, nguoi), new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = buocBanHanh.TruongHop[0].Id
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue();
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.TaoQuyetDinh,
+            "non-gated action survives");
+        ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.CapNhatKetQua,
+            "non-gated action survives");
+        ketQua.HanhDongCanChay.Should().NotContain(HanhDongTuDong.GuiEmail,
+            "gated action with feature OFF is filtered out");
+    }
+
+    [Fact]
     public void Snapshot_Giu_Nguyen_Chuc_Nang_Bo_Sung_Qua_Vong_Doi()
     {
         var boChuyenDoi = new BoChuyenDoiSnapshotQuyTrinh();
