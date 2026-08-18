@@ -16,6 +16,9 @@ using BlueIdea.Workflow.ThoiHan;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Extensions.Http;
 
 namespace BlueIdea.Infrastructure;
 
@@ -86,7 +89,8 @@ public static class DangKyHaTang
 
         // Lien thong: timeout ngan hon mac dinh vi he thong ngoai treo khong duoc keo dai
         // thao tac dong bo cua nguoi dung.
-        services.AddHttpClient("lien-thong", http => http.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient("lien-thong", http => http.Timeout = TimeSpan.FromSeconds(60))
+            .AddPolicyHandler((sp, _) => ChinhSachChiuLoi(sp, "lien-thong"));
         services.AddScoped<IBoAnhXaLienThong, AnhXaThiDuaKhenThuong>();
         services.AddScoped<IBoAnhXaLienThong, AnhXaIoc>();
         services.AddScoped<IBoAnhXaLienThong, AnhXaLienThongChung>();
@@ -95,9 +99,40 @@ public static class DangKyHaTang
 
         // SSO: doc discovery document cua nha cung cap nen can HttpClient rieng.
         services.AddHttpClient<IBoXacThucOidc, BoXacThucOidc>(
-            http => http.Timeout = TimeSpan.FromSeconds(30));
+                http => http.Timeout = TimeSpan.FromSeconds(30))
+            .AddPolicyHandler((sp, _) => ChinhSachChiuLoi(sp, "sso"));
 
         return services;
+    }
+
+    /// <summary>
+    /// Ngat mach cho moi loi goi ra HE THONG NGOAI (Muc 7 dac ta - Chiu loi).
+    ///
+    /// 5 lan hong lien tiep thi NGUNG goi trong 30 giay. Khong co lop nay thi mot he thong ngoai
+    /// treo se lam moi yeu cau cua nguoi dung phai cho het timeout, cac luong nen tich lai, va
+    /// mot dich vu ngoai keo sap ca he thong.
+    ///
+    /// CO Y KHONG THU LAI. Day du lieu sang he thong lien thong va gui SMS deu khong idempotent:
+    /// may chu ngoai co the da nhan va xu ly xong roi moi hong luc tra loi, thu lai luc do la gui
+    /// trung - mot ho so vao he thong Thi dua khen thuong hai lan, hoac mot nguoi dan nhan hai tin
+    /// nhan. Rieng OCR co Hangfire tu xep lich lai o cap cong viec nen, khong can them mot lop nua.
+    /// </summary>
+    private static IAsyncPolicy<HttpResponseMessage> ChinhSachChiuLoi(
+        IServiceProvider sp, string ten)
+    {
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("ChiuLoi." + ten);
+
+        var ngatMach = HttpPolicyExtensions
+            .HandleTransientHttpError()
+            .CircuitBreakerAsync(
+                handledEventsAllowedBeforeBreaking: 5,
+                durationOfBreak: TimeSpan.FromSeconds(30),
+                onBreak: (_, thoiGian) => logger.LogWarning(
+                    "Ngat mach '{Ten}' trong {Giay}s: he thong ngoai hong lien tiep.",
+                    ten, thoiGian.TotalSeconds),
+                onReset: () => logger.LogInformation("Dong mach '{Ten}': he thong ngoai da hoi.", ten));
+
+        return ngatMach;
     }
 
     /// <summary>
@@ -135,9 +170,13 @@ public static class DangKyHaTang
 
             // OCR mot tep PDF scan nhieu trang co the mat vai phut - timeout mac dinh 100s la qua ngan.
             http.Timeout = TimeSpan.FromMinutes(5);
-        });
+        })
+            // Dich vu AI hong thi ho so van nop duoc (Muc 7 - graceful degradation); ngat mach o
+            // day de moi tep tai len khong phai cho het 5 phut moi biet dieu do.
+            .AddPolicyHandler((sp, _) => ChinhSachChiuLoi(sp, "ocr"));
 
-        services.AddHttpClient("sms", http => http.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient("sms", http => http.Timeout = TimeSpan.FromSeconds(30))
+            .AddPolicyHandler((sp, _) => ChinhSachChiuLoi(sp, "sms"));
 
         services.AddScoped<IDichVuGuiTin, DichVuGuiTin>();
         services.AddScoped<CongViecTrichXuatVanBan>();

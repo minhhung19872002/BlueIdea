@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using BlueIdea.Api.Chung;
+using Prometheus;
 using BlueIdea.Api.Hubs;
 using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
@@ -311,6 +312,10 @@ app.UseMiddleware<MiddlewareHeaderBaoMat>();
 app.UseResponseCompression();
 app.UseSerilogRequestLogging();
 
+// Do dem HTTP (so request, thoi gian phan hoi, ma trang thai) cho Prometheus. Dat truoc
+// MapControllers de bao gom ca cac yeu cau bi middleware phia sau tu choi.
+app.UseHttpMetrics();
+
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:BatTrenProduction"))
 {
     app.UseSwagger();
@@ -341,6 +346,15 @@ app.UseAuthorization();
 // Gan lai se ghi de policy "DangNhap" cua endpoint dang nhap (xem giai thich o AddRateLimiter).
 app.MapControllers();
 app.MapHub<ThongBaoHub>("/hubs/thong-bao");
+
+/*
+ * Endpoint /metrics cho Prometheus (Muc 7 dac ta - Giam sat).
+ *
+ * KHONG cong khai: so dem mang theo duong dan, ma trang thai va nhip su dung cua he thong —
+ * du de nguoi ngoai doan ra co bao nhieu ho so, gio nao it nguoi truc. Nginx chi cho 127.0.0.1
+ * goi, giong nhu /health.
+ */
+app.MapMetrics();
 
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
