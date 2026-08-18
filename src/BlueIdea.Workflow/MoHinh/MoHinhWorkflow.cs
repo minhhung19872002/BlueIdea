@@ -83,6 +83,14 @@ public sealed class XuLyBuocRequest
     /// <summary>Nguoi duoc uy quyen xu ly thay (neu buoc cho phep uy quyen).</summary>
     public Guid? NguoiUyQuyenId { get; init; }
 
+    /// <summary>
+    /// Hanh dong nguoi xu ly chu dong chon, dua vao bien ngu canh <c>hanh_dong_nguoi_dung</c>.
+    ///
+    /// Danh cho nhung nhanh mo theo QUYET DINH CUA NGUOI thay vi theo du lieu — vi du quy trinh
+    /// rieng cua don vi khai mot nhanh "xu ly khan" chi mo khi nguoi xu ly chon muc khan.
+    /// </summary>
+    public string? HanhDongNguoiDung { get; init; }
+
     /// <summary>Chong double-submit (dac ta yeu cau Idempotency-Key).</summary>
     public string? IdempotencyKey { get; init; }
 

@@ -782,18 +782,21 @@ public sealed partial class DuLieuMau
         // B1 - Tiep nhan
         ThemTruongHop(b1, MaTruongHop.Dat, "Tiếp nhận hồ sơ", b2, trangThaiDangXuLy.Id, null, true,
             "primary", HanhDongTuDong.GuiEmail, HanhDongTuDong.KiemTraTrungLap);
+        /*
+         * Hai nhanh nay KHONG co dieu kien.
+         *
+         * Truoc day chung khai dieu kien `hanh_dong_nguoi_dung = "BO_SUNG"` / `"TU_CHOI"`, nhung
+         * khong co duong nao dat bien do — nen dieu kien vinh vien sai va ca hai nhanh bi chan
+         * mai mai: can bo tiep nhan KHONG the yeu cau bo sung hay tu choi mot ho so nao.
+         *
+         * Nhanh do NGUOI chon thi khong can dieu kien dua tren chinh lua chon ay: nguoi xu ly bam
+         * dung nut nao thi he thong biet ho chon gi. Dieu kien danh cho nhung nhanh do DU LIEU
+         * quyet dinh — tong diem, ty le trung lap — nhu cac nhanh ben duoi.
+         */
         ThemTruongHop(b1, MaTruongHop.BoSungHoSo, "Yêu cầu bổ sung", b1, trangThaiBoSung.Id,
-            new BieuThucDieuKien
-            {
-                Truong = BienNguCanhSeed.HanhDongNguoiDung, ToanTu = "=", GiaTri = "BO_SUNG"
-            },
-            false, "dashed", HanhDongTuDong.GuiEmail, HanhDongTuDong.GuiSms);
+            null, false, "dashed", HanhDongTuDong.GuiEmail, HanhDongTuDong.GuiSms);
         ThemTruongHop(b1, MaTruongHop.TraLai, "Từ chối tiếp nhận", null, trangThaiKhongDat.Id,
-            new BieuThucDieuKien
-            {
-                Truong = BienNguCanhSeed.HanhDongNguoiDung, ToanTu = "=", GiaTri = "TU_CHOI"
-            },
-            false, "danger", HanhDongTuDong.GuiEmail);
+            null, false, "danger", HanhDongTuDong.GuiEmail);
 
         // B2 - Tham dinh
         ThemTruongHop(b2, MaTruongHop.Dat, "Đạt thẩm định", b3, trangThaiDangXuLy.Id, null, true,
@@ -806,10 +809,7 @@ public sealed partial class DuLieuMau
             },
             false, "danger", HanhDongTuDong.GuiEmail, HanhDongTuDong.CapNhatKetQua);
         ThemTruongHop(b2, MaTruongHop.BoSungHoSo, "Trả lại bổ sung", b1, trangThaiBoSung.Id,
-            new BieuThucDieuKien
-            {
-                Truong = BienNguCanhSeed.HanhDongNguoiDung, ToanTu = "=", GiaTri = "BO_SUNG"
-            },
+            null,
             false, "dashed", HanhDongTuDong.GuiEmail);
 
         // B3 - Phan cong

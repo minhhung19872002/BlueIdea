@@ -264,7 +264,8 @@ public sealed class XuLyController : ControllerBase
             duLieu.TepDinhKemIds,
             duLieu.NguoiUyQuyenId,
             duLieu.PhienBanHoSo,
-            idempotencyKey), ct);
+            idempotencyKey,
+            duLieu.HanhDongNguoiDung), ct);
 
         return Ok(PhanHoiApi<KetQuaXuLy>.Ok(ketQua, ketQua.ThongBao));
     }
@@ -306,6 +307,14 @@ public sealed class ThucThiBuocDto
     public Guid? NguoiUyQuyenId { get; set; }
 
     public int? PhienBanHoSo { get; set; }
+
+    /// <summary>
+    /// Hanh dong nguoi xu ly chu dong chon, dua vao bien ngu canh <c>hanh_dong_nguoi_dung</c>.
+    ///
+    /// Dung cho nhung nhanh mo theo QUYET DINH CUA NGUOI, khong theo du lieu: yeu cau bo sung, tu
+    /// choi tiep nhan. Nhanh theo du lieu (tong diem, ty le trung lap) khong can truong nay.
+    /// </summary>
+    public string? HanhDongNguoiDung { get; set; }
 }
 
 public sealed record ThucThiHangLoatDto(List<Guid> SangKienIds, Guid TruongHopId, string? YKien);

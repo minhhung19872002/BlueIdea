@@ -534,7 +534,16 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
         {
             MaTruongHop.BoSungHoSo => TrangThaiTongHoSo.YeuCauBoSung,
             MaTruongHop.RutHoSo => TrangThaiTongHoSo.DaRut,
-            MaTruongHop.TraLai => TrangThaiTongHoSo.YeuCauBoSung,
+
+            // TRA_LAI dung cho hai viec khac nhau, phan biet bang ketThuc:
+            //   - tra ho so ve buoc truoc de bo sung  -> YEU_CAU_BO_SUNG (tac gia sua roi nop lai)
+            //   - tu choi tiep nhan, dong quy trinh   -> KHONG_DAT
+            // Truoc day ca hai deu ra YEU_CAU_BO_SUNG, nen ho so bi TU CHOI lai mang trang thai cho
+            // bo sung: vua "da hoan thanh quy trinh" vua "dang cho tac gia sua", va tac gia sua roi
+            // nop lai duoc mot ho so khong con buoc nao de di tiep.
+            MaTruongHop.TraLai => ketThuc
+                ? TrangThaiTongHoSo.KhongDat
+                : TrangThaiTongHoSo.YeuCauBoSung,
             MaTruongHop.KhongDat when ketThuc => TrangThaiTongHoSo.KhongDat,
             MaTruongHop.Dat when ketThuc => TrangThaiTongHoSo.DaPheDuyet,
             _ => ketThuc ? TrangThaiTongHoSo.DaPheDuyet : TrangThaiTongHoSo.DangXuLy

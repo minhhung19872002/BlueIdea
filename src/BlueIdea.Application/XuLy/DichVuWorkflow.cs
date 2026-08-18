@@ -4,6 +4,7 @@ using BlueIdea.Domain.QuyTrinh;
 using BlueIdea.Domain.SangKien;
 using BlueIdea.Shared.KetQua;
 using BlueIdea.Workflow;
+using BlueIdea.Workflow.DieuKien;
 using BlueIdea.Workflow.MoHinh;
 using Microsoft.EntityFrameworkCore;
 
@@ -72,7 +73,8 @@ public sealed class DichVuWorkflow : IWorkflowEngine
 
     public async Task<KetQuaXuLy> ThucThiAsync(XuLyBuocRequest request, CancellationToken ct)
     {
-        var nguCanh = await TaoNguCanhAsync(request.SangKienId, request.NguoiDungId, ct)
+        var nguCanh = await TaoNguCanhAsync(
+                request.SangKienId, request.NguoiDungId, ct, request.HanhDongNguoiDung)
             .ConfigureAwait(false);
 
         if (nguCanh is null)
@@ -201,7 +203,8 @@ public sealed class DichVuWorkflow : IWorkflowEngine
 
     /// <summary>Nap toan bo du lieu can thiet cho engine (ho so + quy trinh snapshot + nguoi xu ly).</summary>
     internal async Task<NguCanhThucThi?> TaoNguCanhAsync(
-        Guid sangKienId, Guid nguoiDungId, CancellationToken ct)
+        Guid sangKienId, Guid nguoiDungId, CancellationToken ct,
+        string? hanhDongNguoiDung = null)
     {
         var hoSo = await _db.SangKien
             .Include(x => x.DanhSachTacGia)
@@ -223,6 +226,16 @@ public sealed class DichVuWorkflow : IWorkflowEngine
         var nguoiXuLy = await TaoNguCanhNguoiXuLyAsync(nguoiDungId, hoSo, ct).ConfigureAwait(false);
         var soTacNhan = await DemTacNhanDuKienAsync(hoSo, quyTrinh, ct).ConfigureAwait(false);
         var bienBoSung = await TaoBienBoSungAsync(hoSo, ct).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(hanhDongNguoiDung))
+        {
+            // Bien nay truoc day duoc khai bao va duoc quy trinh mau dung lam dieu kien, nhung
+            // khong co duong nao dat gia tri — nen nhanh nao phu thuoc vao no la vinh vien bi chan.
+            bienBoSung = new Dictionary<string, object?>(bienBoSung)
+            {
+                [BienNguCanh.HanhDongNguoiDung] = hanhDongNguoiDung
+            };
+        }
 
         return new NguCanhThucThi
         {

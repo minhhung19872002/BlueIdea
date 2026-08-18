@@ -51,6 +51,9 @@ public sealed partial class DuLieuMau
         await SeedMauThongBaoAsync(ct).ConfigureAwait(false);
         await SeedHoSoSangKienAsync(ct).ConfigureAwait(false);
 
+        // Don du lieu cho he thong da cai dat — xem DuLieuMau.SuaDuLieuCu.cs.
+        await BoDieuKienTuChanAsync(ct).ConfigureAwait(false);
+
         _logger.LogInformation("Nạp dữ liệu mẫu hoàn tất.");
     }
 
