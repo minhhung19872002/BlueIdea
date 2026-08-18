@@ -126,6 +126,12 @@ export const router = createBrowserRouter([
       { path: 'danh-gia', element: <ChoTai><TrangViecDanhGia /></ChoTai> },
       { path: 'danh-gia/:id/cham-diem', element: <ChoTai><TrangChamDiem /></ChoTai> },
 
+      /*
+       * Địa chỉ đặc tả ghi cho chức năng 35 (Phiếu đánh giá). Phiếu chính là màn hình chấm điểm —
+       * nơi nhập điểm từng tiêu chí, nhận xét, ưu điểm, hạn chế — nên đưa thẳng sang đó.
+       */
+      { path: 'danh-gia/:id/phieu', element: <Navigate to="../cham-diem" replace relative="path" /> },
+
       { path: 'hoi-dong', element: <ChoTai><TrangHoiDong /></ChoTai> },
       { path: 'hoi-dong/:id', element: <ChoTai><TrangChiTietHoiDong /></ChoTai> },
 
@@ -147,6 +153,17 @@ export const router = createBrowserRouter([
       { path: 'quan-tri/mau-thong-bao', element: <ChoTai><TrangMauThongBao /></ChoTai> },
       { path: 'quan-tri/danh-muc/dot-de-nghi/:id', element: <ChoTai><TrangChiTietDot /></ChoTai> },
       { path: 'quan-tri/cau-hinh/menu', element: <ChoTai><TrangCauHinhMenu /></ChoTai> },
+
+      /*
+       * Hai địa chỉ đặc tả ghi cho chức năng 49 và 50.
+       *
+       * Trước đây chúng rơi vào trang cấu hình theo nhóm, mà hai nhóm CHU_KY_SO và EMAIL_SMS
+       * không có mục nào — nên ai đi theo bảng truy vết của đặc tả (người nghiệm thu chẳng hạn)
+       * đều thấy một trang TRẮNG và kết luận là chức năng chưa làm. Màn hình thật giàu hơn nhiều
+       * và nằm ở địa chỉ khác; đưa thẳng sang đó.
+       */
+      { path: 'quan-tri/cau-hinh/chu-ky-so', element: <Navigate to="/quan-tri/chu-ky-so" replace /> },
+      { path: 'quan-tri/cau-hinh/email-sms', element: <Navigate to="/quan-tri/gui-tin" replace /> },
       { path: 'quan-tri/sao-luu', element: <ChoTai><TrangSaoLuu /></ChoTai> },
       { path: 'quan-tri/nhat-ky/dong-bo', element: <ChoTai><TrangNhatKyDongBo /></ChoTai> },
       { path: 'quan-tri/danh-muc/ngay-nghi-le', element: <ChoTai><TrangNgayNghiLe /></ChoTai> },
@@ -160,6 +177,13 @@ export const router = createBrowserRouter([
       { path: 'quan-tri/tieu-chi/:id', element: <ChoTai><TrangCauHinhTieuChi /></ChoTai> },
       { path: 'quan-tri/nguoi-dung', element: <ChoTai><TrangNguoiDung /></ChoTai> },
       { path: 'quan-tri/don-vi', element: <ChoTai><TrangDonVi /></ChoTai> },
+
+      /*
+       * Địa chỉ đặc tả ghi cho chức năng 47. Cấu hình riêng của đơn vị (tiêu đề văn bản, người ký
+       * mặc định, logo) nằm ngay trong màn hình đơn vị, nên mở đúng đơn vị đó thay vì dựng thêm
+       * một màn hình nữa cho cùng một việc.
+       */
+      { path: 'quan-tri/don-vi/:id/cau-hinh', element: <ChoTai><TrangDonVi /></ChoTai> },
       { path: 'quan-tri/vai-tro', element: <ChoTai><TrangVaiTro /></ChoTai> },
       { path: 'quan-tri/gui-tin', element: <ChoTai><TrangCauHinhGuiTin /></ChoTai> },
       { path: 'quan-tri/cau-hinh/:nhom', element: <ChoTai><TrangCauHinhHeThong /></ChoTai> },
