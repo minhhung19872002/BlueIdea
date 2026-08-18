@@ -14,6 +14,7 @@ import { useCauHinhStore, type MucMenu } from '@/app/store/cauHinhStore';
 import { kichThuoc, mauSac } from '@/app/giaoDien';
 import { HopThongBao } from '@/components/HopThongBao';
 import { TimKiemNhanh } from '@/components/TimKiemNhanh';
+import { LogoHeThong } from '@/components/LogoHeThong';
 import { layDiaChiDangXuatSso } from '@/features/xac-thuc/sso';
 
 const { Header, Sider, Content } = Layout;
@@ -90,22 +91,7 @@ export function BoCucChinh() {
           gap: 10,
         }}
       >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 7,
-            background: mauSac.chinh,
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: 12,
-          }}
-        >
-          BI
-        </div>
+        <LogoHeThong kichThuoc={28} />
         <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '0.04em' }}>BLUEIDEA</span>
       </div>
 

@@ -25,6 +25,8 @@ public sealed class CauHinhCoHieuLucTests
     [InlineData("SO_LAN_SAI_CAN_CAPTCHA")]
     [InlineData("SSO_TU_DONG_TAO_TAI_KHOAN")]
     [InlineData("SO_TEP_TOI_DA")]
+    [InlineData("LOGO_ID")]
+    [InlineData("FAVICON_ID")]
     public async Task Khoa_Cau_Hinh_Hien_Tren_Man_Hinh_Quan_Tri(string khoa)
     {
         var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
@@ -68,6 +70,39 @@ public sealed class CauHinhCoHieuLucTests
         {
             await DatGiaTriAsync(admin, "SO_TEP_TOI_DA", cu ?? "20");
         }
+    }
+
+    /// <summary>
+    /// Trang dang nhap phai lay duoc logo khi CHUA dang nhap, va favicon thi trinh duyet tai bang
+    /// the &lt;link&gt; nen khong dinh kem duoc token.
+    /// </summary>
+    [Theory]
+    [InlineData("logo")]
+    [InlineData("favicon")]
+    public async Task Anh_Thuong_Hieu_Doc_Duoc_Khi_Chua_Dang_Nhap(string loai)
+    {
+        var khach = _ungDung.CreateClient();
+
+        var phanHoi = await khach.GetAsync($"/api/v1/he-thong/anh-thuong-hieu/{loai}");
+
+        // 204 khi chua cau hinh anh, 200 khi da co — ca hai deu la duong di hop le.
+        phanHoi.IsSuccessStatusCode.Should().BeTrue(
+            "trang đăng nhập phải hiển thị được trước khi có ai đăng nhập");
+    }
+
+    /// <summary>
+    /// Endpoint chi phuc vu DUNG hai tep quan tri vien chi dinh lam anh thuong hieu. Nhan id tuy y
+    /// thi day thanh duong doc moi tep dinh kem cua moi ho so ma khong can dang nhap.
+    /// </summary>
+    [Fact]
+    public async Task Anh_Thuong_Hieu_Tu_Choi_Loai_Khong_Nam_Trong_Danh_Sach()
+    {
+        var khach = _ungDung.CreateClient();
+
+        var phanHoi = await khach.GetAsync(
+            $"/api/v1/he-thong/anh-thuong-hieu/{Guid.NewGuid()}");
+
+        phanHoi.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
     }
 
     // ---------------------------------------------------------------------------------
