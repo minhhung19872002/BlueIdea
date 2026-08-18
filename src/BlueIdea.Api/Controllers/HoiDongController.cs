@@ -12,6 +12,8 @@ public sealed record DiemDanhDto(Guid ThanhVienId, bool CoMat, string? LyDoVang)
 
 public sealed record KetThucPhienDto(string? KetLuan);
 
+public sealed record YKienHoSoDto(Guid SangKienId, string? KetLuanRieng, string? KetQua);
+
 /// <summary>Chức năng 19–20 — Hội đồng sáng kiến, thành viên, phiên họp, bỏ phiếu.</summary>
 [ApiController]
 [Route("api/v1/hoi-dong")]
@@ -96,6 +98,16 @@ public sealed class HoiDongController : ControllerBase
     {
         await _dichVu.DiemDanhAsync(id, duLieu.ThanhVienId, duLieu.CoMat, duLieu.LyDoVang, ct);
         return Ok(PhanHoiApi.Ok("Đã điểm danh"));
+    }
+
+    /// <summary>Ghi ý kiến / kết luận riêng cho một hồ sơ trong phiên họp.</summary>
+    [HttpPost("phien-hop/{id:guid}/y-kien-ho-so")]
+    [Authorize(Policy = MaQuyen.HoiDongHopPhien)]
+    public async Task<IActionResult> GhiYKienHoSoAsync(
+        Guid id, [FromBody] YKienHoSoDto duLieu, CancellationToken ct)
+    {
+        await _dichVu.GhiYKienHoSoAsync(id, duLieu.SangKienId, duLieu.KetLuanRieng, duLieu.KetQua, ct);
+        return Ok(PhanHoiApi.Ok("Đã ghi ý kiến cho hồ sơ"));
     }
 
     /// <summary>Bỏ phiếu (kín hoặc công khai) cho một hồ sơ trong phiên họp.</summary>

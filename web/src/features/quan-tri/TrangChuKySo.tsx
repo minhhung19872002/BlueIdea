@@ -21,6 +21,7 @@ import { LoiApi } from '@/api/client';
 import { apiChuKySo, type CauHinhChuKySo } from '@/api/endpoints';
 import { KhoiLoi, KhoiRong } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
+import { DS_TAB_CAU_HINH } from './cauHinhTab';
 
 const NHA_CUNG_CAP = [
   { value: 'BAN_CO_YEU_CHINH_PHU', label: 'Ban Cơ yếu Chính phủ' },
@@ -36,15 +37,6 @@ const LOAI_KY = [
   { value: 'HSM', label: 'HSM' },
   { value: 'REMOTE_SIGNING', label: 'Ký từ xa (remote signing)' },
   { value: 'SMART_CA', label: 'SmartCA' },
-];
-
-const DS_TAB = [
-  { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/cau-hinh/he-thong' },
-  { ma: 'sang-kien', ten: 'Thông tin sáng kiến', duongDan: '/quan-tri/cau-hinh/sang-kien' },
-  { ma: 'email-sms', ten: 'Email & SMS', duongDan: '/quan-tri/gui-tin' },
-  { ma: 'chu-ky-so', ten: 'Chữ ký số', duongDan: '/quan-tri/chu-ky-so' },
-  { ma: 'tich-hop', ten: 'Tích hợp', duongDan: '/quan-tri/cau-hinh/tich-hop' },
-  { ma: 'menu', ten: 'Menu', duongDan: '/quan-tri/cau-hinh/menu' },
 ];
 
 /** Chức năng 49 — Cấu hình chữ ký số dùng để ký quyết định và biên bản. */
@@ -125,7 +117,7 @@ export default function TrangChuKySo() {
         </Button>
       }
     >
-      <DaiTabTrang danhSach={DS_TAB} dangChon="chu-ky-so" />
+      <DaiTabTrang danhSach={DS_TAB_CAU_HINH} dangChon="chu-ky-so" />
 
       <Alert
         type={trangThai?.sanSang ? 'success' : 'warning'}

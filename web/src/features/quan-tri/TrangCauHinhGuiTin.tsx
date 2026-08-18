@@ -27,6 +27,7 @@ import { LoiApi } from '@/api/client';
 import { apiCauHinhGuiTin, type CauHinhGuiTin, type LuuCauHinhGuiTin } from '@/api/endpoints';
 import { KhoiLoi } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
+import { DS_TAB_CAU_HINH } from './cauHinhTab';
 
 const TRANG_THAI_HANG_DOI: Record<string, { ten: string; mau: string }> = {
   CHO_GUI: { ten: 'Chờ gửi', mau: '#faad14' },
@@ -34,16 +35,6 @@ const TRANG_THAI_HANG_DOI: Record<string, { ten: string; mau: string }> = {
   DA_GUI: { ten: 'Đã gửi', mau: '#52c41a' },
   LOI: { ten: 'Lỗi', mau: '#ff4d4f' },
 };
-
-/** Các nhánh con của trang — thiết kế gộp thành một mục ở thanh điều hướng. */
-const DS_TAB = [
-  { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/cau-hinh/he-thong' },
-  { ma: 'sang-kien', ten: 'Thông tin sáng kiến', duongDan: '/quan-tri/cau-hinh/sang-kien' },
-  { ma: 'email-sms', ten: 'Email & SMS', duongDan: '/quan-tri/gui-tin' },
-  { ma: 'chu-ky-so', ten: 'Chữ ký số', duongDan: '/quan-tri/chu-ky-so' },
-  { ma: 'tich-hop', ten: 'Tích hợp', duongDan: '/quan-tri/cau-hinh/tich-hop' },
-  { ma: 'menu', ten: 'Menu', duongDan: '/quan-tri/cau-hinh/menu' },
-];
 
 /** Chức năng 50 — Cấu hình máy chủ email và nhà cung cấp SMS. */
 export default function TrangCauHinhGuiTin() {
@@ -339,7 +330,7 @@ function FormCauHinh({
       onCancel={onDong}
       destroyOnClose
     >
-      <DaiTabTrang danhSach={DS_TAB} dangChon={'email-sms'} />
+      <DaiTabTrang danhSach={DS_TAB_CAU_HINH} dangChon={'email-sms'} />
 
       <Form<GiaTriForm>
         form={form}

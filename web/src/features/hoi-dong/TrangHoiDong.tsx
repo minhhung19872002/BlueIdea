@@ -13,13 +13,29 @@ import {
   Space,
   Table,
   Tag,
+  Typography,
+  Upload,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  FilePdfOutlined,
+  PlusOutlined,
+  SettingOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { LoiApi } from '@/api/client';
-import { apiDonVi, apiDotDeNghi, apiHoiDong, apiLinhVuc, type DanhMucDto } from '@/api/endpoints';
+import { LoiApi, taiTep } from '@/api/client';
+import {
+  apiDonVi,
+  apiDotDeNghi,
+  apiHoiDong,
+  apiLinhVuc,
+  taiTepLen,
+  type DanhMucDto,
+} from '@/api/endpoints';
 import { useAuthStore } from '@/app/store/authStore';
 import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
 
@@ -40,6 +56,8 @@ export default function TrangHoiDong() {
   const [tuKhoa, setTuKhoa] = useState('');
   const [dangSua, setDangSua] = useState<DanhMucDto | null>(null);
   const [moForm, setMoForm] = useState(false);
+  const [tepQuyetDinh, setTepQuyetDinh] = useState<{ id: string; ten: string } | null>(null);
+  const [dangTaiTep, setDangTaiTep] = useState(false);
   const [form] = Form.useForm();
 
   const thamSo = { trang, soDong, tuKhoa };
@@ -67,6 +85,7 @@ export default function TrangHoiDong() {
           ? dayjs(giaTri.thoiGianHoatDongDen as string).format('YYYY-MM-DD')
           : null,
         linhVucPhuTrach: (giaTri.linhVucPhuTrach as string[]) ?? [],
+        tepQuyetDinhId: tepQuyetDinh?.id ?? null,
       };
 
       return dangSua ? apiHoiDong.sua(dangSua.id, duLieu) : apiHoiDong.them(duLieu);
@@ -107,6 +126,12 @@ export default function TrangHoiDong() {
         ? dayjs(chiTiet.thoiGianHoatDongDen)
         : undefined,
     });
+    // Chi luu duoc Id tep, khong luu ten: ten that lay tu Content-Disposition khi bam tai ve.
+    setTepQuyetDinh(
+      chiTiet.tepQuyetDinhId
+        ? { id: chiTiet.tepQuyetDinhId, ten: 'Quyết định thành lập đã đính kèm' }
+        : null,
+    );
     setMoForm(true);
   }
 
@@ -131,6 +156,7 @@ export default function TrangHoiDong() {
               onClick={() => {
                 setDangSua(null);
                 form.resetFields();
+                setTepQuyetDinh(null);
                 setMoForm(true);
               }}
             >
@@ -298,6 +324,60 @@ export default function TrangHoiDong() {
               <DatePicker format="DD/MM/YYYY" style={{ width: 170 }} />
             </Form.Item>
           </Space>
+
+          <Form.Item
+            label="Tệp quyết định thành lập"
+            tooltip="Bản scan quyết định thành lập hội đồng — dùng làm căn cứ khi in biên bản họp."
+          >
+            <Space wrap>
+              <Upload
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                maxCount={1}
+                showUploadList={false}
+                beforeUpload={(tep) => {
+                  void (async () => {
+                    setDangTaiTep(true);
+                    try {
+                      const daTaiLen = await taiTepLen(tep as File);
+                      setTepQuyetDinh({ id: daTaiLen.id, ten: daTaiLen.tenGoc });
+                      message.success('Đã tải tệp quyết định lên');
+                    } catch (loi) {
+                      message.error(
+                        loi instanceof LoiApi ? loi.message : 'Không tải được tệp lên.',
+                      );
+                    } finally {
+                      setDangTaiTep(false);
+                    }
+                  })();
+
+                  return false;
+                }}
+              >
+                <Button icon={<UploadOutlined />} loading={dangTaiTep}>
+                  Chọn tệp
+                </Button>
+              </Upload>
+
+              {tepQuyetDinh ? (
+                <Space>
+                  <Button
+                    type="link"
+                    icon={<FilePdfOutlined />}
+                    onClick={() =>
+                      void taiTep(`/api/v1/tep-tin/${tepQuyetDinh.id}/tai-ve`, tepQuyetDinh.ten)
+                    }
+                  >
+                    {tepQuyetDinh.ten}
+                  </Button>
+                  <Button type="text" danger size="small" onClick={() => setTepQuyetDinh(null)}>
+                    Bỏ tệp
+                  </Button>
+                </Space>
+              ) : (
+                <Typography.Text type="secondary">Chưa đính kèm tệp.</Typography.Text>
+              )}
+            </Space>
+          </Form.Item>
 
           <Space size="large" wrap>
             <Form.Item name="thoiGianHoatDongTu" label="Hoạt động từ">

@@ -8,6 +8,7 @@ import { LoiApi } from '@/api/client';
 import { apiHeThong, type CauHinhMuc } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
+import { DS_TAB_CAU_HINH } from './cauHinhTab';
 
 const NHOM_THEO_DUONG_DAN: Record<string, { nhom?: string; tieuDe: string }> = {
   'he-thong': { nhom: undefined, tieuDe: 'Cấu hình hệ thống' },
@@ -17,16 +18,6 @@ const NHOM_THEO_DUONG_DAN: Record<string, { nhom?: string; tieuDe: string }> = {
   'tich-hop': { nhom: 'TICH_HOP', tieuDe: 'Cấu hình tích hợp hệ thống' },
   menu: { nhom: 'MENU', tieuDe: 'Cấu hình menu' },
 };
-
-/** Các nhánh con của trang — thiết kế gộp thành một mục ở thanh điều hướng. */
-const DS_TAB = [
-  { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/cau-hinh/he-thong' },
-  { ma: 'sang-kien', ten: 'Thông tin sáng kiến', duongDan: '/quan-tri/cau-hinh/sang-kien' },
-  { ma: 'email-sms', ten: 'Email & SMS', duongDan: '/quan-tri/gui-tin' },
-  { ma: 'chu-ky-so', ten: 'Chữ ký số', duongDan: '/quan-tri/chu-ky-so' },
-  { ma: 'tich-hop', ten: 'Tích hợp', duongDan: '/quan-tri/cau-hinh/tich-hop' },
-  { ma: 'menu', ten: 'Menu', duongDan: '/quan-tri/cau-hinh/menu' },
-];
 
 /** Chức năng 46, 51 — Cấu hình hệ thống theo nhóm. */
 export default function TrangCauHinhHeThong() {
@@ -102,7 +93,7 @@ export default function TrangCauHinhHeThong() {
         </Button>
       }
     >
-      <DaiTabTrang danhSach={DS_TAB} dangChon={nhom} />
+      <DaiTabTrang danhSach={DS_TAB_CAU_HINH} dangChon={nhom} />
 
       <Form form={form} layout="vertical" style={{ maxWidth: 720 }}>
         {dsMuc.map((m) => (

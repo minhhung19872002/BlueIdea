@@ -778,6 +778,7 @@ export interface HoiDongChiTiet extends DanhMucDto {
   donViId?: string | null;
   soQuyetDinhThanhLap?: string | null;
   ngayQuyetDinh?: string | null;
+  tepQuyetDinhId?: string | null;
   thoiGianHoatDongTu?: string | null;
   thoiGianHoatDongDen?: string | null;
   linhVucPhuTrach: string[];
@@ -810,6 +811,10 @@ export const apiHoiDong = {
     layDuLieu<KetQuaBoPhieu>(`/api/v1/hoi-dong/phien-hop/${phienHopId}/ket-qua-bo-phieu`, {
       params: { sangKienId },
     }),
+  ghiYKienHoSo: (
+    phienHopId: string,
+    duLieu: { sangKienId: string; ketLuanRieng?: string | null; ketQua?: string | null },
+  ) => guiDuLieu(`/api/v1/hoi-dong/phien-hop/${phienHopId}/y-kien-ho-so`, duLieu),
   ketThucPhienHop: (phienHopId: string, ketLuan?: string) =>
     guiDuLieu(`/api/v1/hoi-dong/phien-hop/${phienHopId}/ket-thuc`, { ketLuan }),
 };
@@ -918,6 +923,9 @@ export const apiHeThong = {
     layPhanTrang<ThongBaoTrongUngDung>('/api/v1/he-thong/thong-bao', thamSo),
   danhDauDaDoc: (id: string) => guiDuLieu(`/api/v1/he-thong/thong-bao/${id}/da-doc`),
   danhDauDocTatCa: () => guiDuLieu('/api/v1/he-thong/thong-bao/doc-tat-ca'),
+
+  saoChepVaiTro: (id: string, duLieu: { ma: string; ten: string }) =>
+    guiDuLieu<string>(`/api/v1/he-thong/vai-tro/${id}/sao-chep`, duLieu),
 
   // Chức năng 45 — ma trận phân quyền
   themVaiTro: (duLieu: LuuVaiTro) => guiDuLieu<string>('/api/v1/he-thong/vai-tro', duLieu),
@@ -1285,6 +1293,10 @@ export const apiTichHop = {
       undefined,
       { params: thamSo },
     ),
+  thuKetNoi: (id: string) =>
+    guiDuLieu<KetQuaThuKetNoi>(`/api/v1/tich-hop/he-thong/${id}/thu-ket-noi`),
+  guiLai: (nhatKyId: string) =>
+    guiDuLieu<KetQuaDongBo>(`/api/v1/tich-hop/nhat-ky-dong-bo/${nhatKyId}/gui-lai`),
   nhatKyDongBo: (heThongId?: string, soDong = 50) =>
     layDuLieu<NhatKyDongBo[]>('/api/v1/tich-hop/nhat-ky-dong-bo', {
       params: { heThongId, soDong },
@@ -1548,3 +1560,72 @@ export const apiNhatKyLoi = {
     layPhanTrang<NhatKyLoi>('/api/v1/he-thong/nhat-ky/loi', thamSo),
   danhDauDaXuLy: (id: string) => guiDuLieu(`/api/v1/he-thong/nhat-ky/loi/${id}/da-xu-ly`),
 };
+
+// --- Mẫu thông báo và ngày nghỉ lễ (chức năng 50, 46) ----------------------
+
+export interface MauThongBao {
+  id: string;
+  ma: string;
+  ten: string;
+  /** EMAIL | SMS | APP | TAT_CA */
+  kenh: string;
+  suKien: string;
+  tieuDe: string;
+  noiDung: string;
+  danhSachBien: string[];
+  trangThai: number;
+}
+
+export interface LuuMauThongBao {
+  ma: string;
+  ten: string;
+  kenh: string;
+  suKien: string;
+  tieuDe: string;
+  noiDung: string;
+  danhSachBien: string[];
+  trangThai: number;
+}
+
+export const apiMauThongBao = {
+  danhSach: (thamSo?: { suKien?: string; kenh?: string }) =>
+    layDuLieu<MauThongBao[]>('/api/v1/mau-thong-bao', { params: thamSo }),
+  suKien: () => layDuLieu<{ ma: string; ten: string }[]>('/api/v1/mau-thong-bao/su-kien'),
+  them: (duLieu: LuuMauThongBao) => guiDuLieu<string>('/api/v1/mau-thong-bao', duLieu),
+  sua: (id: string, duLieu: LuuMauThongBao) =>
+    capNhatDuLieu(`/api/v1/mau-thong-bao/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/mau-thong-bao/${id}`),
+  xemTruoc: (id: string, bien?: Record<string, string>) =>
+    guiDuLieu<{ tieuDe: string; noiDung: string }>(
+      `/api/v1/mau-thong-bao/${id}/xem-truoc`,
+      bien ?? {},
+    ),
+};
+
+export interface NgayNghiLe {
+  id: string;
+  ngay: string;
+  ten: string;
+  lapLaiHangNam: boolean;
+  trangThai: number;
+}
+
+export const apiNgayNghiLe = {
+  danhSach: (nam?: number) =>
+    layDuLieu<NgayNghiLe[]>('/api/v1/ngay-nghi-le', { params: { nam } }),
+  them: (duLieu: { ngay: string; ten: string; lapLaiHangNam: boolean; trangThai: number }) =>
+    guiDuLieu<string>('/api/v1/ngay-nghi-le', duLieu),
+  sua: (
+    id: string,
+    duLieu: { ngay: string; ten: string; lapLaiHangNam: boolean; trangThai: number },
+  ) => capNhatDuLieu(`/api/v1/ngay-nghi-le/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/ngay-nghi-le/${id}`),
+};
+
+export interface KetQuaThuKetNoi {
+  thanhCong: boolean;
+  tenHeThong: string;
+  endpoint?: string | null;
+  soMiliGiay: number;
+  thongBao?: string | null;
+}

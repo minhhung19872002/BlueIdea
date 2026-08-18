@@ -273,6 +273,46 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Ghi y kien / ket luan rieng cho MOT ho so trong phien hop.
+    ///
+    /// Tach khoi ket luan chung cua phien: hoi dong xet nhieu ho so mot phien, moi ho so co ket
+    /// luan rieng, gop het vao mot o van ban thi bien ban khong tach duoc theo tung ho so.
+    /// </summary>
+    public async Task GhiYKienHoSoAsync(
+        Guid phienHopId, Guid sangKienId, string? ketLuanRieng, string? ketQua,
+        CancellationToken ct = default)
+    {
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, phienHopId, ct)
+            .ConfigureAwait(false);
+
+        var phien = await Db.PhienHop.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == phienHopId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("phiên họp", phienHopId);
+
+        if (phien.TrangThaiPhien == TrangThaiPhienHop.DaKetThuc)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Phiên họp đã kết thúc, không sửa được ý kiến.");
+        }
+
+        var dong = await Db.PhienHopHoSo
+            .FirstOrDefaultAsync(x => x.PhienHopId == phienHopId && x.SangKienId == sangKienId, ct)
+            .ConfigureAwait(false)
+            ?? throw new KhongTimThayException("hồ sơ trong phiên họp", sangKienId);
+
+        if (ketQua is not null and not ("DAT" or "KHONG_DAT" or "HOAN"))
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                $"Kết quả '{ketQua}' không hợp lệ (chỉ DAT, KHONG_DAT, HOAN).");
+        }
+
+        dong.KetLuanRieng = ketLuanRieng;
+        dong.KetQua = ketQua;
+
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>Ket qua bo phieu cua mot ho so trong phien hop.</summary>
     public async Task<KetQuaBoPhieuDto> LayKetQuaBoPhieuAsync(
         Guid phienHopId, Guid sangKienId, CancellationToken ct = default)
@@ -346,6 +386,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         x.DonViId = d.DonViId;
         x.SoQuyetDinhThanhLap = d.SoQuyetDinhThanhLap;
         x.NgayQuyetDinh = d.NgayQuyetDinh;
+        x.TepQuyetDinhId = d.TepQuyetDinhId;
         x.ThoiGianHoatDongTu = d.ThoiGianHoatDongTu;
         x.ThoiGianHoatDongDen = d.ThoiGianHoatDongDen;
         x.LinhVucPhuTrach = d.LinhVucPhuTrach;
@@ -377,6 +418,9 @@ public sealed class HoiDongLuuDto
     public string? SoQuyetDinhThanhLap { get; set; }
 
     public DateOnly? NgayQuyetDinh { get; set; }
+
+    /// <summary>Tep quyet dinh thanh lap hoi dong (PDF/anh scan).</summary>
+    public Guid? TepQuyetDinhId { get; set; }
 
     public DateOnly? ThoiGianHoatDongTu { get; set; }
 

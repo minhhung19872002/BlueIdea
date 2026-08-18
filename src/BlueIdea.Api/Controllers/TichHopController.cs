@@ -176,6 +176,28 @@ public sealed class TichHopController : ControllerBase
             $"Đồng bộ sang {ketQua.TenHeThong}: {ketQua.ThanhCong}/{ketQua.TongBanGhi} bản ghi"));
     }
 
+    /// <summary>
+    /// Thử kết nối tới hệ thống ngoài mà KHÔNG gửi dữ liệu nghiệp vụ.
+    ///
+    /// Gửi một gói rỗng có cờ <c>laThuKetNoi</c>: đủ để biết endpoint sống, khoá đúng và chứng
+    /// thư TLS hợp lệ hay không, nhưng không tạo bản ghi rác bên hệ thống nhận.
+    /// </summary>
+    [HttpPost("he-thong/{id:guid}/thu-ket-noi")]
+    [Authorize(Policy = MaQuyen.TichHopCauHinh)]
+    public async Task<IActionResult> ThuKetNoiAsync(Guid id, CancellationToken ct)
+        => Ok(PhanHoiApi<KetQuaThuKetNoi>.Ok(await _dongBo.ThuKetNoiAsync(id, ct)));
+
+    /// <summary>Gửi lại một lần đồng bộ đã thất bại.</summary>
+    [HttpPost("nhat-ky-dong-bo/{nhatKyId:guid}/gui-lai")]
+    [Authorize(Policy = MaQuyen.TichHopDongBo)]
+    public async Task<IActionResult> GuiLaiAsync(Guid nhatKyId, CancellationToken ct)
+    {
+        var ketQua = await _dongBo.GuiLaiAsync(nhatKyId, ct);
+
+        return Ok(PhanHoiApi<KetQuaDongBo>.Ok(ketQua,
+            $"Gửi lại: {ketQua.ThanhCong}/{ketQua.TongBanGhi} bản ghi thành công"));
+    }
+
     [HttpGet("nhat-ky-dong-bo")]
     [Authorize(Policy = MaQuyen.TichHopCauHinh)]
     public async Task<IActionResult> LayNhatKyAsync(

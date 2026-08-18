@@ -30,6 +30,10 @@ public sealed record KetQuaDongBo(
     string TrangThai,
     string? ThongBaoLoi);
 
+/// <summary>Ket qua thu ket noi toi he thong ngoai.</summary>
+public sealed record KetQuaThuKetNoi(
+    bool ThanhCong, string TenHeThong, string? Endpoint, int SoMiliGiay, string? ThongBao);
+
 public static class TrangThaiDongBo
 {
     public const string DangChay = "DANG_CHAY";
@@ -154,6 +158,70 @@ public sealed class DichVuDongBoLienThong
             return await KetThucAsync(banGhi, heThong, 0, duLieu.Count, TrangThaiDongBo.ThatBai,
                 ex.Message, ct).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Thu ket noi: goi he thong ngoai voi goi RONG.
+    ///
+    /// Khong gui du lieu nghiep vu vi day chi la phep thu cau hinh — gui du lieu that se tao ban
+    /// ghi rac ben he thong nhan moi lan quan tri vien bam thu.
+    /// </summary>
+    public async Task<KetQuaThuKetNoi> ThuKetNoiAsync(Guid heThongId, CancellationToken ct = default)
+    {
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, heThongId, ct)
+            .ConfigureAwait(false);
+
+        var heThong = await _db.HeThongTichHop.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == heThongId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("hệ thống tích hợp", heThongId);
+
+        if (string.IsNullOrWhiteSpace(heThong.EndpointBase))
+        {
+            return new KetQuaThuKetNoi(false, heThong.Ten, null, 0,
+                "Chưa cấu hình endpoint cho hệ thống này.");
+        }
+
+        var batDau = _dongHo.BayGio;
+
+        try
+        {
+            var (thanhCong, _, phanHoi) = await _boGui
+                .GuiAsync(heThong, Array.Empty<BanGhiDongBo>(), ct)
+                .ConfigureAwait(false);
+
+            var soMs = (int)(_dongHo.BayGio - batDau).TotalMilliseconds;
+
+            return new KetQuaThuKetNoi(thanhCong, heThong.Ten, heThong.EndpointBase, soMs,
+                thanhCong ? "Kết nối thành công." : CatBot(phanHoi));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Thử kết nối tới {TenHeThong} thất bại.", heThong.Ten);
+
+            return new KetQuaThuKetNoi(false, heThong.Ten, heThong.EndpointBase,
+                (int)(_dongHo.BayGio - batDau).TotalMilliseconds, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Gui lai mot lan dong bo da that bai.
+    ///
+    /// Chay lai voi DUNG pham vi cua lan truoc (doc tu nhat ky) chu khong dong bo lai toan bo:
+    /// nguoi dung bam "gui lai" mong lam lai dung viec do, khong phai day them du lieu khac.
+    /// </summary>
+    public async Task<KetQuaDongBo> GuiLaiAsync(Guid nhatKyId, CancellationToken ct = default)
+    {
+        var nhatKy = await _db.NhatKyDongBo.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == nhatKyId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("nhật ký đồng bộ", nhatKyId);
+
+        if (nhatKy.TrangThaiDongBo == TrangThaiDongBo.ThanhCong)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Lần đồng bộ này đã thành công, không cần gửi lại.");
+        }
+
+        return await ChayAsync(nhatKy.HeThongTichHopId, null, null, ct).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<NhatKyDongBo>> LichSuAsync(

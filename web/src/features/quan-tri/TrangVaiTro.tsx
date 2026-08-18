@@ -19,7 +19,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi } from '@/api/client';
@@ -60,6 +60,7 @@ export default function TrangVaiTro() {
   const [nhomLoc, setNhomLoc] = useState<string | undefined>();
   const [suaId, setSuaId] = useState<string | null>(null);
   const [moForm, setMoForm] = useState(false);
+  const [saoChep, setSaoChep] = useState<VaiTro | null>(null);
 
   /** Thay đổi đang chờ lưu: vaiTroId -> tập quyenId. Chỉ ghi xuống khi bấm "Lưu ma trận". */
   const [nhap, setNhap] = useState<Record<string, Set<string>>>({});
@@ -219,6 +220,14 @@ export default function TrangVaiTro() {
                       }}
                     />
                   </Tooltip>,
+                  <Tooltip key="sao-chep" title="Tạo vai trò mới với đúng bộ quyền và phạm vi dữ liệu này">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => setSaoChep(v)}
+                    />
+                  </Tooltip>,
                   <Popconfirm
                     key="xoa"
                     title="Xoá vai trò này?"
@@ -316,6 +325,17 @@ export default function TrangVaiTro() {
           trò hệ thống không đổi được mã vì mã được mã nguồn tham chiếu trực tiếp.
         </Typography.Paragraph>
       </Card>
+
+      {saoChep && (
+        <HopThoaiSaoChepVaiTro
+          nguon={saoChep}
+          onDong={() => setSaoChep(null)}
+          onXong={() => {
+            setSaoChep(null);
+            void queryClient.invalidateQueries({ queryKey: ['vai-tro'] });
+          }}
+        />
+      )}
 
       {moForm && (
         <FormVaiTro
@@ -475,6 +495,70 @@ function FormVaiTro({
             “Lưu ma trận”.
           </Typography.Text>
         )}
+      </Form>
+    </Modal>
+  );
+}
+
+/**
+ * Sao chép vai trò — nhân bản đúng bộ quyền và phạm vi dữ liệu sang một vai trò mới.
+ *
+ * Bản sao luôn là vai trò thường (không phải vai trò hệ thống), vì vai trò hệ thống được chặn xoá:
+ * sao ra mà giữ nguyên cờ đó thì sinh ra vai trò rác không bao giờ xoá được.
+ */
+function HopThoaiSaoChepVaiTro({
+  nguon,
+  onDong,
+  onXong,
+}: {
+  nguon: VaiTro;
+  onDong: () => void;
+  onXong: () => void;
+}) {
+  const { message } = App.useApp();
+  const [form] = Form.useForm<{ ma: string; ten: string }>();
+
+  const luu = useMutation({
+    mutationFn: (giaTri: { ma: string; ten: string }) =>
+      apiHeThong.saoChepVaiTro(nguon.id, { ma: giaTri.ma.trim().toUpperCase(), ten: giaTri.ten }),
+    onSuccess: () => {
+      message.success('Đã tạo vai trò mới từ bản sao');
+      onXong();
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không sao chép được.'),
+  });
+
+  return (
+    <Modal
+      open
+      title={`Sao chép vai trò: ${nguon.ten}`}
+      okText="Tạo bản sao"
+      cancelText="Huỷ"
+      confirmLoading={luu.isPending}
+      onCancel={onDong}
+      onOk={async () => luu.mutate(await form.validateFields())}
+    >
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message={`Bản sao nhận đủ ${nguon.quyenIds.length} quyền và ${nguon.phamVi.length} phạm vi dữ liệu của vai trò gốc.`}
+        description="Sau khi tạo, chỉnh lại quyền trên ma trận bên dưới — sửa bản sao không ảnh hưởng vai trò gốc."
+      />
+      <Form form={form} layout="vertical" initialValues={{ ten: `${nguon.ten} (bản sao)` }}>
+        <Form.Item
+          name="ma"
+          label="Mã vai trò mới"
+          rules={[
+            { required: true, message: 'Nhập mã vai trò' },
+            { pattern: /^[A-Za-z0-9_]+$/, message: 'Mã chỉ gồm chữ, số và dấu gạch dưới' },
+          ]}
+        >
+          <Input placeholder="VD: THU_KY_HOI_DONG_2" />
+        </Form.Item>
+        <Form.Item name="ten" label="Tên vai trò mới" rules={[{ required: true, message: 'Nhập tên' }]}>
+          <Input />
+        </Form.Item>
       </Form>
     </Modal>
   );

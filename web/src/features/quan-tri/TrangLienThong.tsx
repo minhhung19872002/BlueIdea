@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import {
   ApiOutlined,
+  RedoOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
@@ -97,6 +98,31 @@ export default function TrangLienThong() {
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
 
+  /**
+   * Thử kết nối gửi payload RỖNG sang hệ thống đích: chỉ cần biết endpoint có sống và thông tin
+   * xác thực có đúng không, không được đẩy dữ liệu rác sang hệ thống bên kia.
+   */
+  const thuKetNoi = useMutation({
+    mutationFn: (id: string) => apiTichHop.thuKetNoi(id),
+    onSuccess: (kq) =>
+      (kq.thanhCong ? modal.success : modal.error)({
+        title: kq.thanhCong ? 'Kết nối thành công' : 'Không kết nối được',
+        content: (
+          <Space direction="vertical" size={2} style={{ marginTop: 8 }}>
+            <span>
+              <strong>{kq.tenHeThong}</strong>
+            </span>
+            <Typography.Text type="secondary" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+              {kq.endpoint ?? 'Chưa khai báo endpoint'}
+            </Typography.Text>
+            <span>Thời gian phản hồi: {kq.soMiliGiay} ms</span>
+            {kq.thongBao && <span>{kq.thongBao}</span>}
+          </Space>
+        ),
+      }),
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không thử được kết nối.'),
+  });
+
   const xoa = useMutation({
     mutationFn: (id: string) => apiTichHop.xoa(id),
     onSuccess: () => {
@@ -169,7 +195,7 @@ export default function TrangLienThong() {
                 size="middle"
                 loading={isLoading}
                 dataSource={data ?? []}
-                scroll={{ x: 1360 }}
+                scroll={{ x: 1400 }}
                 pagination={false}
                 locale={{ emptyText: <KhoiRong moTa="Chưa khai báo hệ thống liên thông nào." /> }}
                 columns={[
@@ -221,7 +247,7 @@ export default function TrangLienThong() {
                   },
                   {
                     title: '',
-                    width: 170,
+                    width: 210,
                     fixed: 'right',
                     render: (_v, dong) => (
                       <Space>
@@ -239,6 +265,14 @@ export default function TrangLienThong() {
                         )}
                         {duocCauHinh && (
                           <>
+                            <Tooltip title="Gọi thử endpoint để kiểm tra địa chỉ và thông tin xác thực">
+                              <Button
+                                type="text"
+                                icon={<ApiOutlined />}
+                                loading={thuKetNoi.isPending && thuKetNoi.variables === dong.id}
+                                onClick={() => thuKetNoi.mutate(dong.id)}
+                              />
+                            </Tooltip>
                             <Button
                               type="text"
                               icon={<EditOutlined />}
@@ -559,11 +593,26 @@ function ModalDongBo({ heThong, onDong }: { heThong: HeThongTichHop; onDong: () 
 // ---------------------------------------------------------------------------
 
 function BangNhatKyDongBo({ heThong }: { heThong: HeThongTichHop[] }) {
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const [heThongId, setHeThongId] = useState<string | undefined>();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['nhat-ky-dong-bo', heThongId],
     queryFn: () => apiTichHop.nhatKyDongBo(heThongId, 100),
+  });
+
+  /** Chỉ gửi lại lần đồng bộ lỗi — gửi lại lần đã thành công là đẩy trùng dữ liệu sang bên kia. */
+  const guiLai = useMutation({
+    mutationFn: (nhatKyId: string) => apiTichHop.guiLai(nhatKyId),
+    onSuccess: (kq) => {
+      message.success(
+        `Đã gửi lại: ${kq.thanhCong}/${kq.tongBanGhi} bản ghi thành công` +
+          (kq.thatBai > 0 ? `, ${kq.thatBai} lỗi` : ''),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['nhat-ky-dong-bo'] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không gửi lại được.'),
   });
 
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
@@ -622,6 +671,29 @@ function BangNhatKyDongBo({ heThong }: { heThong: HeThongTichHop[] }) {
             dataIndex: 'thoiGianBatDau',
             width: 150,
             render: (v: string) => ngayGio(v),
+          },
+          {
+            title: '',
+            key: 'thaoTac',
+            width: 120,
+            fixed: 'right',
+            render: (_v, dong) =>
+              dong.trangThaiDongBo === 'THANH_CONG' ? (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  —
+                </Typography.Text>
+              ) : (
+                <Tooltip title="Chạy lại lần đồng bộ này với đúng tham số cũ">
+                  <Button
+                    size="small"
+                    icon={<RedoOutlined />}
+                    loading={guiLai.isPending && guiLai.variables === dong.id}
+                    onClick={() => guiLai.mutate(dong.id)}
+                  >
+                    Gửi lại
+                  </Button>
+                </Tooltip>
+              ),
           },
         ]}
         pagination={{ pageSize: 20 }}

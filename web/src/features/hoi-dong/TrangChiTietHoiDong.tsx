@@ -9,6 +9,7 @@ import {
   Col,
   DatePicker,
   Descriptions,
+  Divider,
   Form,
   Input,
   Modal,
@@ -914,7 +915,10 @@ function ModalDieuHanhPhien({
                           sangKienId={hs.sangKienId}
                           thuTu={hs.thuTu}
                           tyLeThongQua={tyLeThongQua}
+                          ketLuanRiengBanDau={hs.ketLuanRieng ?? ''}
+                          ketQuaBanDau={hs.ketQua ?? undefined}
                           duocBoPhieu={duocBoPhieu && !daKetThuc}
+                          duocKetLuan={duocKetLuan && !daKetThuc}
                         />
                       ))}
                   </Space>
@@ -966,18 +970,26 @@ function TheHoSoBoPhieu({
   sangKienId,
   thuTu,
   tyLeThongQua,
+  ketLuanRiengBanDau,
+  ketQuaBanDau,
   duocBoPhieu,
+  duocKetLuan,
 }: {
   phienHopId: string;
   sangKienId: string;
   thuTu: number;
   tyLeThongQua: number;
+  ketLuanRiengBanDau: string;
+  ketQuaBanDau?: string;
   duocBoPhieu: boolean;
+  duocKetLuan: boolean;
 }) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [ghiChu, setGhiChu] = useState('');
   const [phieuKin, setPhieuKin] = useState(false);
+  const [ketLuanRieng, setKetLuanRieng] = useState(ketLuanRiengBanDau);
+  const [ketQuaHoSo, setKetQuaHoSo] = useState<string | undefined>(ketQuaBanDau);
 
   const hoSo = useQuery({
     queryKey: ['sang-kien', sangKienId],
@@ -1000,6 +1012,24 @@ function TheHoSoBoPhieu({
       void queryClient.invalidateQueries({ queryKey: ['phien-hop', phienHopId] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không bỏ phiếu được.'),
+  });
+
+  /**
+   * Kết luận riêng cho từng hồ sơ, tách khỏi kết luận chung của phiên: một phiên xét nhiều hồ sơ,
+   * gộp hết vào một ô thì biên bản không tách được kết luận theo từng hồ sơ.
+   */
+  const ghiYKien = useMutation({
+    mutationFn: (duLieu: { ketLuanRieng?: string; ketQua?: string }) =>
+      apiHoiDong.ghiYKienHoSo(phienHopId, {
+        sangKienId,
+        ketLuanRieng: duLieu.ketLuanRieng ?? ketLuanRieng,
+        ketQua: duLieu.ketQua ?? ketQuaHoSo ?? null,
+      }),
+    onSuccess: () => {
+      message.success('Đã lưu ý kiến cho hồ sơ');
+      void queryClient.invalidateQueries({ queryKey: ['phien-hop', phienHopId] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được ý kiến.'),
   });
 
   const kq = ketQua.data;
@@ -1078,6 +1108,48 @@ function TheHoSoBoPhieu({
             >
               Ý kiến khác
             </Button>
+          </Space>
+        </Col>
+
+        <Col span={24}>
+          <Divider style={{ margin: '8px 0' }} orientation="left" plain>
+            Kết luận của hội đồng cho hồ sơ này
+          </Divider>
+          <Space direction="vertical" size={8} style={{ width: '100%' }}>
+            <Input.TextArea
+              rows={2}
+              placeholder="Ý kiến / kết luận riêng cho hồ sơ này — nội dung này vào biên bản họp"
+              value={ketLuanRieng}
+              disabled={!duocKetLuan}
+              onChange={(e) => setKetLuanRieng(e.target.value)}
+            />
+            <Space wrap>
+              <Select
+                style={{ width: 200 }}
+                allowClear
+                placeholder="Kết quả xét"
+                value={ketQuaHoSo}
+                disabled={!duocKetLuan}
+                options={[
+                  { value: 'DAT', label: 'Đạt' },
+                  { value: 'KHONG_DAT', label: 'Không đạt' },
+                  { value: 'HOAN', label: 'Hoãn / bổ sung' },
+                ]}
+                onChange={(v) => setKetQuaHoSo(v)}
+              />
+              <Button
+                disabled={!duocKetLuan}
+                loading={ghiYKien.isPending}
+                onClick={() => ghiYKien.mutate({})}
+              >
+                Lưu kết luận hồ sơ
+              </Button>
+              {kq && kq.tongPhieu > 0 && !ketQuaHoSo && (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  Gợi ý theo phiếu: {datNguong ? 'Đạt' : 'Không đạt'}
+                </Typography.Text>
+              )}
+            </Space>
           </Space>
         </Col>
       </Row>

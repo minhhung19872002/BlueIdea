@@ -10,6 +10,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BlueIdea.Api.Controllers;
 
+/// <summary>Dữ liệu tạo bản sao của một vai trò.</summary>
+public sealed record SaoChepVaiTroDto(string Ma, string Ten);
+
 public sealed record LuuCauHinhDto(string Khoa, string? GiaTri);
 
 /// <summary>Chức năng 46, 51 — Cấu hình hệ thống và thông tin sáng kiến.</summary>
@@ -35,15 +38,17 @@ public sealed class HeThongController : ControllerBase
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDichVuPhanQuyen _phanQuyen;
     private readonly DichVuQuanTriNguoiDung _quanTri;
+    private readonly IDichVuNhatKy _nhatKy;
 
     public HeThongController(
         IAppDbContext db, IDichVuCauHinh cauHinh, IDichVuPhanQuyen phanQuyen,
-        DichVuQuanTriNguoiDung quanTri)
+        DichVuQuanTriNguoiDung quanTri, IDichVuNhatKy nhatKy)
     {
         _db = db;
         _cauHinh = cauHinh;
         _phanQuyen = phanQuyen;
         _quanTri = quanTri;
+        _nhatKy = nhatKy;
     }
 
     /// <summary>Cấu hình hiển thị công khai — không cần đăng nhập.</summary>
@@ -290,6 +295,82 @@ public sealed class HeThongController : ControllerBase
             Trang = thamSo.Trang,
             SoDong = thamSo.SoDong
         });
+    }
+
+    /// <summary>
+    /// Chức năng 45 — Sao chép vai trò kèm toàn bộ ma trận phân quyền.
+    ///
+    /// Vai trò mới thường chỉ khác vai trò cũ vài quyền; bắt tick lại từ đầu hàng chục quyền là
+    /// nguồn sai sót, nên sao chép rồi sửa vài dòng an toàn hơn.
+    /// </summary>
+    [HttpPost("vai-tro/{id:guid}/sao-chep")]
+    [Authorize(Policy = MaQuyen.VaiTroCauHinh)]
+    public async Task<IActionResult> SaoChepVaiTroAsync(
+        Guid id, [FromBody] SaoChepVaiTroDto duLieu, CancellationToken ct)
+    {
+        var goc = await _db.VaiTro.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
+                  ?? throw new KhongTimThayException("vai trò", id);
+
+        var ma = duLieu.Ma.Trim().ToUpperInvariant();
+
+        if (await _db.VaiTro.AsNoTracking().AnyAsync(x => x.Ma == ma, ct))
+        {
+            throw new NghiepVuException(MaLoiHeThong.TrungMa, $"Mã vai trò '{ma}' đã tồn tại.");
+        }
+
+        var quyenIds = await _db.VaiTroQuyen.AsNoTracking()
+            .Where(x => x.VaiTroId == id)
+            .Select(x => x.QuyenId)
+            .ToListAsync(ct);
+
+        var moi = new Domain.QuanTri.VaiTro
+        {
+            Id = Guid.NewGuid(),
+            Ma = ma,
+            Ten = duLieu.Ten.Trim(),
+            MoTa = goc.MoTa,
+
+            // Ban sao KHONG bao gio la vai tro he thong: vai tro he thong duoc bao ve khong cho
+            // xoa, sao chep ra ma van giu co do thi sinh ra vai tro rac khong bao gio xoa duoc.
+            LaHeThong = false,
+            TrangThai = TrangThaiDanhMuc.HoatDong
+        };
+
+        _db.VaiTro.Add(moi);
+
+        foreach (var quyenId in quyenIds)
+        {
+            _db.VaiTroQuyen.Add(new Domain.QuanTri.VaiTroQuyen
+            {
+                Id = Guid.NewGuid(),
+                VaiTroId = moi.Id,
+                QuyenId = quyenId
+            });
+        }
+
+        // Sao chep ca PHAM VI DU LIEU: vai tro co cung bo quyen nhung khac pham vi la mot vai tro
+        // khac han (xem toan he thong vs chi xem don vi minh), nen bo qua phan nay la sao chep sai.
+        var phamVi = await _db.PhamViDuLieu.AsNoTracking()
+            .Where(x => x.VaiTroId == id)
+            .ToListAsync(ct);
+
+        foreach (var pv in phamVi)
+        {
+            _db.PhamViDuLieu.Add(new Domain.QuanTri.PhamViDuLieu
+            {
+                Id = Guid.NewGuid(),
+                VaiTroId = moi.Id,
+                LoaiPhamVi = pv.LoaiPhamVi,
+                DonViIds = pv.DonViIds
+            });
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        await _nhatKy.GhiAsync("SAO_CHEP_VAI_TRO", "QUAN_TRI", "VaiTro", moi.Id,
+            $"Sao chép vai trò {goc.Ma} thành {ma} ({quyenIds.Count} quyền)", ct: ct);
+
+        return Ok(PhanHoiApi<Guid>.Ok(moi.Id, $"Đã sao chép vai trò kèm {quyenIds.Count} quyền"));
     }
 
     /// <summary>

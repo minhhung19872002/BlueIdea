@@ -11,4 +11,5 @@ export const DS_TAB_DANH_MUC: MucTab[] = [
   { ma: 'dot-de-nghi', ten: 'Đợt đề nghị', duongDan: '/quan-tri/danh-muc/dot-de-nghi' },
   { ma: 'bieu-mau-xuat', ten: 'Biểu mẫu xuất', duongDan: '/quan-tri/danh-muc/bieu-mau-xuat' },
   { ma: 'cap-phe-duyet', ten: 'Cấp phê duyệt', duongDan: '/quan-tri/danh-muc/cap-phe-duyet' },
+  { ma: 'ngay-nghi-le', ten: 'Ngày nghỉ lễ', duongDan: '/quan-tri/danh-muc/ngay-nghi-le' },
 ];
