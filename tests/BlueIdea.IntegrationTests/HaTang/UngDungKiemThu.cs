@@ -1,9 +1,11 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
@@ -122,6 +124,36 @@ public sealed class UngDungKiemThu : WebApplicationFactory<Program>, IAsyncLifet
         builder.ConfigureAppConfiguration((_, cauHinh) => cauHinh.AddInMemoryCollection(CauHinhKiemThu));
 
         builder.ConfigureLogging(log => log.SetMinimumLevel(LogLevel.Warning));
+
+        /*
+         * TestServer chay trong bo nho nen khong co dia chi IP cua nguoi goi, trong khi mot yeu
+         * cau that luon co. Gan san dia chi loopback de cac phep kiem theo IP (chan /metrics tu
+         * ngoai, gioi han IP cho tai khoan quan tri) chay dung nhu tren may that.
+         *
+         * Test nao can gia lap dia chi khac thi gui header X-Dia-Chi-Gia-Lap — chi ban do kiem
+         * thu doc header nay.
+         */
+        builder.ConfigureServices(services =>
+            services.AddSingleton<IStartupFilter, GanDiaChiGoi>());
+    }
+
+    private sealed class GanDiaChiGoi : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> tiep) => app =>
+        {
+            app.Use(async (ngCanh, sau) =>
+            {
+                var giaLap = ngCanh.Request.Headers["X-Dia-Chi-Gia-Lap"].ToString();
+
+                ngCanh.Connection.RemoteIpAddress = System.Net.IPAddress.TryParse(giaLap, out var ip)
+                    ? ip
+                    : System.Net.IPAddress.Loopback;
+
+                await sau();
+            });
+
+            tiep(app);
+        };
     }
 
     /// <summary>Tao HttpClient da dang nhap bang tai khoan chi dinh.</summary>

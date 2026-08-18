@@ -33,6 +33,25 @@ public sealed class GiamSatVaChiuLoiTests
     }
 
     /// <summary>
+    /// /metrics khong duoc doc tu ngoai mang noi bo.
+    ///
+    /// Chan ngay trong ung dung chu khong chi o Nginx: cau hinh Nginx cua may chu phai cai lai
+    /// bang tay, con endpoint moi thi len theo anh Docker — tuc la co mot khoang thoi gian no
+    /// phoi ra Internet neu chi trong cho Nginx.
+    /// </summary>
+    [Fact]
+    public async Task Metrics_Tu_Dia_Chi_Ngoai_Bi_Tu_Choi()
+    {
+        var khach = _ungDung.CreateClient();
+        khach.DefaultRequestHeaders.Add("X-Dia-Chi-Gia-Lap", "203.0.113.10");
+
+        var phanHoi = await khach.GetAsync("/metrics");
+
+        phanHoi.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound,
+            "trả 404 chứ không phải 403: báo cấm cho một địa chỉ đoán mò cũng là xác nhận nó có thật");
+    }
+
+    /// <summary>
     /// Moi HttpClient goi ra ngoai deu phai co chinh sach chiu loi.
     ///
     /// Khong co ngat mach thi mot he thong ngoai treo se lam moi yeu cau cua nguoi dung phai cho
