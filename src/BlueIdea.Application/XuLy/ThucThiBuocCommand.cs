@@ -118,7 +118,11 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
         }
 
-        await GuiThongBaoAsync(request.SangKienId, ketQua, ct).ConfigureAwait(false);
+        if (!ketQua.ChoThemTacNhan)
+        {
+            await GuiThongBaoAsync(request.SangKienId, ketQua, ct).ConfigureAwait(false);
+        }
+
         await DieuPhaiLienThongAsync(request.SangKienId, ketQua, ct).ConfigureAwait(false);
         return ketQua;
     }
@@ -313,13 +317,21 @@ public sealed class ThucThiHangLoatCommandHandler
     private readonly IWorkflowEngine _engine;
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IAppDbContext _db;
+    private readonly IDichVuThongBao _thongBao;
+    private readonly DichVuDongBoLienThong _dongBo;
+    private readonly ILogger<ThucThiHangLoatCommandHandler> _logger;
 
     public ThucThiHangLoatCommandHandler(
-        IWorkflowEngine engine, INguoiDungHienTai nguoiDung, IAppDbContext db)
+        IWorkflowEngine engine, INguoiDungHienTai nguoiDung, IAppDbContext db,
+        IDichVuThongBao thongBao, DichVuDongBoLienThong dongBo,
+        ILogger<ThucThiHangLoatCommandHandler> logger)
     {
         _engine = engine;
         _nguoiDung = nguoiDung;
         _db = db;
+        _thongBao = thongBao;
+        _dongBo = dongBo;
+        _logger = logger;
     }
 
     public async Task<KetQuaXuLyHangLoat> Handle(ThucThiHangLoatCommand request, CancellationToken ct)
@@ -367,6 +379,13 @@ public sealed class ThucThiHangLoatCommandHandler
                 if (ketQua.ThanhCong)
                 {
                     thanhCong++;
+
+                    if (!ketQua.ChoThemTacNhan)
+                    {
+                        await GuiThongBaoAsync(id, ketQua, ct).ConfigureAwait(false);
+                    }
+
+                    await DieuPhaiLienThongAsync(id, ketQua, ct).ConfigureAwait(false);
                 }
                 else
                 {
@@ -381,6 +400,116 @@ public sealed class ThucThiHangLoatCommandHandler
 
         return new KetQuaXuLyHangLoat(
             request.SangKienIds.Count, thanhCong, request.SangKienIds.Count - thanhCong, loi);
+    }
+
+    private async Task GuiThongBaoAsync(Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)
+    {
+        try
+        {
+            var hoSo = await _db.SangKien.AsNoTracking()
+                .Include(x => x.DanhSachTacGia)
+                .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+                .ConfigureAwait(false);
+
+            if (hoSo is null)
+            {
+                return;
+            }
+
+            var tacGiaIds = hoSo.DanhSachTacGia
+                .Where(t => t.NguoiDungId.HasValue)
+                .Select(t => t.NguoiDungId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (tacGiaIds.Count == 0)
+            {
+                return;
+            }
+
+            var maSuKien = ThucThiBuocCommandHandler.SuKienTheoTrangThai(hoSo.TrangThaiTong);
+            var kenhChoPhep = ThucThiBuocCommandHandler.LayKenhChoPhep(ketQua.ChucNangBat);
+
+            var bien = new Dictionary<string, object?>
+            {
+                ["sangKienId"] = sangKienId,
+                ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(sangKienId),
+                ["maHoSo"] = hoSo.MaHoSo,
+                ["tenSangKien"] = hoSo.TenSangKien,
+                ["trangThai"] = hoSo.TrangThaiTong,
+                ["tenBuoc"] = ketQua.TenBuocMoi,
+                ["thongBao"] = ketQua.ThongBao
+            };
+
+            await _thongBao.GuiTheoSuKienAsync(maSuKien, tacGiaIds, bien, kenhChoPhep, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Gửi thông báo hàng loạt thất bại cho sáng kiến {SangKienId}.", sangKienId);
+        }
+    }
+
+    private async Task DieuPhaiLienThongAsync(
+        Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)
+    {
+        if (!ketQua.HanhDongCanChay.Contains(HanhDongTuDong.DongBoLienThong))
+        {
+            return;
+        }
+
+        try
+        {
+            var quyTrinhId = await _db.SangKien.AsNoTracking()
+                .Where(x => x.Id == sangKienId)
+                .Select(x => x.QuyTrinhId)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            if (quyTrinhId is null)
+            {
+                return;
+            }
+
+            var laPheDuyet = ketQua.TrangThaiTongMoi == TrangThaiTongHoSo.DaPheDuyet;
+
+            var cauHinhs = await _db.QuyTrinhLienThong.AsNoTracking()
+                .Where(x => x.QuyTrinhId == quyTrinhId.Value
+                    && x.TrangThai == TrangThaiDanhMuc.HoatDong
+                    && (
+                        (x.BuocId == ketQua.BuocTruocId && x.SuKien == SuKienLienThong.KhiHoanThanh)
+                        || (x.BuocId == ketQua.BuocMoiId && x.SuKien == SuKienLienThong.KhiVaoBuoc)
+                        || (x.BuocId == ketQua.BuocTruocId && x.SuKien == SuKienLienThong.KhiPheDuyet && laPheDuyet)
+                        || (x.BuocId == null && (
+                            x.SuKien == SuKienLienThong.KhiHoanThanh
+                            || x.SuKien == SuKienLienThong.KhiVaoBuoc
+                            || (x.SuKien == SuKienLienThong.KhiPheDuyet && laPheDuyet)
+                        ))
+                    ))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            foreach (var cauHinh in cauHinhs)
+            {
+                try
+                {
+                    await _dongBo.DongBoSangKienAsync(cauHinh.HeThongTichHopId, sangKienId, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Đồng bộ liên thông hàng loạt thất bại cho sáng kiến {SangKienId} sang hệ thống {HeThongId}.",
+                        sangKienId, cauHinh.HeThongTichHopId);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Điều phối liên thông hàng loạt thất bại cho sáng kiến {SangKienId}.", sangKienId);
+        }
     }
 }
 

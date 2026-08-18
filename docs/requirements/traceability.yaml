@@ -189,10 +189,9 @@ requirements:
       backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/XuLy/LayKenhChoPhepTests.cs"]
     gaps:
-      - "ThucThiHangLoatCommandHandler (batch processing) does not call GuiThongBaoAsync — authors processed via batch receive no notification"
-      - "HanhDongCanChay dispatch loop not yet implemented — only notification channel gating is enforced"
+      - "HanhDongCanChay dispatch loop not yet implemented — only notification + integration sync are dispatched"
       - "No runtime integration test for feature toggles affecting live workflow execution"
-    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). IDichVuThongBao has new overload with kenhChoPhep parameter. APP channel always fires. 6 unit tests for channel mapping."
+    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). IDichVuThongBao has new overload with kenhChoPhep parameter. APP channel always fires. 6 unit tests for channel mapping. Run-002-B10: ThucThiHangLoatCommandHandler now dispatches GuiThongBaoAsync and DieuPhaiLienThongAsync per successful transition, with ChoThemTacNhan guard to prevent spurious notifications on partial multi-actor votes. Same guard also added to single handler."
 
   - id: REQ-13
     source_number: 13
@@ -244,10 +243,9 @@ requirements:
       backend: ["src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs", "src/BlueIdea.Infrastructure/TichHop/BoGuiLienThongHttp.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs", "tests/BlueIdea.UnitTests/XuLy/DieuPhaiLienThongTests.cs"]
     gaps:
-      - "ThucThiHangLoatCommandHandler (batch processing) does not dispatch integration sync — batch transitions skip DongBoLienThong"
       - "No runtime integration test for workflow-triggered sync end-to-end"
       - "QuyTrinhLienThong uses live DB data (not snapshot) — deliberate: integration config is operational, but ADR should document this exception"
-    notes: "Run-002-B8: DongBoSangKienAsync added to DichVuDongBoLienThong for single-innovation sync. ThucThiBuocCommandHandler now dispatches integration sync via DieuPhaiLienThongAsync when HanhDongCanChay contains DongBoLienThong. Queries QuyTrinhLienThong scoped by QuyTrinhId, supports all 3 events (KHI_HOAN_THANH, KHI_VAO_BUOC, KHI_PHE_DUYET). Failures logged but never block workflow. SuKienLienThong constants added to Domain. DongBoSangKienAsync is internal, skips log when nothing to sync."
+    notes: "Run-002-B8: DongBoSangKienAsync added to DichVuDongBoLienThong for single-innovation sync. ThucThiBuocCommandHandler now dispatches integration sync via DieuPhaiLienThongAsync when HanhDongCanChay contains DongBoLienThong. Queries QuyTrinhLienThong scoped by QuyTrinhId, supports all 3 events (KHI_HOAN_THANH, KHI_VAO_BUOC, KHI_PHE_DUYET). Failures logged but never block workflow. SuKienLienThong constants added to Domain. DongBoSangKienAsync is internal, skips log when nothing to sync. Run-002-B10: ThucThiHangLoatCommandHandler now dispatches DieuPhaiLienThongAsync per successful transition. Failures logged but never block the batch."
 
   # ── Nhom III: Tieu chi dong ────────────────────────────────────────
 
