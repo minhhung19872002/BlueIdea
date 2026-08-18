@@ -155,8 +155,13 @@ public sealed class DichVuMfa
 
         var biMat = _maHoa.GiaiMa(nguoiDung.MfaSecret);
 
-        if (!string.IsNullOrWhiteSpace(biMat)
-            && BoTotp.KiemTra(biMat, ma, _dongHo.BayGio) is null
+        if (string.IsNullOrWhiteSpace(biMat))
+        {
+            throw new NghiepVuException(MaLoiHeThong.MaXacThucKhongDung,
+                "Không thể giải mã bí mật MFA. Liên hệ quản trị viên.");
+        }
+
+        if (BoTotp.KiemTra(biMat, ma, _dongHo.BayGio) is null
             && !DungMaKhoiPhuc(nguoiDung, ma))
         {
             throw new NghiepVuException(MaLoiHeThong.MaXacThucKhongDung,
@@ -272,16 +277,18 @@ public sealed class DichVuMfa
 
     /// <summary>
     /// Doi mot ma khoi phuc. Ma dung duoc DUNG MOT LAN: khop thi bi go khoi danh sach ngay.
+    /// Ho tro ca dinh dang Argon2id moi ("salt:hash") va SHA-256 hex cu.
     /// </summary>
-    private static bool DungMaKhoiPhuc(NguoiDung nguoiDung, string? ma)
+    private bool DungMaKhoiPhuc(NguoiDung nguoiDung, string? ma)
     {
-        if (string.IsNullOrWhiteSpace(ma) || string.IsNullOrWhiteSpace(nguoiDung.MfaMaKhoiPhuc))
+        if (string.IsNullOrWhiteSpace(ma)
+            || !ma.Contains('-', StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(nguoiDung.MfaMaKhoiPhuc))
         {
             return false;
         }
 
         var chuanHoa = ChuanHoaMaKhoiPhuc(ma);
-        var bam = BamMaKhoiPhuc(chuanHoa);
 
         List<string>? danhSach;
         try
@@ -293,13 +300,38 @@ public sealed class DichVuMfa
             return false;
         }
 
-        if (danhSach is null || !danhSach.Remove(bam))
+        if (danhSach is null)
         {
             return false;
         }
 
-        nguoiDung.MfaMaKhoiPhuc = JsonSerializer.Serialize(danhSach);
-        return true;
+        for (var i = 0; i < danhSach.Count; i++)
+        {
+            if (KhopMaKhoiPhuc(chuanHoa, danhSach[i]))
+            {
+                danhSach.RemoveAt(i);
+                nguoiDung.MfaMaKhoiPhuc = JsonSerializer.Serialize(danhSach);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool KhopMaKhoiPhuc(string maChuanHoa, string bamDaLuu)
+    {
+        var viTriDauHai = bamDaLuu.IndexOf(':');
+        if (viTriDauHai > 0)
+        {
+            var salt = bamDaLuu[..viTriDauHai];
+            var hash = bamDaLuu[(viTriDauHai + 1)..];
+            return _matKhau.KiemTra(maChuanHoa, hash, salt);
+        }
+
+        // Legacy SHA-256 hex — ton tai tu phien ban cu, van ho tro de khong khoa nguoi dung
+        var bamSha = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(maChuanHoa));
+        var bamLuu = Convert.FromHexString(bamDaLuu);
+        return CryptographicOperations.FixedTimeEquals(bamLuu, bamSha);
     }
 
     private static int DemMaKhoiPhucConLai(NguoiDung nguoiDung)
@@ -343,11 +375,12 @@ public sealed class DichVuMfa
         => ma.Trim().ToUpperInvariant().Replace(" ", string.Empty);
 
     /// <summary>
-    /// Bam ma khoi phuc bang SHA-256 khong salt — co y, de tra cuu duoc bang so sanh chuoi.
-    /// Ma khoi phuc la chuoi ngau nhien 40 bit tu bang 31 ky tu nen khong so tan cong tu dien
-    /// nhu mat khau nguoi dat.
+    /// Bam ma khoi phuc bang Argon2id co salt rieng. Tra ve "salt:hash" (Base64).
+    /// Phien ban cu dung SHA-256 khong salt — van duoc nhan dien va ho tro trong KhopMaKhoiPhuc.
     /// </summary>
-    private static string BamMaKhoiPhuc(string ma)
-        => Convert.ToHexString(
-            SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(ChuanHoaMaKhoiPhuc(ma))));
+    private string BamMaKhoiPhuc(string ma)
+    {
+        var (hash, salt) = _matKhau.BamMatKhau(ChuanHoaMaKhoiPhuc(ma));
+        return $"{salt}:{hash}";
+    }
 }
