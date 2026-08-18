@@ -35,6 +35,7 @@ interface DongNhatKyDangNhap {
 const DS_TAB = [
   { ma: 'he-thong', ten: 'Hệ thống', duongDan: '/quan-tri/nhat-ky/he-thong' },
   { ma: 'dang-nhap', ten: 'Đăng nhập', duongDan: '/quan-tri/nhat-ky/dang-nhap' },
+  { ma: 'loi', ten: 'Lỗi hệ thống', duongDan: '/quan-tri/nhat-ky-loi' },
 ];
 
 /** Nhật ký hệ thống và nhật ký đăng nhập. */

@@ -184,6 +184,18 @@ bỏ phiếu, Kết luận.
 Nút **Xuất phiếu chấm** ở đầu trang hội đồng tải về một tệp PDF gộp toàn bộ phiếu chấm đã gửi của
 hội đồng — dùng khi in hồ sơ phiên họp.
 
+### Lập biên bản phiên họp
+
+Sau khi phiên họp kết thúc, mở lại phiên bằng nút **Điều hành** rồi sang tab **Biên bản**:
+
+1. Bấm **Lập biên bản**. Hệ thống tự lấy điểm danh, phiếu bầu và kết luận của phiên — không phải
+   gõ lại số liệu.
+2. Kiểm tra nội dung, bấm **Xuất PDF** để in hoặc lưu hồ sơ.
+3. Các thành viên có quyền ký bấm **Ký nhận biên bản**; đủ chữ ký thì biên bản chuyển *Đã ký đủ*.
+
+Sửa lại số liệu phiên (điểm danh, phiếu bầu) rồi bấm **Lập lại từ dữ liệu phiên** để biên bản khớp
+lại. Biên bản đã đủ chữ ký thì không lập lại được — phải huỷ chữ ký trước.
+
 ### Bảng ma trận điểm và mở lại phiếu
 
 Vào **Hội đồng sáng kiến**, mở hội đồng rồi sang tab **Ma trận điểm**: hàng là hồ sơ, cột là thành
@@ -245,6 +257,9 @@ Ngoài quyền như thành viên, chủ tịch còn:
 - **Kết thúc phiên họp**: trong màn hình điều hành phiên, sang tab **Kết luận**, nhập kết luận
   chung rồi bấm **Kết thúc phiên**. Sau khi kết thúc, phiên bị khoá — không ai bỏ phiếu hay điểm
   danh thêm được, và kết luận được lưu vào phiên.
+- **Ký biên bản**: sau khi thư ký lập biên bản (tab **Biên bản** trong màn hình điều hành phiên),
+  chủ tịch bấm **Ký nhận biên bản**. Khi mọi người có quyền ký đã ký, biên bản chuyển trạng thái
+  *Đã ký đủ*. Nếu đơn vị dùng chữ ký số, bấm thêm **Ký số** để ký bản PDF bằng chứng thư.
 
 ---
 
@@ -386,7 +401,9 @@ hệ số tính điểm trùng lặp, chính sách mật khẩu.
 
 ### Nhật ký
 
-**Quản trị hệ thống → Nhật ký**: nhật ký hệ thống (có giá trị trước/sau từng thay đổi),
-nhật ký đăng nhập, nhật ký lỗi, nhật ký đồng bộ.
+**Quản trị hệ thống → Nhật ký**: nhật ký hệ thống (có giá trị trước/sau từng thay đổi) và nhật ký
+đăng nhập. Mục **Nhật ký lỗi** riêng ở thanh điều hướng ghi lại lỗi hệ thống (5xx) kèm stack trace,
+lọc được theo mức độ và đánh dấu *đã xử lý* để không lẫn với lỗi mới. Nhật ký đồng bộ nằm trong màn
+hình *Liên thông hệ thống ngoài*.
 
 Nhật ký hệ thống là căn cứ để truy vết khi có khiếu nại về kết quả xét duyệt.

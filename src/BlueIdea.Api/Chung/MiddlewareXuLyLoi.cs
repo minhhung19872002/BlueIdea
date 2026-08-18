@@ -41,6 +41,50 @@ public sealed class MiddlewareXuLyLoi
         }
     }
 
+    /// <summary>
+    /// Ghi loi he thong vao bang nhat ky.
+    ///
+    /// Bao boc trong try/catch rieng: neu chinh viec ghi nhat ky loi lai nem ngoai le (mat ket
+    /// noi CSDL chang han) thi khong duoc lam hong phan hoi loi gui ve cho nguoi dung.
+    /// </summary>
+    private async Task GhiNhatKyLoiAsync(HttpContext context, Exception ex)
+    {
+        try
+        {
+            var db = context.RequestServices.GetService<IAppDbContext>();
+            if (db is null) return;
+
+            var nguoiDungId = context.User.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            db.NhatKyLoi.Add(new Domain.QuanTri.NhatKyLoi
+            {
+                Id = Guid.NewGuid(),
+                MucDo = "NGHIEM_TRONG",
+                Nguon = $"{context.Request.Method} {context.Request.Path}",
+                ThongBao = ex.Message,
+
+                // Stack trace chi luu o CSDL cho quan tri vien doc, KHONG bao gio tra ve client.
+                StackTrace = ex.StackTrace,
+                DuLieuNguCanh = new Dictionary<string, object>
+                {
+                    ["loaiNgoaiLe"] = ex.GetType().Name,
+                    ["duongDan"] = context.Request.Path.ToString(),
+                    ["phuongThuc"] = context.Request.Method
+                },
+                NguoiDungId = Guid.TryParse(nguoiDungId, out var id) ? id : null,
+                DiaChiIp = context.Connection.RemoteIpAddress?.ToString(),
+                ThoiGian = DateTimeOffset.UtcNow
+            });
+
+            await db.SaveChangesAsync(context.RequestAborted).ConfigureAwait(false);
+        }
+        catch (Exception loiGhi)
+        {
+            _logger.LogWarning(loiGhi, "Không ghi được nhật ký lỗi vào cơ sở dữ liệu.");
+        }
+    }
+
     private async Task XuLyAsync(HttpContext context, Exception ex)
     {
         var (maHttp, maLoi, thongBao, chiTiet) = PhanLoai(ex);
@@ -49,6 +93,11 @@ public sealed class MiddlewareXuLyLoi
         {
             _logger.LogError(ex, "Lỗi hệ thống khi xử lý {Method} {Path}",
                 context.Request.Method, context.Request.Path);
+
+            // Ghi them vao bang nhat_ky_loi de quan tri vien xem duoc ngay tren giao dien,
+            // khong phai vao Seq hay doc log container. Chi ghi loi 5xx: loi nghiep vu 4xx la
+            // hanh vi binh thuong cua he thong, ghi vao day chi lam nhieu.
+            await GhiNhatKyLoiAsync(context, ex).ConfigureAwait(false);
         }
         else
         {

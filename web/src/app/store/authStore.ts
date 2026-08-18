@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { boNhoToken, guiDuLieu, layDuLieu } from '@/api/client';
+import { dungRealtime } from '@/api/realtime';
 
 export interface NguoiDung {
   id: string;
@@ -79,6 +80,8 @@ export const useAuthStore = create<TrangThaiAuth>()(
         } catch {
           // Kể cả khi gọi API thất bại vẫn phải xoá phiên phía client.
         } finally {
+          // Ngắt realtime trước khi xoá token: kết nối cũ mang token đã thu hồi.
+          await dungRealtime();
           boNhoToken.xoa();
           set({ nguoiDung: null, buocDoiMatKhau: false });
         }

@@ -658,6 +658,24 @@ export interface BuocQuyTrinh {
   }[];
 }
 
+/** Một dòng cấu hình thành phần hồ sơ của quy trình (chức năng 13). */
+export interface ThanhPhanHoSoCauHinh {
+  id: string;
+  ma: string;
+  ten: string;
+  batBuoc: boolean;
+  /** CA_HAI | VAN_BAN | TEP */
+  loaiDuLieu: string;
+  dinhDangChoPhep: string[];
+  dungLuongToiDaMb: number;
+  soLuongToiDa: number;
+  soKyTuToiThieu: number;
+  soKyTuToiDa: number;
+  dungDeKiemTraTrungLap: boolean;
+  thuTu: number;
+  moTaHuongDan?: string | null;
+}
+
 export interface SoDoQuyTrinh {
   danhSachBuoc: BuocQuyTrinh[];
   trangThaiToanCuc: {
@@ -669,21 +687,7 @@ export interface SoDoQuyTrinh {
     hienThiChoTacGia: boolean;
     thuTu: number;
   }[];
-  thanhPhanHoSo: {
-    id: string;
-    ma: string;
-    ten: string;
-    batBuoc: boolean;
-    loaiDuLieu: string;
-    dinhDangChoPhep: string[];
-    dungLuongToiDaMb: number;
-    soLuongToiDa: number;
-    soKyTuToiThieu: number;
-    soKyTuToiDa: number;
-    dungDeKiemTraTrungLap: boolean;
-    thuTu: number;
-    moTaHuongDan?: string | null;
-  }[];
+  thanhPhanHoSo: ThanhPhanHoSoCauHinh[];
   chucNangBoSung: {
     id: string;
     buocId?: string | null;
@@ -1399,3 +1403,148 @@ export interface KetQuaDangNhapSso {
   };
   buocDoiMatKhau: boolean;
 }
+
+// --- Biên bản họp hội đồng (nhóm IV) ---------------------------------------
+
+export interface DongBienBanHoSo {
+  sangKienId: string;
+  maHoSo: string;
+  tenSangKien: string;
+  tacGiaChinh?: string | null;
+  tongDiem?: number | null;
+  soPhieuDongY: number;
+  soPhieuKhongDongY: number;
+  soPhieuYKienKhac: number;
+  tyLeDongY: number;
+  datNguong: boolean;
+  ketLuanRieng?: string | null;
+}
+
+export interface ChuKyBienBan {
+  thanhVienId: string;
+  hoTen: string;
+  chucDanh: string;
+  daKy: boolean;
+  thoiGianKy?: string | null;
+}
+
+export interface BienBanHop {
+  id: string;
+  phienHopId: string;
+  soBienBan: string;
+  /** NHAP | DA_LAP | DA_KY | DA_BAN_HANH */
+  trangThaiBienBan: string;
+  ngayLap?: string | null;
+  tenHoiDong: string;
+  tenPhien: string;
+  thoiGianBatDau: string;
+  diaDiem?: string | null;
+  hinhThuc: string;
+  ketLuanChung?: string | null;
+  soThanhVien: number;
+  soCoMat: number;
+  thanhPhanDuHop: string[];
+  thanhVienVang: string[];
+  danhSachHoSo: DongBienBanHoSo[];
+  chuKy: ChuKyBienBan[];
+  tepTinId?: string | null;
+}
+
+export const apiBienBan = {
+  lap: (phienHopId: string) =>
+    guiDuLieu<BienBanHop>(`/api/v1/bien-ban-hop/phien-hop/${phienHopId}`),
+  theoPhien: (phienHopId: string) =>
+    layDuLieu<BienBanHop | null>(`/api/v1/bien-ban-hop/phien-hop/${phienHopId}`),
+  ky: (id: string) => guiDuLieu(`/api/v1/bien-ban-hop/${id}/ky`),
+  kySo: (id: string) => guiDuLieu<string>(`/api/v1/bien-ban-hop/${id}/ky-so`),
+  lichSuKySo: (id: string) => layDuLieu<NhatKyKySo[]>(`/api/v1/bien-ban-hop/${id}/lich-su-ky-so`),
+  duongDanPdf: (id: string) => `/api/v1/bien-ban-hop/${id}/xuat-pdf`,
+};
+
+// --- Liên thông theo bước quy trình (chức năng 16) --------------------------
+
+export interface LienThongBuoc {
+  id: string;
+  quyTrinhId: string;
+  buocId?: string | null;
+  tenBuoc?: string | null;
+  heThongTichHopId: string;
+  tenHeThong: string;
+  /** KHI_VAO_BUOC | KHI_HOAN_THANH | KHI_PHE_DUYET */
+  suKien: string;
+  loaiDuLieu?: string | null;
+  dongBoHaiChieu: boolean;
+  trangThai: number;
+}
+
+export interface LuuLienThongBuoc {
+  buocId?: string | null;
+  heThongTichHopId: string;
+  suKien: string;
+  loaiDuLieu?: string | null;
+  cauHinhMapping?: Record<string, string> | null;
+  dongBoHaiChieu: boolean;
+  trangThai: number;
+}
+
+export const apiLienThongBuoc = {
+  danhSach: (quyTrinhId: string) =>
+    layDuLieu<LienThongBuoc[]>(`/api/v1/quy-trinh/${quyTrinhId}/lien-thong`),
+  them: (quyTrinhId: string, duLieu: LuuLienThongBuoc) =>
+    guiDuLieu<string>(`/api/v1/quy-trinh/${quyTrinhId}/lien-thong`, duLieu),
+  sua: (id: string, duLieu: LuuLienThongBuoc) =>
+    capNhatDuLieu(`/api/v1/quy-trinh/lien-thong/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/quy-trinh/lien-thong/${id}`),
+};
+
+// --- Cấp phê duyệt theo đợt / lĩnh vực (chức năng 5) ------------------------
+
+export interface CapPheDuyet {
+  id: string;
+  dotDeNghiId?: string | null;
+  tenDot?: string | null;
+  linhVucId?: string | null;
+  tenLinhVuc?: string | null;
+  donViPheDuyetId: string;
+  tenDonViPheDuyet: string;
+  thuTuCap: number;
+  ghiChu?: string | null;
+}
+
+export interface LuuCapPheDuyet {
+  dotDeNghiId?: string | null;
+  linhVucId?: string | null;
+  donViPheDuyetId: string;
+  thuTuCap: number;
+  ghiChu?: string | null;
+}
+
+export const apiCapPheDuyet = {
+  danhSach: (thamSo?: { dotDeNghiId?: string; linhVucId?: string }) =>
+    layDuLieu<CapPheDuyet[]>('/api/v1/cap-phe-duyet', { params: thamSo }),
+  them: (duLieu: LuuCapPheDuyet) => guiDuLieu<string>('/api/v1/cap-phe-duyet', duLieu),
+  sua: (id: string, duLieu: LuuCapPheDuyet) => capNhatDuLieu(`/api/v1/cap-phe-duyet/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/cap-phe-duyet/${id}`),
+};
+
+// --- Nhật ký lỗi hệ thống ---------------------------------------------------
+
+export interface NhatKyLoi {
+  id: string;
+  /** CANH_BAO | LOI | NGHIEM_TRONG */
+  mucDo: string;
+  nguon: string;
+  thongBao: string;
+  stackTrace?: string | null;
+  duLieuNguCanh?: Record<string, unknown> | null;
+  nguoiDungId?: string | null;
+  diaChiIp?: string | null;
+  thoiGian: string;
+  daXuLy: boolean;
+}
+
+export const apiNhatKyLoi = {
+  danhSach: (thamSo?: { trang?: number; soDong?: number; mucDo?: string; daXuLy?: boolean }) =>
+    layPhanTrang<NhatKyLoi>('/api/v1/he-thong/nhat-ky/loi', thamSo),
+  danhDauDaXuLy: (id: string) => guiDuLieu(`/api/v1/he-thong/nhat-ky/loi/${id}/da-xu-ly`),
+};

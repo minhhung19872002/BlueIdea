@@ -165,6 +165,28 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | I23 | — | Đăng nhập `admin` rồi mở Trang chủ | Vẫn đầy đủ 4 chỉ số + 3 biểu đồ + top đơn vị + cảnh báo | KB |
 | I24 | — | Gọi thẳng `GET /api/v1/bao-cao/tong-quan` bằng token tác giả | HTTP 403 — máy chủ vẫn chặn, giao diện chỉ xử lý mềm phía người dùng | IT |
 
+## K. Biên bản, cấu hình quy trình và nhật ký lỗi
+
+| # | Chức năng | Các bước kiểm chứng | Kết quả mong đợi | Tự động |
+|---|---|---|---|---|
+| K1 | 19 | Mở phiên họp **chưa kết thúc** → tab Biên bản → bấm Lập biên bản | Nút bị vô hiệu hoá; gọi thẳng API trả 422 "phiên họp đã kết thúc" | IT |
+| K2 | 19 | Kết thúc phiên rồi bấm **Lập biên bản** | Biên bản có số `BB-…`, ghi đúng số người có mặt, danh sách hồ sơ kèm số phiếu và tỷ lệ đồng ý, kết luận của phiên | IT |
+| K3 | 19 | Bấm **Xuất PDF** biên bản | Tải về PDF theo mẫu văn bản hành chính: thành phần dự họp, thành viên vắng, kết quả từng hồ sơ, nơi ký của chủ tịch | IT |
+| K4 | 19 | Chủ tịch bấm **Ký nhận biên bản** | Dòng chữ ký của chủ tịch chuyển sang *Đã ký* kèm thời gian; đủ chữ ký thì biên bản chuyển trạng thái *Đã ký đủ* | IT |
+| K5 | 19 | Người không thuộc hội đồng gọi API ký biên bản | HTTP 403 "Bạn không phải thành viên của hội đồng này" | IT |
+| K6 | 49 | Bấm **Ký số** biên bản | Sinh PDF của biên bản hiện hành rồi ký; lịch sử ký số hiện serial chứng thư và người ký | — |
+| K7 | 13 | Vào Quy trình → *Thành phần hồ sơ*, sửa một dòng rồi Lưu | Lưu thành công; mở lại wizard nộp hồ sơ thấy checklist đổi theo | — |
+| K8 | 13 | Đặt hai thành phần trùng mã rồi Lưu | Cảnh báo đỏ nêu rõ mã trùng, nút Lưu bị khoá | — |
+| K9 | 16 | Vào Quy trình → *Liên thông*, gắn một hệ thống vào bước với sự kiện *Khi hoàn thành* | Cấu hình hiện trong bảng kèm tên bước và tên hệ thống | IT |
+| K10 | 16 | Gọi API gắn liên thông với `buocId` của quy trình khác | HTTP 422 "Bước được chọn không thuộc quy trình này" | IT |
+| K11 | 5 | Vào Danh mục → *Cấp phê duyệt*, thêm cấp 1 và cấp 2 cho cùng một đợt | Hai dòng hiển thị theo thứ tự cấp | — |
+| K12 | 5 | Thêm cấp trùng thứ tự trong cùng phạm vi | HTTP 409, nêu rõ đã có cấp đó cho phạm vi này | IT |
+| K13 | — | Vào Nhật ký → tab *Lỗi hệ thống* | Danh sách lỗi 5xx, lọc theo mức độ và trạng thái; mở rộng dòng xem stack trace | IT |
+| K14 | — | Đăng nhập tác giả rồi gọi API nhật ký lỗi | HTTP 403 — chỉ vai trò có quyền xem nhật ký mới đọc được | IT |
+| K15 | — | Mở hai trình duyệt, tài khoản A gửi thông báo tới B | Chuông của B tăng số **ngay** (không chờ 60 giây) nhờ SignalR | — |
+| K16 | — | Ngắt mạng rồi bật lại | Realtime tự kết nối lại; trong lúc mất kết nối, chuông vẫn cập nhật theo nhịp 60 giây | — |
+| K17 | 9 | Trong trình thiết kế bấm **Xuất PNG** | Tải về ảnh sơ đồ, không dính thanh điều khiển của canvas | — |
+
 ## H. Phi chức năng
 
 | # | Yêu cầu | Các bước kiểm chứng | Kết quả mong đợi |

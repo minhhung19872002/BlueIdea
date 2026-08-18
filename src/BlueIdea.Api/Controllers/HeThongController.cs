@@ -292,6 +292,74 @@ public sealed class HeThongController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Chức năng nhật ký — lỗi hệ thống (5xx) đã ghi lại, để quản trị viên xem ngay trên giao
+    /// diện thay vì phải mở log container.
+    /// </summary>
+    [HttpGet("nhat-ky/loi")]
+    [Authorize(Policy = MaQuyen.NhatKyXem)]
+    public async Task<IActionResult> LayNhatKyLoiAsync(
+        [FromQuery] ThamSoPhanTrang thamSo,
+        [FromQuery] string? mucDo,
+        [FromQuery] bool? daXuLy,
+        CancellationToken ct)
+    {
+        var truyVan = _db.NhatKyLoi.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(mucDo))
+        {
+            truyVan = truyVan.Where(x => x.MucDo == mucDo);
+        }
+
+        if (daXuLy.HasValue)
+        {
+            truyVan = truyVan.Where(x => x.DaXuLy == daXuLy.Value);
+        }
+
+        var tongSo = await truyVan.CountAsync(ct);
+
+        var duLieu = await truyVan
+            .OrderByDescending(x => x.ThoiGian)
+            .Skip(thamSo.BoQua)
+            .Take(thamSo.SoDong)
+            .Select(x => new
+            {
+                x.Id,
+                x.MucDo,
+                x.Nguon,
+                x.ThongBao,
+                x.StackTrace,
+                x.DuLieuNguCanh,
+                x.NguoiDungId,
+                x.DiaChiIp,
+                x.ThoiGian,
+                x.DaXuLy
+            })
+            .ToListAsync(ct);
+
+        return Ok(new PhanHoiPhanTrang<object>
+        {
+            DuLieu = duLieu.Cast<object>().ToList(),
+            TongSo = tongSo,
+            Trang = thamSo.Trang,
+            SoDong = thamSo.SoDong
+        });
+    }
+
+    /// <summary>Đánh dấu một lỗi đã được xử lý để không lẫn với lỗi mới.</summary>
+    [HttpPost("nhat-ky/loi/{id:guid}/da-xu-ly")]
+    [Authorize(Policy = MaQuyen.NhatKyXem)]
+    public async Task<IActionResult> DanhDauLoiDaXuLyAsync(Guid id, CancellationToken ct)
+    {
+        var banGhi = await _db.NhatKyLoi.FirstOrDefaultAsync(x => x.Id == id, ct)
+                     ?? throw new KhongTimThayException("nhật ký lỗi", id);
+
+        banGhi.DaXuLy = true;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(PhanHoiApi.Ok("Đã đánh dấu lỗi đã xử lý"));
+    }
+
     /// <summary>Thông báo trong ứng dụng của người dùng hiện tại.</summary>
     [HttpGet("thong-bao")]
     [Authorize]

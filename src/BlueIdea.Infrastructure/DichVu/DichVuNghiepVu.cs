@@ -221,12 +221,19 @@ public sealed class DichVuThongBao : IDichVuThongBao
     private readonly IAppDbContext _db;
     private readonly IDongHoHeThong _dongHo;
     private readonly ILogger<DichVuThongBao> _logger;
+    private readonly IBoDayRealtime? _realtime;
 
-    public DichVuThongBao(IAppDbContext db, IDongHoHeThong dongHo, ILogger<DichVuThongBao> logger)
+    public DichVuThongBao(
+        IAppDbContext db, IDongHoHeThong dongHo, ILogger<DichVuThongBao> logger,
+        IBoDayRealtime? realtime = null)
     {
         _db = db;
         _dongHo = dongHo;
         _logger = logger;
+
+        // Cho phep null de kiem thu va cac tien trinh nen (khong co SignalR) van chay duoc:
+        // thong bao van luu vao CSDL, chi khong day realtime.
+        _realtime = realtime;
     }
 
     public async Task GuiTheoSuKienAsync(
@@ -331,6 +338,23 @@ public sealed class DichVuThongBao : IDichVuThongBao
         });
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        // Day realtime SAU khi luu thanh cong: day truoc ma luu that bai thi chuong bao co
+        // thong bao moi trong khi khong co gi trong danh sach.
+        if (_realtime is not null)
+        {
+            try
+            {
+                await _realtime.ThongBaoMoiAsync(nguoiNhanId, tieuDe, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Mat ket noi realtime khong duoc lam hong nghiep vu — thong bao da nam trong
+                // CSDL, chuong se thay o lan hoi tiep theo.
+                _logger.LogWarning(ex, "Không đẩy được thông báo realtime tới {NguoiNhan}.",
+                    nguoiNhanId);
+            }
+        }
     }
 
     /// <summary>

@@ -378,7 +378,7 @@ public sealed partial class DuLieuMau
     private const string KhoaPhienBanMenu = "PHIEN_BAN_MENU";
 
     /// <summary>Phien ban cau truc menu - tang len khi doi bo cuc de he thong dang chay nhan duoc.</summary>
-    private const string PhienBanMenu = "6";
+    private const string PhienBanMenu = "7";
 
     /// <summary>Cac ma menu do seed tung sinh ra - dung de go bo cuc cu khi nang cap.</summary>
     private static readonly string[] MaMenuSeedCu =
@@ -400,7 +400,10 @@ public sealed partial class DuLieuMau
         "BAO_MAT_TAI_KHOAN", "QT_KHOA_API", "QT_DANH_MUC",
 
         // Ma chi xuat hien tu phien ban menu 5 tro di.
-        "QT_LIEN_THONG"
+        "QT_LIEN_THONG",
+
+        // Ma chi xuat hien tu phien ban menu 6 tro di.
+        "QT_CHU_KY_SO"
     };
 
     /// <summary>
@@ -492,6 +495,8 @@ public sealed partial class DuLieuMau
         Them("QT_KHOA_API", "Khoá API hệ thống ngoài", "/quan-tri/khoa-api", "🔑",
             MaQuyen.TichHopCauHinh, nhomQuanTri.Id);
         Them("QT_NHAT_KY", "Nhật ký hệ thống", "/quan-tri/nhat-ky/he-thong", "🕐",
+            MaQuyen.NhatKyXem, nhomQuanTri.Id);
+        Them("QT_NHAT_KY_LOI", "Nhật ký lỗi", "/quan-tri/nhat-ky-loi", "🐞",
             MaQuyen.NhatKyXem, nhomQuanTri.Id);
 
         var nhomKhac = Them("NHOM_KHAC", "Khác", null, null, null);

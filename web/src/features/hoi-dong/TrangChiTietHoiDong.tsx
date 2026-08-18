@@ -42,6 +42,7 @@ import {
   type ThanhVienHoiDong,
 } from '@/api/endpoints';
 import { useAuthStore } from '@/app/store/authStore';
+import { TabBienBan } from '@/features/hoi-dong/TabBienBan';
 import { CAP_HOI_DONG } from '@/features/hoi-dong/TrangHoiDong';
 import { KhoiDangTai, KhoiLoi, KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
 
@@ -918,6 +919,13 @@ function ModalDieuHanhPhien({
                       ))}
                   </Space>
                 ),
+            },
+            {
+              key: 'bien-ban',
+              label: 'Biên bản',
+              children: (
+                <TabBienBan phienHopId={phienHopId} phienDaKetThuc={daKetThuc} />
+              ),
             },
             {
               key: 'ket-luan',

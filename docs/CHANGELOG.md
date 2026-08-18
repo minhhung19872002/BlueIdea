@@ -4,6 +4,88 @@
 
 ---
 
+## [1.4.0] — 2026-08-18
+
+Quét lại theo một chiều chưa từng kiểm: **bảng cơ sở dữ liệu nào không một dòng code nào chạm
+tới**, rồi đối chiếu ngược với đặc tả. Cách này bắt được nhóm thiếu sót mà quét từ phía API không
+bao giờ thấy — thiết kế CSDL có bảng nhưng chưa ai làm nghiệp vụ. Bản này làm nốt 7 hạng mục đó.
+
+### Biên bản họp hội đồng (nhóm IV)
+
+- Hai bảng `bien_ban_hop` và `bien_ban_chu_ky` trước đây **không có dịch vụ, API hay giao diện
+  nào** — thành viên có checkbox quyền *Ký biên bản* nhưng không có biên bản nào để ký.
+- Thêm `DichVuBienBanHop`: biên bản **sinh từ dữ liệu có thật** của phiên họp (điểm danh, phiếu
+  bầu, kết luận) và chụp lại thành JSON, không phải form nhập tay — biên bản là căn cứ hành chính,
+  gõ tay lại số liệu là mở đường cho sai lệch với dữ liệu hệ thống.
+- API: lập/làm mới biên bản, xem theo phiên, ký nhận theo chức danh, xuất PDF theo mẫu văn bản
+  hành chính, ký số và xem lịch sử ký số.
+- Giao diện: tab **Biên bản** trong màn hình điều hành phiên họp — trạng thái, số chữ ký, bảng kết
+  quả từng hồ sơ, bảng chữ ký, các nút xuất PDF / ký nhận / ký số / lập lại.
+- Chỉ thành viên của chính hội đồng đó và có quyền ký biên bản mới ký được; biên bản đã đủ chữ ký
+  thì không lập lại được.
+
+### Cấu hình thành phần hồ sơ (chức năng 13)
+
+- Trình thiết kế trước đây chỉ **hiển thị con số** "n thành phần hồ sơ" — không sửa được, dù API
+  lưu sơ đồ vẫn nhận trường này. Thêm màn hình `/quan-tri/quy-trinh/:id/thanh-phan` sửa đầy đủ:
+  mã, tên, bắt buộc, kiểu dữ liệu, định dạng cho phép, dung lượng, số tệp, số ký tự tối thiểu và
+  cờ dùng cho kiểm tra trùng lặp.
+- Cảnh báo ngay khi mã bị trùng — mã là khoá lưu dữ liệu nộp nên trùng là hỏng dữ liệu.
+
+### Liên thông theo bước quy trình (chức năng 16)
+
+- Bảng `quy_trinh_lien_thong` chưa được dùng: hệ thống mới chỉ khai báo được *hệ thống ngoài*, chưa
+  quyết định được **khi nào** gọi. Thêm API và màn hình `/quan-tri/quy-trinh/:id/lien-thong` gắn
+  hệ thống vào từng bước theo sự kiện (vào bước / hoàn thành / được phê duyệt).
+- Máy chủ chặn gắn bước của quy trình khác — sai chỗ này thì luồng đồng bộ không bao giờ chạy mà
+  không ai hiểu tại sao.
+
+### Cấp phê duyệt theo đợt / lĩnh vực (chức năng 5)
+
+- Bảng `cau_hinh_cap_phe_duyet` chưa được dùng. Thêm API và tab **Cấp phê duyệt** trong Danh mục:
+  khai báo thứ tự các cấp xét cho từng phạm vi, bỏ trống đợt/lĩnh vực nghĩa là áp dụng chung.
+- Chặn trùng thứ tự cấp trong cùng phạm vi — hai đơn vị cùng cấp thì không biết hồ sơ qua ai trước.
+
+### Nhật ký lỗi
+
+- Bảng `nhat_ky_loi` chưa từng được ghi. Middleware xử lý lỗi nay ghi lại lỗi **5xx** (kèm stack
+  trace, đường dẫn, người dùng, IP); lỗi nghiệp vụ 4xx không ghi vì đó là hành vi bình thường và
+  chỉ làm nhiễu.
+- Việc ghi nhật ký được bọc try/catch riêng: mất kết nối CSDL lúc ghi log không được làm hỏng phản
+  hồi lỗi gửi về người dùng.
+- Thêm tab **Lỗi hệ thống** trong Nhật ký: lọc theo mức độ và trạng thái xử lý, mở rộng dòng để xem
+  stack trace, đánh dấu đã xử lý.
+
+### Thông báo realtime (SignalR)
+
+- Hub `/hubs/thong-bao` đã có từ trước nhưng **web không cài `@microsoft/signalr`** — không ai kết
+  nối. Nay web kết nối và nhận tín hiệu, chuông cập nhật tức thì thay vì chờ nhịp 60 giây.
+- Tầng Application/Infrastructure chỉ biết giao diện `IBoDayRealtime`, không phụ thuộc SignalR —
+  đổi công nghệ realtime về sau chỉ phải thay bản cài đặt ở tầng Api.
+- Máy chủ chỉ đẩy **tín hiệu**, không kèm nội dung nghiệp vụ: client nhận tín hiệu rồi gọi API lấy
+  dữ liệu theo đúng quyền của mình, nên không có đường nào rò dữ liệu qua kênh realtime.
+- Vẫn giữ nhịp hỏi lại 60 giây làm lưới an toàn khi realtime rớt kết nối.
+
+### Xuất sơ đồ quy trình
+
+- Nút **Xuất PNG** trong trình thiết kế: chụp đúng khung canvas, ẩn phần điều khiển của ReactFlow
+  để ảnh đưa vào hồ sơ trình ký chỉ còn sơ đồ.
+
+### Dọn dẹp
+
+- Gỡ `i18next`, `react-i18next`, `react-hook-form` — cài trong `package.json` nhưng không dùng ở
+  bất kỳ tệp nào.
+
+### Kiểm thử
+
+- Thêm `BienBanVaCauHinhTests` (8 test): chặn lập biên bản khi phiên chưa kết thúc, lập biên bản
+  sinh đúng số liệu và xuất được PDF, chặn người ngoài hội đồng ký, chặn gắn liên thông vào bước
+  của quy trình khác, vòng lưu–đọc liên thông, chặn trùng thứ tự cấp phê duyệt, đọc nhật ký lỗi và
+  chặn tác giả xem nhật ký lỗi.
+- Tổng: 267 unit test + 85 integration test, tất cả đều pass.
+
+---
+
 ## [1.3.0] — 2026-08-18
 
 Rà soát lại toàn bộ 206 endpoint và đối chiếu với những gì màn hình thực sự gọi. Đợt trước chỉ tìm

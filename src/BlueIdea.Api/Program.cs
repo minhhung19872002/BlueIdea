@@ -96,6 +96,11 @@ builder.Services.ThemTangHaTang(builder.Configuration);
 
 builder.Services.AddSignalR();
 
+// Ban cai dat day realtime: tang Application/Infrastructure chi biet giao dien IBoDayRealtime,
+// khong phu thuoc SignalR.
+builder.Services.AddScoped<BlueIdea.Application.Chung.IBoDayRealtime,
+    BlueIdea.Api.Hubs.BoDayRealtimeSignalR>();
+
 // Xac thuc JWT.
 var khoaKy = builder.Configuration["Jwt:KhoaKy"] ?? string.Empty;
 builder.Services

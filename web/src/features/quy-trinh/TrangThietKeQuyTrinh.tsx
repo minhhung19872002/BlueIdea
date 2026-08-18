@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import {
   App,
   Alert,
@@ -18,8 +18,14 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { CheckCircleOutlined, SafetyCertificateOutlined, SaveOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  PictureOutlined,
+  SafetyCertificateOutlined,
+  SaveOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toPng } from 'html-to-image';
 import ReactFlow, {
   Background,
   Controls,
@@ -263,6 +269,37 @@ export default function TrangThietKeQuyTrinh() {
     [soDo],
   );
 
+  const khungSoDo = useRef<HTMLDivElement>(null);
+
+  /**
+   * Xuất sơ đồ ra ảnh PNG.
+   *
+   * Chụp đúng khung canvas (không chụp cả trang) và ẩn phần điều khiển của ReactFlow, để ảnh
+   * đưa vào hồ sơ trình ký chỉ còn sơ đồ.
+   */
+  const xuatPng = useCallback(async () => {
+    const khung = khungSoDo.current?.querySelector<HTMLElement>('.react-flow__viewport');
+    if (!khung) return;
+
+    try {
+      const anh = await toPng(khung, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        filter: (nut) =>
+          !(nut instanceof HTMLElement)
+          || !(nut.classList.contains('react-flow__controls')
+               || nut.classList.contains('react-flow__minimap')),
+      });
+
+      const the = document.createElement('a');
+      the.href = anh;
+      the.download = `so-do-quy-trinh-${id}.png`;
+      the.click();
+    } catch {
+      message.error('Không xuất được sơ đồ. Thử phóng to sơ đồ rồi xuất lại.');
+    }
+  }, [id, message]);
+
   /** Bật/tắt một chức năng bổ sung ở cấp quy trình (không gắn với bước cụ thể). */
   const doiChucNangBoSung = useCallback(
     (maChucNang: string, bat: boolean) => {
@@ -301,6 +338,15 @@ export default function TrangThietKeQuyTrinh() {
           <Button icon={<SaveOutlined />} loading={luu.isPending} onClick={() => luu.mutate()}>
             Lưu sơ đồ
           </Button>
+          <Button icon={<PictureOutlined />} onClick={() => void xuatPng()}>
+            Xuất PNG
+          </Button>
+          <Link to={`/quan-tri/quy-trinh/${id}/thanh-phan`}>
+            <Button>Thành phần hồ sơ</Button>
+          </Link>
+          <Link to={`/quan-tri/quy-trinh/${id}/lien-thong`}>
+            <Button>Liên thông</Button>
+          </Link>
           <Button
             type="primary"
             icon={<CheckCircleOutlined />}
@@ -350,7 +396,7 @@ export default function TrangThietKeQuyTrinh() {
         </Row>
       </div>
 
-      <div style={{ height: 'calc(100vh - 260px)', minHeight: 460 }}>
+      <div ref={khungSoDo} style={{ height: 'calc(100vh - 260px)', minHeight: 460 }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}

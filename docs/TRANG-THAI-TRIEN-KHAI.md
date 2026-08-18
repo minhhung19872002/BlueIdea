@@ -23,7 +23,7 @@ thiện, đều được ghi rõ.
 | 2 | Đối tượng | ✅ | CRUD đầy đủ |
 | 3 | Đợt đề nghị | ✅ | Màn hình riêng trong tab Danh mục: CRUD + **Mở / Đóng / Khoá đợt + Sao chép đợt ngay trên bảng**, hiển thị trạng thái vòng đời và cảnh báo thiếu quy trình / bộ tiêu chí; tự động đóng đợt quá hạn nộp mỗi giờ |
 | 4 | Loại tác giả | ✅ | Kèm ràng buộc số tác giả tối đa, áp dụng khi nộp hồ sơ |
-| 5 | Đơn vị phê duyệt | ✅ | Cây tổ chức, đường dẫn cây phục vụ phạm vi dữ liệu |
+| 5 | Đơn vị phê duyệt | ✅ | Cây tổ chức, đường dẫn cây phục vụ phạm vi dữ liệu; **tab Cấp phê duyệt** khai báo thứ tự các cấp xét theo đợt / lĩnh vực, chặn trùng thứ tự cấp trong cùng phạm vi |
 | 6 | Biểu mẫu xuất | ✅ | Màn hình tab **Biểu mẫu xuất** trong Danh mục: CRUD, tải tệp `.docx` mẫu, quét placeholder `{{ }}` ngay khi tải lên và ánh xạ từng placeholder sang nguồn dữ liệu. Gộp văn bản cả đoạn nên bắt được placeholder bị Word cắt thành nhiều run |
 | 7 | Biểu mẫu thống kê | ✅ | Báo cáo tuỳ biến sinh động từ cấu hình cột, có dòng tổng hợp; nguồn dữ liệu chặn bằng bảng trắng, cấu hình sai bị chặn ngay khi lưu |
 | 8 | Quyết định | ✅ | CRUD + chọn sáng kiến đủ điều kiện + xuất PDF; chặn gán trùng và chặn sửa khi đã ký số |
@@ -32,14 +32,14 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 9 | Cấu hình quy trình | ✅ | CRUD, **sao chép sang quy trình mới**, tạo phiên bản mới, kích hoạt, ngừng áp dụng — tất cả có nút trên màn hình |
+| 9 | Cấu hình quy trình | ✅ | CRUD, **sao chép sang quy trình mới**, tạo phiên bản mới, kích hoạt, ngừng áp dụng, **xuất sơ đồ ra PNG** — tất cả có nút trên màn hình |
 | 10 | Cấu hình trường hợp | ✅ | Nhánh rẽ có điều kiện jsonb; rule evaluator đầy đủ toán tử; xem trên designer |
 | 11 | Cấu hình bước xử lý | ✅ | Panel cấu hình bước trên trình thiết kế ReactFlow |
 | 12 | Chức năng bổ sung | ✅ | Bật/tắt 9 chức năng ngay trên trình thiết kế quy trình |
-| 13 | Thành phần hồ sơ | ✅ | Cấu hình + checklist kiểm tra khi nộp, chặn nộp khi thiếu |
+| 13 | Thành phần hồ sơ | ✅ | **Màn hình cấu hình riêng** `/quan-tri/quy-trinh/:id/thanh-phan` (mã, tên, bắt buộc, kiểu dữ liệu, định dạng, dung lượng, số tệp, dùng kiểm tra trùng lặp) + checklist kiểm tra khi nộp, chặn nộp khi thiếu |
 | 14 | Trạng thái bước | ✅ | Trạng thái theo bước và trạng thái toàn cục |
 | 15 | Tác nhân xử lý | ✅ | 7 loại tác nhân, quy tắc MỘT_NGƯỜI / TẤT_CẢ / ĐA_SỐ đã kiểm chứng |
-| 16 | Cấu hình liên thông | ✅ | Màn hình `/quan-tri/lien-thong`: CRUD hệ thống liên thông, 3 kiểu xác thực (API_KEY/HMAC/OAUTH2), ánh xạ tên trường, xem trước dữ liệu, chạy đồng bộ và tab nhật ký đồng bộ. Bí mật mã hoá khi lưu, không bao giờ trả về giao diện |
+| 16 | Cấu hình liên thông | ✅ | Hai lớp: `/quan-tri/lien-thong` khai báo **hệ thống ngoài** (3 kiểu xác thực, ánh xạ trường, xem trước, đồng bộ, nhật ký); `/quan-tri/quy-trinh/:id/lien-thong` gắn **bước nào gọi hệ thống nào** theo sự kiện (vào bước / hoàn thành / được phê duyệt). Bí mật mã hoá khi lưu, không bao giờ trả về giao diện |
 
 ## Nhóm III — Tiêu chí động
 
@@ -52,7 +52,7 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 19 | Danh sách hội đồng | ✅ | Màn hình `/hoi-dong`: CRUD hội đồng; trang chi tiết có tab Phiên họp — tạo phiên, chọn hồ sơ đưa ra xét, điểm danh, bỏ phiếu và kiểm phiếu theo ngưỡng thông qua, kết luận và kết thúc phiên |
+| 19 | Danh sách hội đồng | ✅ | Màn hình `/hoi-dong`: CRUD hội đồng; trang chi tiết có tab Phiên họp — tạo phiên, chọn hồ sơ đưa ra xét, điểm danh, bỏ phiếu và kiểm phiếu theo ngưỡng thông qua, kết luận và kết thúc phiên. **Tab Biên bản**: lập biên bản sinh từ dữ liệu phiên họp, ký nhận theo chức danh, xuất PDF và ký số biên bản |
 | 20 | Thành viên hội đồng | ✅ | Tab Thành viên sửa trực tiếp trên bảng: chọn tài khoản, chức danh, 5 nhóm quyền; chặn lưu khi không đúng 1 chủ tịch hoặc thiếu số thành viên tối thiểu |
 
 ## Nhóm V — Đăng ký nộp hồ sơ
@@ -107,7 +107,7 @@ thiện, đều được ghi rõ.
 | 46 | Cấu hình hệ thống | ✅ | Đọc/ghi theo nhóm, có kiểu dữ liệu, màu chủ đạo áp dụng ngay lên giao diện |
 | 47 | Cấu hình đơn vị | ✅ | Sửa được tiêu đề văn bản, người ký mặc định và chức vụ ngay trong form đơn vị |
 | 48 | Cấu hình menu | ✅ | Menu render động từ CSDL và lọc theo quyền; sửa menu bằng API |
-| 49 | Cấu hình chữ ký số | ✅ | Màn hình `/quan-tri/chu-ky-so` khai báo nhà cung cấp, hình thức ký, chứng thư và báo hệ thống đã sẵn sàng ký hay chưa. Trên trang Quyết định: gắn tệp văn bản, **nút Ký số**, **lịch sử ký số** và **xác minh chữ ký** từng lần ký. Ký PKCS#7 detached, giữ nguyên bản gốc. Khoá bí mật đọc từ tệp PFX của máy chủ (`KYSO_PFX`), không lưu trong CSDL. Cần chứng thư thật của CA để dùng chính thức |
+| 49 | Cấu hình chữ ký số | ✅ | Màn hình `/quan-tri/chu-ky-so` khai báo nhà cung cấp, hình thức ký, chứng thư và báo hệ thống đã sẵn sàng ký hay chưa. Ký số áp dụng cho **quyết định** và **biên bản họp**, kèm lịch sử ký và xác minh chữ ký từng lần. Ký PKCS#7 detached, giữ nguyên bản gốc. Khoá bí mật đọc từ tệp PFX của máy chủ (`KYSO_PFX`), không lưu trong CSDL. Cần chứng thư thật của CA để dùng chính thức |
 | 50 | Cấu hình email & SMS | ✅ | Màn hình cấu hình SMTP/SMS có nút gửi thử và thống kê hàng đợi; worker gửi thật rút hàng đợi mỗi 5 phút |
 | 51 | Cấu hình thông tin sáng kiến | ✅ | Ngưỡng trùng lặp, hệ số tính điểm, giới hạn tệp — sửa được trên giao diện |
 
@@ -141,7 +141,15 @@ thông báo là đánh dấu đã đọc và mở thẳng đối tượng liên 
 dữ liệu cá nhân — không ai đọc hay đánh dấu được thông báo của người khác.
 
 Luồng ký số: khai báo cấu hình chữ ký số → gắn tệp văn bản vào quyết định → ký số → xem lịch sử ký
-→ xác minh chữ ký (đối chiếu bản gốc với tệp chữ ký PKCS#7 detached).
+→ xác minh chữ ký (đối chiếu bản gốc với tệp chữ ký PKCS#7 detached). Biên bản họp ký số theo cùng
+cơ chế: hệ thống sinh PDF của biên bản hiện hành rồi ký, nên chữ ký luôn gắn với đúng nội dung.
+
+Luồng biên bản: phiên họp kết thúc → lập biên bản (tự lấy điểm danh, phiếu bầu, kết luận) → thành
+viên có quyền ký nhận → xuất PDF → ký số. Người ngoài hội đồng gọi thẳng API ký cũng bị chặn.
+
+Realtime: thông báo mới được đẩy xuống trình duyệt qua SignalR (`/hubs/thong-bao`); máy chủ chỉ gửi
+tín hiệu, client gọi lại API để lấy dữ liệu theo đúng quyền. Mất kết nối realtime thì chuông vẫn
+cập nhật nhờ nhịp hỏi lại 60 giây.
 
 Luồng liên thông: khai báo hệ thống ngoài → xem trước dữ liệu sẽ đẩy → chạy đồng bộ → đọc nhật ký
 đồng bộ; sửa cấu hình mà để trống ô bí mật thì giữ nguyên bí mật đang lưu.

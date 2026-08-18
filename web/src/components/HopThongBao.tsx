@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App, Badge, Button, Drawer, Empty, List, Space, Tag, Typography } from 'antd';
 import { BellOutlined, CheckOutlined } from '@ant-design/icons';
@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoiApi } from '@/api/client';
 import { apiHeThong, type ThongBaoTrongUngDung } from '@/api/endpoints';
+import { batDauRealtime, layKetNoiRealtime, SU_KIEN_REALTIME } from '@/api/realtime';
 import { ngayGio } from '@/components/ThanhPhanChung';
 
 const MAU_MUC_DO: Record<string, string> = {
@@ -38,8 +39,30 @@ export function HopThongBao() {
   const { data: chuaDoc } = useQuery({
     queryKey: ['thong-bao-chua-doc'],
     queryFn: () => apiHeThong.thongBao({ chuaDoc: true, soDong: 1 }),
+    // Vẫn giữ nhịp hỏi lại 60 giây làm lưới an toàn: realtime có thể rớt kết nối mà người dùng
+    // không hay biết, khi đó chuông vẫn phải cập nhật.
     refetchInterval: 60_000,
   });
+
+  // Realtime: máy chủ chỉ báo "có thông báo mới", client tự gọi lại API để lấy đúng phần dữ
+  // liệu mình được xem.
+  useEffect(() => {
+    let conSong = true;
+
+    void batDauRealtime().then((kn) => {
+      if (!kn || !conSong) return;
+
+      kn.on(SU_KIEN_REALTIME.thongBaoMoi, () => {
+        void queryClient.invalidateQueries({ queryKey: ['thong-bao-chua-doc'] });
+        void queryClient.invalidateQueries({ queryKey: ['thong-bao-danh-sach'] });
+      });
+    });
+
+    return () => {
+      conSong = false;
+      layKetNoiRealtime().off(SU_KIEN_REALTIME.thongBaoMoi);
+    };
+  }, [queryClient]);
 
   const { data: danhSach, isLoading } = useQuery({
     queryKey: ['thong-bao-danh-sach'],

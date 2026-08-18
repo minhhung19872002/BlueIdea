@@ -255,6 +255,24 @@ public interface IDichVuThongBao
         string? duongDan = null, string? mucDo = null, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Day su kien realtime xuong trinh duyet.
+///
+/// Tach thanh giao dien de tang Application/Infrastructure khong phai biet den SignalR: doi
+/// cong nghe realtime ve sau chi thay ban cai dat o tang Api.
+/// </summary>
+public interface IBoDayRealtime
+{
+    /// <summary>Bao cho mot nguoi dung rang ho co thong bao moi.</summary>
+    Task ThongBaoMoiAsync(Guid nguoiNhanId, string tieuDe, CancellationToken ct = default);
+
+    /// <summary>Bao cho nhung ai dang mo mot ho so rang trang thai ho so vua doi.</summary>
+    Task CapNhatHoSoAsync(Guid sangKienId, CancellationToken ct = default);
+
+    /// <summary>Bao cho phong hop rang bang diem / ket qua bo phieu vua doi.</summary>
+    Task CapNhatPhienHopAsync(Guid phienHopId, CancellationToken ct = default);
+}
+
 /// <summary>Sinh ma ho so theo mau cau hinh (vi du SK-{NAM}-{STT:0000}).</summary>
 public interface ISinhMaHoSo
 {

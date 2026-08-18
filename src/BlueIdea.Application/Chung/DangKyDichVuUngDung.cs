@@ -68,6 +68,7 @@ public static class DangKyDichVuUngDung
         services.AddScoped<DichVuKiemTraTrungLap>();
         services.AddScoped<DichVuBaoCao>();
         services.AddScoped<DichVuHoiDong>();
+        services.AddScoped<HoiDong.DichVuBienBanHop>();
         services.AddScoped<BanHanh.DichVuQuyetDinh>();
         services.AddScoped<CongKhai.DichVuTraCuuCongKhai>();
         services.AddScoped<XacThuc.DichVuMfa>();
