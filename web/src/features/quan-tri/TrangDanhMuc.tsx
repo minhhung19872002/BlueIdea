@@ -4,7 +4,6 @@ import {
   App,
   Button,
   Card,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -24,7 +23,11 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, maDanhMuc, soNguyen, trangThai, tuyChon } from '@/components/bieu-mau/luat';
 import {
   apiDoiTuong,
   apiDotDeNghi,
@@ -39,6 +42,29 @@ import { BocKeoTha, DongKeoTha } from '@/components/DongKeoTha';
 import { HopThoaiNhapDanhMuc } from './HopThoaiNhapDanhMuc';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { DS_TAB_DANH_MUC } from '@/features/quan-tri/danhMucTab';
+
+/**
+ * Luật kiểm tra của form danh mục.
+ *
+ * Đặt cạnh màn hình dùng nó chứ không gom vào một tệp chung: mỗi danh mục có thêm vài trường
+ * riêng, gom hết một chỗ sẽ thành một schema khổng lồ mà trường nào cũng phải cho phép vắng mặt.
+ */
+const luatDanhMuc = z.object({
+  ma: maDanhMuc(),
+  ten: batBuoc('Tên'),
+  moTa: tuyChon(),
+  thuTu: soNguyen('Thứ tự', 0, 9999).optional(),
+  trangThai: trangThai,
+
+  // Trường riêng của từng danh mục — không áp dụng thì để trống.
+  linhVucChaId: z.string().uuid().optional().nullable(),
+  choPhepNhieuTacGia: z.boolean().optional(),
+  soTacGiaToiDa: soNguyen('Số tác giả tối đa', 1, 50).optional(),
+  nam: soNguyen('Năm', 2000, 2100).optional(),
+  capXetDuyet: z.string().optional(),
+});
+
+type GiaTriDanhMuc = z.infer<typeof luatDanhMuc>;
 
 /** Các danh mục nhập được bằng tệp Excel — phải khớp DichVuNhapDanhMuc.LoaiHoTro ở máy chủ. */
 const NHAP_DUOC = ['linh-vuc', 'doi-tuong', 'loai-tac-gia'];
@@ -78,7 +104,8 @@ export default function TrangDanhMuc() {
   const [dangSua, setDangSua] = useState<DanhMucDto | null>(null);
   const [moForm, setMoForm] = useState(false);
   const [moNhap, setMoNhap] = useState(false);
-  const [form] = Form.useForm();
+
+  const form = useBieuMau(luatDanhMuc, { trangThai: 1, thuTu: 0 } as GiaTriDanhMuc);
 
   const thamSo = { trang, soDong, tuKhoa };
 
@@ -94,7 +121,7 @@ export default function TrangDanhMuc() {
       message.success(dangSua ? 'Đã cập nhật' : 'Đã thêm mới');
       setMoForm(false);
       setDangSua(null);
-      form.resetFields();
+      form.reset({ trangThai: 1, thuTu: 0 } as GiaTriDanhMuc);
       void queryClient.invalidateQueries({ queryKey: ['danh-muc', ma] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
@@ -171,7 +198,7 @@ export default function TrangDanhMuc() {
             icon={<PlusOutlined />}
             onClick={() => {
               setDangSua(null);
-              form.resetFields();
+              form.reset({ trangThai: 1, thuTu: 0 } as GiaTriDanhMuc);
               setMoForm(true);
             }}
           >
@@ -258,7 +285,7 @@ export default function TrangDanhMuc() {
                   onClick={async () => {
                     const chiTiet = await cauHinh.api.theoId(dong.id);
                     setDangSua(dong);
-                    form.setFieldsValue(chiTiet as unknown as Record<string, unknown>);
+                    form.reset(chiTiet as unknown as GiaTriDanhMuc);
                     setMoForm(true);
                   }}
                 />
@@ -302,98 +329,114 @@ export default function TrangDanhMuc() {
         title={dangSua ? `Sửa: ${dangSua.ten}` : 'Thêm mới'}
         okText="Lưu"
         cancelText="Hủy"
-        confirmLoading={luu.isPending}
+        confirmLoading={luu.isPending || form.formState.isSubmitting}
         onCancel={() => setMoForm(false)}
-        onOk={async () => {
-          const giaTri = await form.validateFields();
-          luu.mutate(giaTri);
-        }}
+        okButtonProps={{ htmlType: 'submit', form: 'form-danh-muc' }}
       >
-        <Form form={form} layout="vertical" initialValues={{ trangThai: 1, thuTu: 0 }}>
-          <Form.Item
-            name="ma"
-            label="Mã"
-            rules={[
-              { required: true, message: 'Vui lòng nhập mã' },
-              { pattern: /^[A-Z0-9_-]+$/, message: 'Mã chỉ gồm chữ hoa, số, dấu _ và -' },
-            ]}
-          >
-            <Input placeholder="VD: GIAO_DUC" disabled={!!dangSua} />
-          </Form.Item>
+        <BieuMau id="form-danh-muc" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>
+          <Truong<GiaTriDanhMuc> ten="ma" label="Mã" required>
+            {(o) => (
+              <Input {...o} value={o.value as string} placeholder="VD: GIAO_DUC" disabled={!!dangSua} />
+            )}
+          </Truong>
 
-          <Form.Item name="ten" label="Tên" rules={[{ required: true, message: 'Vui lòng nhập tên' }]}>
-            <Input />
-          </Form.Item>
+          <Truong<GiaTriDanhMuc> ten="ten" label="Tên" required>
+            {(o) => <Input {...o} value={o.value as string} />}
+          </Truong>
 
-          <Form.Item name="moTa" label="Mô tả">
-            <Input.TextArea rows={2} />
-          </Form.Item>
+          <Truong<GiaTriDanhMuc> ten="moTa" label="Mô tả">
+            {(o) => <Input.TextArea {...o} value={o.value as string} rows={2} />}
+          </Truong>
 
           {cauHinh.truongThem === 'LINH_VUC' && (
-            <Form.Item
-              name="linhVucChaId"
+            <Truong<GiaTriDanhMuc>
+              ten="linhVucChaId"
               label="Thuộc lĩnh vực cấp trên"
               tooltip="Để trống nếu đây là lĩnh vực gốc. Lĩnh vực con dùng để nhóm hồ sơ khi thống kê."
             >
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="(lĩnh vực gốc)"
-                options={(danhSach ?? [])
-                  .filter((x) => x.id !== dangSua?.id)
-                  .map((x) => ({ value: x.id, label: `${x.ma} — ${x.ten}` }))}
-              />
-            </Form.Item>
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="(lĩnh vực gốc)"
+                  options={(danhSach ?? [])
+                    .filter((x) => x.id !== dangSua?.id)
+                    .map((x) => ({ value: x.id, label: `${x.ma} — ${x.ten}` }))}
+                />
+              )}
+            </Truong>
           )}
 
           {cauHinh.truongThem === 'LOAI_TAC_GIA' && (
             <>
-              <Form.Item
-                name="choPhepNhieuTacGia"
-                label="Cho phép nhiều tác giả"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-              <Form.Item name="soTacGiaToiDa" label="Số tác giả tối đa">
-                <InputNumber min={1} max={50} style={{ width: '100%' }} />
-              </Form.Item>
+              <Truong<GiaTriDanhMuc> ten="choPhepNhieuTacGia" label="Cho phép nhiều tác giả">
+                {(o) => <Switch checked={!!o.value} onChange={o.onChange} />}
+              </Truong>
+              <Truong<GiaTriDanhMuc> ten="soTacGiaToiDa" label="Số tác giả tối đa">
+                {(o) => (
+                  <InputNumber
+                    {...o}
+                    value={o.value as number}
+                    min={1}
+                    max={50}
+                    style={{ width: '100%' }}
+                  />
+                )}
+              </Truong>
             </>
           )}
 
           {cauHinh.truongThem === 'DOT' && (
             <>
-              <Form.Item name="nam" label="Năm" rules={[{ required: true, message: 'Nhập năm' }]}>
-                <InputNumber min={2000} max={2100} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item name="capXetDuyet" label="Cấp xét duyệt">
-                <Select
-                  options={[
-                    { value: 'CO_SO', label: 'Cấp cơ sở' },
-                    { value: 'THANH_PHO', label: 'Cấp thành phố' },
-                    { value: 'TINH', label: 'Cấp tỉnh' },
-                  ]}
-                />
-              </Form.Item>
+              <Truong<GiaTriDanhMuc> ten="nam" label="Năm" required>
+                {(o) => (
+                  <InputNumber
+                    {...o}
+                    value={o.value as number}
+                    min={2000}
+                    max={2100}
+                    style={{ width: '100%' }}
+                  />
+                )}
+              </Truong>
+              <Truong<GiaTriDanhMuc> ten="capXetDuyet" label="Cấp xét duyệt">
+                {(o) => (
+                  <Select
+                    {...o}
+                    value={o.value as string}
+                    options={[
+                      { value: 'CO_SO', label: 'Cấp cơ sở' },
+                      { value: 'THANH_PHO', label: 'Cấp thành phố' },
+                      { value: 'TINH', label: 'Cấp tỉnh' },
+                    ]}
+                  />
+                )}
+              </Truong>
             </>
           )}
 
           <Space style={{ width: '100%' }} size="large">
-            <Form.Item name="thuTu" label="Thứ tự">
-              <InputNumber min={0} />
-            </Form.Item>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                style={{ width: 160 }}
-                options={[
-                  { value: 1, label: 'Hoạt động' },
-                  { value: 0, label: 'Ngừng hoạt động' },
-                ]}
-              />
-            </Form.Item>
+            <Truong<GiaTriDanhMuc> ten="thuTu" label="Thứ tự">
+              {(o) => <InputNumber {...o} value={o.value as number} min={0} />}
+            </Truong>
+            <Truong<GiaTriDanhMuc> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 160 }}
+                  options={[
+                    { value: 1, label: 'Hoạt động' },
+                    { value: 0, label: 'Ngừng hoạt động' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Space>
-        </Form>
+        </BieuMau>
       </Modal>
     </Card>
   );
