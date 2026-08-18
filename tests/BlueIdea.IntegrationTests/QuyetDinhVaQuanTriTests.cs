@@ -255,6 +255,23 @@ public sealed class QuyetDinhVaQuanTriTests
             .GetProperty("duLieu").GetGuid();
     }
 
+    /// <summary>
+    /// Giao dien an bang dieu khien voi vai tro khong co quyen xem bao cao, nhung MAY CHU van
+    /// phai chan — neu khong, chi can goi thang API la doc duoc so lieu toan he thong.
+    /// </summary>
+    [Fact]
+    public async Task Tong_Quan_Van_Bi_Chan_Voi_Vai_Tro_Khong_Co_Quyen_Bao_Cao()
+    {
+        var tacGia = await _ungDung.TaoClientDaDangNhapAsync("gv.lan");
+
+        var phanHoi = await tacGia.GetAsync("/api/v1/bao-cao/tong-quan");
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        (await admin.GetAsync("/api/v1/bao-cao/tong-quan")).EnsureSuccessStatusCode();
+    }
+
     // -------------------------------------------------------------- Thong bao
 
     /// <summary>

@@ -58,6 +58,12 @@ hiện 12 hàm khai báo mà không màn hình nào dùng. Bản này nối hế
 
 ### Sửa lỗi
 
+- **Trang chủ báo lỗi đỏ với vai trò không có quyền xem báo cáo.** Dashboard luôn gọi API tổng quan,
+  mà API đó đòi `BAO_CAO.XEM`; thành viên hội đồng và tác giả không có quyền nên vừa đăng nhập đã
+  thấy "Bạn không có quyền thực hiện chức năng này". Nay giao diện kiểm tra quyền trước: không có
+  thì **không gọi API** và hiển thị trang chủ rút gọn gồm các lối tắt lọc theo đúng quyền của người
+  dùng (Việc đánh giá, Hội đồng, Việc cần xử lý, Hồ sơ của tôi, Tra cứu…). Phía máy chủ giữ nguyên
+  kiểm tra quyền — gọi thẳng API vẫn trả 403.
 - Bốn bảng mới bị bóp cột do có `scroll.x` nhỏ hơn tổng bề rộng các cột: đặt bề rộng cho mọi cột và
   nâng `scroll.x` cho khớp.
 

@@ -36,6 +36,14 @@ Chọn lại bộ lọc đã lưu ở ô **Bộ lọc đã lưu**; bấm ★ đ�
 xoá. Bộ lọc là **của riêng bạn**, người khác không nhìn thấy. Khi mở màn hình bằng liên kết có sẵn
 tiêu chí lọc, hệ thống giữ nguyên tiêu chí trên liên kết chứ không đè bằng bộ lọc mặc định.
 
+### Trang chủ
+
+Trang chủ hiển thị theo quyền của bạn:
+
+- Có quyền xem báo cáo: bảng điều khiển đầy đủ (chỉ số, biểu đồ, top đơn vị, cảnh báo trùng lặp).
+- Không có quyền xem báo cáo (ví dụ thành viên hội đồng, tác giả): trang chủ rút gọn với lối tắt
+  tới đúng những việc bạn làm hằng ngày.
+
 ### Thông báo
 
 Chuông ở góc trên bên phải hiện số thông báo **chưa đọc**. Bấm vào chuông để mở danh sách:

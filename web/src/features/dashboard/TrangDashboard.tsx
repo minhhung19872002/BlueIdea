@@ -12,9 +12,15 @@ const BANG_MAU = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c
 export default function TrangDashboard() {
   const nguoiDung = useAuthStore((s) => s.nguoiDung);
 
+  // Trang chủ là nơi MỌI vai trò rơi vào sau khi đăng nhập, nhưng số liệu tổng quan là dữ liệu
+  // toàn hệ thống nên máy chủ đòi quyền BAO_CAO.XEM. Thành viên hội đồng hay tác giả không có
+  // quyền đó: gọi API rồi hiện lỗi đỏ ngay trang chủ là sai — phải hiện bảng điều hướng rút gọn.
+  const duocXemBaoCao = useAuthStore((s) => s.coQuyen('BAO_CAO.XEM'));
+
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['bao-cao', 'tong-quan'],
     queryFn: () => apiBaoCao.tongQuan(),
+    enabled: duocXemBaoCao,
   });
 
   const trangThai = data?.theoTrangThai ?? [];
@@ -40,6 +46,7 @@ export default function TrangDashboard() {
   const linhVucToiDa = Math.max(1, ...linhVuc.map((x) => x.soLuong));
   const xuHuongToiDa = Math.max(1, ...xuHuong.map((x) => x.soLuong));
 
+  if (!duocXemBaoCao) return <TrangChuRutGon hoTen={nguoiDung?.hoTen} />;
   if (isLoading) return <KhoiDangTai />;
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
 
@@ -305,6 +312,91 @@ function OChiSo({
         <span style={{ fontSize: 16 }}>{icon}</span>
         <b>{giaTri}</b>
         {phu && <span className="tk-kpi-phu">{phu}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Trang chủ rút gọn cho vai trò không được xem thống kê toàn hệ thống (thành viên hội đồng,
+ * tác giả…): thay vì báo lỗi thiếu quyền, đưa thẳng các lối tắt vào việc họ thực sự làm.
+ */
+function TrangChuRutGon({ hoTen }: { hoTen?: string | null }) {
+  const coQuyen = useAuthStore((s) => s.coQuyen);
+
+  const loiTat = [
+    {
+      quyen: 'DANH_GIA.XEM',
+      duongDan: '/danh-gia',
+      icon: '✅',
+      ten: 'Việc đánh giá',
+      moTa: 'Hồ sơ được phân công cho bạn chấm điểm, kèm hạn hoàn thành.',
+    },
+    {
+      quyen: 'HOI_DONG.XEM',
+      duongDan: '/hoi-dong',
+      icon: '🧮',
+      ten: 'Hội đồng sáng kiến',
+      moTa: 'Phiên họp, điểm danh, bỏ phiếu và ma trận điểm của hội đồng.',
+    },
+    {
+      quyen: 'XU_LY.XEM',
+      duongDan: '/xu-ly',
+      icon: '⚙️',
+      ten: 'Việc cần xử lý',
+      moTa: 'Hồ sơ đang chờ bạn xử lý ở bước hiện tại.',
+    },
+    {
+      quyen: 'TIEP_NHAN.XEM',
+      duongDan: '/tiep-nhan',
+      icon: '📥',
+      ten: 'Chờ tiếp nhận',
+      moTa: 'Hồ sơ vừa nộp, chờ kiểm tra tính hợp lệ.',
+    },
+    {
+      quyen: 'SANG_KIEN.XEM',
+      duongDan: '/sang-kien/cua-toi',
+      icon: '📁',
+      ten: 'Hồ sơ của tôi',
+      moTa: 'Sáng kiến bạn đã nộp và tiến độ xử lý từng hồ sơ.',
+    },
+    {
+      quyen: 'SANG_KIEN.THEM',
+      duongDan: '/sang-kien/nop-moi',
+      icon: '📝',
+      ten: 'Nộp hồ sơ mới',
+      moTa: 'Đăng ký một sáng kiến mới theo đợt đang mở.',
+    },
+    {
+      quyen: 'SANG_KIEN.XEM',
+      duongDan: '/tra-cuu',
+      icon: '🔍',
+      ten: 'Tra cứu',
+      moTa: 'Tìm sáng kiến theo từ khoá hoặc theo ý nghĩa nội dung.',
+    },
+  ].filter((x) => coQuyen(x.quyen));
+
+  return (
+    <div className="tk-cot">
+      <div style={{ fontSize: 20, fontWeight: 600 }}>Xin chào, {hoTen}</div>
+
+      <div style={{ fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
+        Tài khoản của bạn không được cấp quyền xem thống kê toàn hệ thống. Dưới đây là các chức năng
+        bạn dùng thường xuyên.
+      </div>
+
+      <div className="tk-luoi tk-luoi-3">
+        {loiTat.map((x) => (
+          <Link key={x.duongDan} to={x.duongDan} style={{ color: 'inherit' }}>
+            <div className="tk-the" style={{ height: '100%' }}>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 22 }}>{x.icon}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 6 }}>{x.ten}</div>
+                <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)', marginTop: 4 }}>{x.moTa}</div>
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   );

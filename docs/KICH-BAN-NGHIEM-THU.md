@@ -161,6 +161,9 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | I19 | 29 | Bấm **Thu hồi bước** và bỏ trống lý do | Bị chặn cho tới khi nhập lý do; thu hồi xong hồ sơ quay lại bước trước | — |
 | I20 | 35 | Mở tab **Ma trận điểm** của hội đồng | Hàng = hồ sơ, cột = thành viên; điểm chỉ hiện ở ô **Đã gửi** | — |
 | I21 | 35 | Bấm **Mở lại** trên một ô đã gửi | Ô chuyển sang *Đang chấm*, số phiếu đã chấm giảm; thành viên sửa và gửi lại được | — |
+| I22 | — | Đăng nhập `hoidong01` (thành viên hội đồng) rồi mở Trang chủ | Hiện trang chủ rút gọn với lối tắt theo quyền, **không** có thông báo lỗi thiếu quyền | — |
+| I23 | — | Đăng nhập `admin` rồi mở Trang chủ | Vẫn đầy đủ 4 chỉ số + 3 biểu đồ + top đơn vị + cảnh báo | KB |
+| I24 | — | Gọi thẳng `GET /api/v1/bao-cao/tong-quan` bằng token tác giả | HTTP 403 — máy chủ vẫn chặn, giao diện chỉ xử lý mềm phía người dùng | IT |
 
 ## H. Phi chức năng
 
