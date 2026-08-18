@@ -1,78 +1,79 @@
-# Iteration 8 — REQ-16: Wire Integration Sync Adapter to Workflow Transitions
+# Iteration 9 — REQ-21 SEC: Close MFA Credential-Stuffing Oracle
 
 ## What Was Worked On
 
-REQ-16 was the only PARTIAL requirement remaining — the integration sync adapter existed but was NOT connected to workflow engine transitions. Admin could configure external systems and manually trigger sync, but workflow steps did not automatically push data.
+SEC MEDIUM: The MFA prompt (`CanXacThucMfa`) confirmed both account existence AND password correctness, enabling credential-stuffing attacks against MFA-protected accounts. An attacker could verify (username, password) pairs without needing to bypass TOTP.
 
 ## What Was Accomplished
 
-### Integration Dispatch in ThucThiBuocCommandHandler
+### Phase 1 Oracle Closure (no TOTP provided)
 
-1. **`DieuPhaiLienThongAsync`** added to `ThucThiBuocCommandHandler` — dispatches integration sync after successful workflow step execution when `HanhDongCanChay` contains `DongBoLienThong`.
-2. **Query scoped by `QuyTrinhId`** — prevents cross-workflow config leaks (only matches `QuyTrinhLienThong` records for the sang kien's own workflow).
-3. **All 3 events supported**: `KHI_HOAN_THANH` (step completed, matches `BuocTruocId`), `KHI_VAO_BUOC` (step entered, matches `BuocMoiId`), `KHI_PHE_DUYET` (approval, matches `BuocTruocId` + `TrangThaiTongMoi == DA_PHE_DUYET`).
-4. **Null-BuocId handling** — workflow-wide configs match with event filtering to prevent over-triggering.
-5. **Error isolation** — sync failures are caught and logged per-system; workflow transition is never blocked.
-6. **`DichVuDongBoLienThong` + `ILogger`** injected into handler constructor.
+1. **Password verification deferred** — when MFA is enabled and no TOTP code is provided, Argon2id runs for timing consistency but the result is **discarded**. `CAN_XAC_THUC_MFA` is returned regardless of password correctness.
+2. **Lockout counter intentionally skipped** — incrementing `SoLanDangNhapSai` in Phase 1 would create a DoS oracle (attacker confirms password via lockout). Rate limiter (5/min/IP) is the sole protection. Rationale documented in code comment.
+3. **Audit log neutralized** — logs "Yêu cầu mã xác thực hai lớp" (request for MFA) instead of "Chờ mã xác thực hai lớp" (waiting for MFA, which implied password was verified).
 
-### DongBoSangKienAsync (single-innovation sync)
+### Phase 2 Oracle Closure (TOTP provided)
 
-1. **`DongBoSangKienAsync`** added to `DichVuDongBoLienThong` (internal visibility) — syncs ONE innovation to a specific external system.
-2. **No permission check** — called from workflow context which is already authenticated via MediatR pipeline.
-3. **Reuses `NapDuLieuAsync`** with new optional `sangKienId` filter — maintains the `KetQua == Dat && DaCongBoKetQua` guard to prevent premature data leaks.
-4. **No NhatKyDongBo for zero records** — when innovation isn't published yet, returns lightweight result without polluting sync history.
-5. **Graceful handling** — inactive/unconfigured systems return error result without throwing.
+1. **Unified error code** — wrong password AND wrong TOTP now both return `SAI_TAI_KHOAN_MAT_KHAU`. Previously, wrong TOTP returned `MA_XAC_THUC_KHONG_DUNG`, allowing an attacker to distinguish password correctness by sending a dummy TOTP code (`maMfa: "000000"`).
+2. **HTTP status code consistency** — added `MaXacThucKhongDung` to the 401 mapping in `MiddlewareXuLyLoi.cs`. Previously it fell through to 400, amplifying the oracle at the transport layer.
 
-### Domain Constants
+### Frontend Cleanup
 
-1. **`SuKienLienThong`** class added to `HangSo.cs` with `KhiVaoBuoc`, `KhiHoanThanh`, `KhiPheDuyet` constants — replaces string literals.
+1. **Dead code removed** — `MA_XAC_THUC_KHONG_DUNG` handler in `TrangDangNhap.tsx` removed (no longer returned from login flow).
+2. **No UX regression** — `canMfa` state is set to `true` in Phase 1 and never reset, so MFA input remains visible when Phase 2 returns `SAI_TAI_KHOAN_MAT_KHAU`.
 
-### Tests Added (8 new)
+### Tests Added (2 new)
 
-- `DieuPhaiLienThongTests` (8): constant value verification, HanhDongCanChay guard conditions, BuocTruocId/BuocMoiId availability for matching.
+- `Sai_Mat_Khau_Voi_Mfa_Van_Tra_Ve_Can_Xac_Thuc_Mfa` — proves wrong and correct password both return `CAN_XAC_THUC_MFA` (Phase 1 oracle closed)
+- `Sai_Mat_Khau_Voi_Totp_Hop_Le_Bi_Tu_Choi` — proves wrong password + valid TOTP returns `SAI_TAI_KHOAN_MAT_KHAU` (Phase 2 rejection works)
 
 ### Code Review Findings Addressed
 
-- **QuyTrinhId scoping** (MAJOR): Added `x.QuyTrinhId == quyTrinhId.Value` to prevent cross-workflow leaks.
-- **KhiPheDuyet dead code** (MAJOR): Added third matching arm for approval events.
-- **Null-BuocId over-matching** (MAJOR): Added SuKien filter to null-BuocId arm.
-- **Internal visibility** (SUGGESTION): Changed `DongBoSangKienAsync` from public to internal.
-- **Zero-record NhatKyDongBo** (MINOR): Skip log entry creation when nothing to sync.
+- **MAJOR (Phase 1 counter bypass)**: Documented as deliberate — DoS oracle tradeoff.
+- **MAJOR (Phase 2 residual oracle)**: Fixed — unified error code for wrong password and wrong TOTP.
+- **MINOR (test account collision)**: Fixed — new test uses `cb.linh` instead of `cb.mai`.
+- **MINOR (missing Phase 2 test)**: Fixed — added `Sai_Mat_Khau_Voi_Totp_Hop_Le_Bi_Tu_Choi` with `cb.trang`.
 
-### Code Review Findings Documented as Known Gaps
+### Security Review Findings Addressed
 
-- **Batch handler** (BLOCKER): `ThucThiHangLoatCommandHandler` does not dispatch integration sync — batch transitions skip `DongBoLienThong`. This is a pre-existing batch gap (also missing notifications).
-- **ADR 0002 snapshot exception**: `QuyTrinhLienThong` uses live DB data, not workflow snapshot. This is deliberate — integration config contains operational details (endpoints, credentials) that should be updatable without creating new workflow versions. Should be documented in ADR.
+- **CRITICAL (Phase 2 bypass via dummy TOTP)**: Fixed — Phase 2 returns same error for wrong password and wrong TOTP.
+- **HIGH (HTTP 400 vs 401 leak)**: Fixed — `MaXacThucKhongDung` added to 401 arm.
+- **HIGH (lockout bypass)**: Documented as deliberate tradeoff with rationale.
+- **MEDIUM (dummy hash race condition)**: Pre-existing, not introduced by this fix. Noted as technical debt.
+- **MEDIUM (MFA status enumeration)**: Accepted as design tradeoff — inherent to any system showing separate MFA prompt.
+- **MEDIUM (audit log forensics)**: Noted as future improvement — internal password-correctness field would aid forensics without creating client-side oracle.
+- **LOW (recovery code hashing)**: Pre-existing, documented in gaps.
 
 ## Quality Gate Result
 
-PASS — 7/7 checks, 309 unit tests (was 301), 0 warnings, frontend typecheck + build clean.
+PASS — 7/7 checks, 309 unit tests, 0 warnings, frontend typecheck + build clean.
 
 ## Files Changed
 
-- `src/BlueIdea.Domain/Chung/HangSo.cs` — SuKienLienThong constants
-- `src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs` — DongBoSangKienAsync + NapDuLieuAsync sangKienId filter
-- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — DieuPhaiLienThongAsync dispatch + DI injection
-- `tests/BlueIdea.UnitTests/XuLy/DieuPhaiLienThongTests.cs` — 8 new tests
-- `docs/requirements/traceability.yaml` — REQ-16 updated to IMPLEMENTED_NOT_VERIFIED
+- `src/BlueIdea.Application/XacThuc/DangNhapCommand.cs` — Phase 1 + Phase 2 oracle fix
+- `src/BlueIdea.Api/Chung/MiddlewareXuLyLoi.cs` — MaXacThucKhongDung → 401
+- `tests/BlueIdea.IntegrationTests/XacThucNangCaoTests.cs` — 2 new tests
+- `web/src/features/xac-thuc/TrangDangNhap.tsx` — dead code removal
+- `docs/requirements/traceability.yaml` — REQ-21 gaps updated
 
 ## Commit Hash
 
-baf73b2
+3d7cc21
 
 ## Next Priority Items
 
-1. REQ-12 remaining: ThucThiHangLoatCommandHandler missing notification dispatch + integration sync dispatch
-2. SEC MEDIUM: IMemoryCache-based SSO state needs IDistributedCache for multi-instance HA
-3. SEC MEDIUM: MFA prompt (CanXacThucMfa) credential-stuffing oracle
-4. ADR documentation: QuyTrinhLienThong live-data exception to snapshot rule
+1. SEC MEDIUM: IMemoryCache-based SSO state → IDistributedCache for multi-instance HA (REQ-21/REQ-41)
+2. REQ-12/REQ-16: ThucThiHangLoatCommandHandler missing notification + integration sync dispatch
+3. ADR documentation: QuyTrinhLienThong live-data exception to snapshot rule
+4. SEC LOW: MFA recovery codes — upgrade from SHA-256 to Argon2id
 
 ## Known Limitations
 
-- Batch handler (`ThucThiHangLoatCommandHandler`) does not dispatch integration sync or notifications (pre-existing).
-- `QuyTrinhLienThong` is queried from live DB, not from workflow snapshot — deliberate for operational reasons but ADR should document this exception.
-- No runtime integration test for the full workflow-triggered sync path (unit tests cover guard conditions only).
-- `HanhDongCanChay` dispatch loop for OTHER actions (TaoQuyetDinh, CapNhatKetQua, KiemTraTrungLap, etc.) is still not implemented.
+- MFA Phase 1 reveals MFA-enabled status (design tradeoff for UX).
+- MFA Phase 1 failures bypass lockout counter (deliberate — prevents DoS oracle).
+- Audit log in Phase 1 does not distinguish correct/incorrect password internally (forensics improvement opportunity).
+- Static dummy hash initialization has race condition (pre-existing, not security-critical).
+- Integration tests compile but require .NET 8 runtime with Docker for Testcontainers.
 
 ## Blockers Discovered
 

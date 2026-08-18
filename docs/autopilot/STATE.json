@@ -1,81 +1,89 @@
 {
-    "status": "RUNNING",
-    "iteration": 8,
-    "currentRequirement": "REQ-16",
-    "currentBacklogItem": "REQ-16: Wire integration sync adapter to workflow transitions",
-    "phase": "committing",
-    "lastCompletedItem": "REQ-16: Wire integration sync adapter to workflow transitions",
-    "lastQualityGateResult": "PASS (7/7, 309 unit tests, 0 warnings)",
-    "readyForDeploy": false,
-    "lastSession": "iteration-8",
-    "lastUpdated": "2026-08-18T20:30:00+07:00",
-    "lastCommit": "baf73b2",
-    "lastPush": null,
-    "consecutiveInfraFailures": 0,
-    "history": [
-        {
-            "iteration": 2,
-            "items": [
-                "REQ-17 (KiemTraBoTieuChi validation)",
-                "REQ-34 (TrungBinhCong + BoTieuChiSnapshot)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        },
-        {
-            "iteration": 3,
-            "items": [
-                "REQ-26 (ChayAsync IDOR — org-scope check)",
-                "REQ-26 (DanhDauDaXemXetAsync IDOR — parent SangKienId scope check)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        },
-        {
-            "iteration": 4,
-            "items": [
-                "REQ-21 (account enumeration — unified error codes)",
-                "REQ-21 (SSO state validation — server-side IMemoryCache)",
-                "REQ-21 (open redirect — scheme+host+port whitelist)",
-                "REQ-21 (timing oracle — dummy Argon2id for null accounts)",
-                "REQ-21 (audit log persistence — SaveChangesAsync on early exits)",
-                "REQ-21 (CAPTCHA side-channel — log-based check on all paths)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        },
-        {
-            "iteration": 5,
-            "items": [
-                "REQ-12 (ChucNangBoSung runtime enforcement in BoMayQuyTrinh)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        },
-        {
-            "iteration": 6,
-            "items": [
-                "REQ-12 (code review fixes for feature toggle enforcement)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        },
-        {
-            "iteration": 7,
-            "items": [
-                "REQ-34 (BoTieuChiSnapshot — DanhSachMucCongNhan inclusion)",
-                "REQ-12 (notification channel gating by ChucNangBat feature toggles)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        },
-        {
-            "iteration": 8,
-            "items": [
-                "REQ-16 (wire integration sync adapter to workflow transitions)"
-            ],
-            "result": "PASS",
-            "phase": "committing"
-        }
-    ]
+    "status":  "RUNNING",
+    "iteration":  9,
+    "currentRequirement":  "REQ-21",
+    "currentBacklogItem":  "REQ-21 SEC: Close MFA credential-stuffing oracle",
+    "phase":  "committing",
+    "lastCompletedItem":  "REQ-21 SEC: Close MFA credential-stuffing oracle",
+    "lastQualityGateResult":  "PASS (7/7, 309 unit tests, 0 warnings)",
+    "readyForDeploy":  false,
+    "lastSession":  "dfa46510-eddb-42ec-91bb-603be48c1595",
+    "lastUpdated":  "2026-08-18T20:30:00+07:00",
+    "lastCommit":  "3d7cc21",
+    "lastPush":  null,
+    "consecutiveInfraFailures":  0,
+    "history":  [
+                    {
+                        "iteration":  2,
+                        "items":  [
+                                      "REQ-17 (KiemTraBoTieuChi validation)",
+                                      "REQ-34 (TrungBinhCong + BoTieuChiSnapshot)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  3,
+                        "items":  [
+                                      "REQ-26 (ChayAsync IDOR — org-scope check)",
+                                      "REQ-26 (DanhDauDaXemXetAsync IDOR — parent SangKienId scope check)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  4,
+                        "items":  [
+                                      "REQ-21 (account enumeration — unified error codes)",
+                                      "REQ-21 (SSO state validation — server-side IMemoryCache)",
+                                      "REQ-21 (open redirect — scheme+host+port whitelist)",
+                                      "REQ-21 (timing oracle — dummy Argon2id for null accounts)",
+                                      "REQ-21 (audit log persistence — SaveChangesAsync on early exits)",
+                                      "REQ-21 (CAPTCHA side-channel — log-based check on all paths)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  5,
+                        "items":  [
+                                      "REQ-12 (ChucNangBoSung runtime enforcement in BoMayQuyTrinh)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  6,
+                        "items":  [
+                                      "REQ-12 (code review fixes for feature toggle enforcement)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  7,
+                        "items":  [
+                                      "REQ-34 (BoTieuChiSnapshot — DanhSachMucCongNhan inclusion)",
+                                      "REQ-12 (notification channel gating by ChucNangBat feature toggles)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  8,
+                        "items":  [
+                                      "REQ-16 (wire integration sync adapter to workflow transitions)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  9,
+                        "items":  [
+                                      "REQ-21 SEC (MFA credential-stuffing oracle — Phase 1 + Phase 2 fix)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    }
+                ]
 }
