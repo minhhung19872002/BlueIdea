@@ -14,7 +14,7 @@
 
 schema_version: "1.0"
 last_updated: "2026-08-18"
-last_updated_by: "audit-run-001"
+last_updated_by: "run-002-p0-batch-1"
 audit_commit: "5933854"
 
 requirements:
@@ -115,8 +115,9 @@ requirements:
       backend: ["src/BlueIdea.Api/Controllers/BieuMauController.cs"]
       tests: ["tests/BlueIdea.UnitTests/Reporting/BoQuetPlaceholderDocxTests.cs"]
     gaps:
-      - "Authorization gap"
       - "No integration test for complete upload-then-map-then-export flow"
+    notes:
+      - "Run-002-P0: Authorization gap closed — action-level [Authorize(Policy)] added to BieuMauXuatController (51 attributes across 8 controllers defense-in-depth pass)"
 
   - id: REQ-07
     source_number: 7
@@ -129,8 +130,9 @@ requirements:
       backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCaoTuyBien.cs"]
       tests: ["tests/BlueIdea.UnitTests/BaoCao/DichVuBaoCaoTuyBienTests.cs"]
     gaps:
-      - "Authorization gap"
       - "No test for invalid column config rejection at save time"
+    notes:
+      - "Run-002-P0: Authorization gap closed — action-level [Authorize(Policy)] added to BieuMauThongKeController (defense-in-depth pass)"
 
   - id: REQ-08
     source_number: 8
@@ -162,7 +164,9 @@ requirements:
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/Workflow/KiemTraQuyTrinhTests.cs"]
     gaps:
       - "No runtime integration test; only unit tests"
-    notes: "Snapshot rule COMPLIANT per workflow specialist audit."
+    notes:
+      - "Snapshot rule COMPLIANT per workflow specialist audit."
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to QuyTrinhController for controller-layer defense-in-depth"
 
   - id: REQ-10
     source_number: 10
@@ -176,7 +180,9 @@ requirements:
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoDanhGiaDieuKienTests.cs"]
     gaps:
       - "No runtime integration test"
-    notes: "Rule evaluator SAFE — no dynamic eval."
+    notes:
+      - "Rule evaluator SAFE — no dynamic eval."
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to QuyTrinhController for controller-layer defense-in-depth"
 
   - id: REQ-11
     source_number: 11
@@ -190,6 +196,8 @@ requirements:
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
     gaps:
       - "10 step types implemented; no runtime integration test"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to QuyTrinhController for controller-layer defense-in-depth"
 
   - id: REQ-12
     source_number: 12
@@ -204,7 +212,9 @@ requirements:
     gaps:
       - "No runtime integration test for feature toggles affecting live workflow execution"
       - "5 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, TAO_BIEN_BAN, PHAN_CONG_CHAM, CONG_BO_KET_QUA) log warnings — require future implementation"
-    notes: "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
+    notes:
+      - "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
 
   - id: REQ-13
     source_number: 13
@@ -218,6 +228,8 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps:
       - "Components are workflow-level, not per-step as detailed in customer spec"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
 
   - id: REQ-14
     source_number: 14
@@ -377,7 +389,9 @@ requirements:
       - "No test for withdrawal blocked after scoring step"
       - "SEC: LayHanhDongKhaDungQuery — ICoYeuCauQuyen added (SangKienXem + DoiTuongId), but DoiTuongId discarded by KiemTraQuyenAsync (pre-existing infra limitation). Residual oracle for SangKienXem holders via 404/200+[] differential (LOW)"
       - "SEC: No negative authorization tests for /{id}/hanh-dong or /goi-y endpoints"
-    notes: "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
+    notes:
+      - "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
 
   - id: REQ-24
     source_number: 24
@@ -424,7 +438,9 @@ requirements:
       - "DanhDauDaXemXetAsync uses TrungLapXem (view) for a write op — needs dedicated permission when endpoint is wired (LOW, latent)"
       - "DanhDauDaXemXetAsync has no HTTP endpoint — IDOR fix is latent until controller wires it"
       - "No integration test for POST chay-lai cross-org denial"
-    notes: "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. Run-002-B2: ChayAsync IDOR fixed (conditional org-scope check, safe for Hangfire caller). DanhDauDaXemXetAsync IDOR fixed (resolves parent SangKienId for scope check). AI compliance fully satisfied — zero third-party AI references."
+    notes:
+      - "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. Run-002-B2: ChayAsync IDOR fixed (conditional org-scope check, safe for Hangfire caller). DanhDauDaXemXetAsync IDOR fixed (resolves parent SangKienId for scope check). AI compliance fully satisfied — zero third-party AI references."
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
 
   # ── Nhom VI: Tiep nhan va xu ly ────────────────────────────────────
 
@@ -455,6 +471,8 @@ requirements:
       tests: []
     gaps:
       - "No test for saved filters, default filter, shared filter link, Excel export content"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
 
   - id: REQ-29
     source_number: 29
@@ -485,6 +503,8 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps:
       - "No test for timeline completeness, overdue detection, or reminder deduplication"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
 
   - id: REQ-31
     source_number: 31
@@ -532,6 +552,8 @@ requirements:
       tests: []
     gaps:
       - "Score visibility before form submission not verified by test"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
 
   - id: REQ-34
     source_number: 34
@@ -545,7 +567,9 @@ requirements:
       tests: ["tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs", "tests/BlueIdea.UnitTests/Scoring/BoTieuChiSnapshotTests.cs"]
     gaps:
       - "Score visibility before form submission not verified by integration test"
-    notes: "Run-002-B1-scoring: TrungBinhCong fix + BoTieuChiSnapshot serialization. Run-002-B6: BoTieuChiSnapshot now includes DanhSachMucCongNhan (MucCongNhanDto). ChuyenDoiBoTieuChi filters by DaXoa/TrangThai, orders by DiemTu. Nullable default for backwards compatibility with old snapshots. DanhSachMucDiem DaXoa filter added. 6 unit tests (inclusion, filtering, ordering, JSON round-trip, backwards compat)."
+    notes:
+      - "Run-002-B1-scoring: TrungBinhCong fix + BoTieuChiSnapshot serialization. Run-002-B6: BoTieuChiSnapshot now includes DanhSachMucCongNhan (MucCongNhanDto). ChuyenDoiBoTieuChi filters by DaXoa/TrangThai, orders by DiemTu. Nullable default for backwards compatibility with old snapshots. DanhSachMucDiem DaXoa filter added. 6 unit tests (inclusion, filtering, ordering, JSON round-trip, backwards compat)."
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
 
   - id: REQ-35
     source_number: 35
@@ -559,6 +583,8 @@ requirements:
       tests: []
     gaps:
       - "No test for evaluation form PDF export"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
 
   # ── Nhom VIII: Dinh kem quyet dinh (merged with 31) ────────────────
 
@@ -609,6 +635,8 @@ requirements:
       tests: []
     gaps:
       - "No test for report data accuracy or Excel content"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
 
   - id: REQ-39
     source_number: 39
@@ -623,6 +651,8 @@ requirements:
     gaps:
       - "No PDF export for this report (only Excel)"
       - "No integration test"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
 
   - id: REQ-40
     source_number: 40
@@ -636,6 +666,8 @@ requirements:
       tests: []
     gaps:
       - "No test for pass rate calculation or totals row"
+    notes:
+      - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
 
   # ── Nhom XI: Ket noi he thong khac ────────────────────────────────
 
