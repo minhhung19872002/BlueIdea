@@ -92,7 +92,29 @@ public sealed class DichVuPhanQuyen : IDichVuPhanQuyen
 
         PhamViTruyCap ketQua;
 
-        if (phamVis.Count == 0)
+        /*
+         * Quyen SANG_KIEN.XEM_TAT_CA mo pham vi ra toan bo ho so.
+         *
+         * Truoc day pham vi chi doc bang pham_vi_du_lieu, nen quyen nay khong co tac dung nao —
+         * va no gay ra mot loi rat nang: bon vai tro trong chuoi xu ly (can bo tiep nhan, thu ky,
+         * chu tich hoi dong, lanh dao) deu duoc cap quyen nay nhung pham vi lai la DON_VI_VA_CAP_DUOI.
+         * Can bo tiep nhan ngoi o Phong Noi vu khong thay ho so cua Truong Tieu hoc Le Loi (thuoc
+         * nhanh Phong GDDT), nen man hinh "Cho tiep nhan" cua ho TRONG TRON du he thong day ho so.
+         *
+         * Bo may quy trinh thi lai cho phep xu ly theo TAC NHAN CUA BUOC, khong theo pham vi — nen
+         * kich ban kiem thu truyen thang id van chay tot va loi nay khong lo ra o dau ca.
+         *
+         * Pham vi nay chi duoc dung cho ho so, tep dinh kem va trung lap — dung dung nhom doi tuong
+         * ma quyen XEM_TAT_CA noi toi.
+         */
+        var xemTatCaHoSo = await KiemTraQuyenAsync(nguoiDungId, MaQuyen.SangKienXemTatCa, ct: ct)
+            .ConfigureAwait(false);
+
+        if (xemTatCaHoSo)
+        {
+            ketQua = PhamViTruyCap.Tat_Ca;
+        }
+        else if (phamVis.Count == 0)
         {
             ketQua = PhamViTruyCap.CaNhan;
         }

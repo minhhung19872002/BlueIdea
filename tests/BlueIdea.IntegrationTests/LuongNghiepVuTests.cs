@@ -66,13 +66,27 @@ public sealed class LuongNghiepVuTests
         var hanhDongTacGia = await LayHanhDongAsync(tacGia, hoSoId);
         hanhDongTacGia.Should().BeEmpty("tác giả không phải tác nhân của bước tiếp nhận");
 
-        // --- 5. Can bo tiep nhan yeu cau bo sung ---------------------------------
+        // --- 5. Can bo tiep nhan co du ba lua chon -------------------------------
         var hanhDongTiepNhan = await LayHanhDongAsync(tiepNhan, hoSoId);
         hanhDongTiepNhan.Should().HaveCountGreaterThan(1);
 
-        var boSung = hanhDongTiepNhan.First(h => h.GetProperty("ma").GetString() == "BO_SUNG_HO_SO");
-        boSung.GetProperty("biChan").GetBoolean().Should()
-            .BeTrue("điều kiện hanh_dong_nguoi_dung chưa thỏa nên nhánh bổ sung bị chặn");
+        /*
+         * Ba nhanh cua buoc tiep nhan deu phai KHA DUNG: tiep nhan, yeu cau bo sung, tu choi.
+         *
+         * Truoc day phep kiem nay khang dinh nguoc lai — rang nhanh bo sung PHAI bi chan — va no
+         * da dong bang chinh mot loi thanh hanh vi mong doi: hai nhanh "yeu cau bo sung" va "tu
+         * choi tiep nhan" khai dieu kien tren bien `hanh_dong_nguoi_dung` ma khong co duong nao
+         * dat gia tri, nen can bo tiep nhan khong bao gio yeu cau bo sung hay tu choi duoc ho so
+         * nao. Co mot phep kiem bao ve loi thi loi song rat lau.
+         */
+        foreach (var ma in new[] { "DAT", "BO_SUNG_HO_SO", "TRA_LAI" })
+        {
+            var nhanh = hanhDongTiepNhan.First(h => h.GetProperty("ma").GetString() == ma);
+
+            nhanh.GetProperty("biChan").GetBoolean().Should().BeFalse(
+                $"nhánh '{ma}' do cán bộ chủ động chọn nên phải bấm được, "
+                + "không phụ thuộc điều kiện dữ liệu nào");
+        }
 
         // --- 6. Tiep nhan ho so ---------------------------------------------------
         var tiepNhanDat = hanhDongTiepNhan.First(h => h.GetProperty("ma").GetString() == "DAT");

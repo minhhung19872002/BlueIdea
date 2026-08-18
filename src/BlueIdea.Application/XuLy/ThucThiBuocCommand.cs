@@ -21,7 +21,8 @@ public sealed record ThucThiBuocCommand(
     IReadOnlyList<Guid>? TepDinhKemIds = null,
     Guid? NguoiUyQuyenId = null,
     int? PhienBanHoSo = null,
-    string? IdempotencyKey = null)
+    string? IdempotencyKey = null,
+    string? HanhDongNguoiDung = null)
     : IRequest<KetQuaXuLy>, ICoYeuCauQuyen, ICoGhiNhatKy
 {
     public string MaQuyenYeuCau => MaQuyen.XuLyThucThi;
@@ -90,6 +91,7 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
             NguoiUyQuyenId = request.NguoiUyQuyenId,
             PhienBanHoSo = request.PhienBanHoSo,
             IdempotencyKey = request.IdempotencyKey,
+            HanhDongNguoiDung = request.HanhDongNguoiDung,
             DiaChiIp = _nguoiDung.DiaChiIp,
             UserAgent = _nguoiDung.UserAgent
         }, ct).ConfigureAwait(false);
