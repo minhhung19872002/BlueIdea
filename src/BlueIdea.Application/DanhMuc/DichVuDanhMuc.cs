@@ -176,13 +176,132 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     }
 
     /// <summary>Cap nhat lai <c>Path</c> va <c>Cap</c> cho don vi va toan bo nhanh con.</summary>
+    /// <summary>
+    /// Chuyen mot don vi sang don vi cha khac (keo tha tren cay to chuc).
+    ///
+    /// Chan chuyen vao chinh no hoac vao mot don vi cap duoi cua no: lam vay se cat ca nhanh do
+    /// khoi cay va sinh vong lap cha-con, sau do moi truy van "don vi va cap duoi" deu treo.
+    /// </summary>
+    public async Task ChuyenChaAsync(Guid id, Guid? donViChaMoiId, CancellationToken ct = default)
+    {
+        var donVi = await Db.DonVi.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
+            ?? throw new KhongTimThayException("đơn vị", id);
+
+        if (donViChaMoiId == id)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Không đặt một đơn vị làm cấp trên của chính nó.");
+        }
+
+        if (donViChaMoiId.HasValue)
+        {
+            await BatBuocKhongPhaiCapDuoiAsync(id, donViChaMoiId.Value, donVi.Ten, ct)
+                .ConfigureAwait(false);
+        }
+
+        donVi.DonViChaId = donViChaMoiId;
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        // CapNhatDuongDanCayAsync tu duyet xuong toan bo nhanh con nen chi can goi mot lan.
+        await CapNhatDuongDanCayAsync(id, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Chan dat <paramref name="chaMoiId"/> lam cap tren cua <paramref name="id"/> khi cha moi
+    /// nam trong chinh nhanh cua no.
+    ///
+    /// Di NGUOC theo DonViChaId chu khong doi chieu <c>Path</c>: path duoc dung bang slug cua ma
+    /// don vi, khong chua Id, nen so khop Id vao path se luon truot va vong lap lot qua — luc do
+    /// moi lan dung lai cay se de quy vo han.
+    /// </summary>
+    private async Task BatBuocKhongPhaiCapDuoiAsync(
+        Guid id, Guid chaMoiId, string tenDonVi, CancellationToken ct)
+    {
+        var quanHe = await Db.DonVi.AsNoTracking()
+            .Select(x => new { x.Id, x.DonViChaId })
+            .ToDictionaryAsync(x => x.Id, x => x.DonViChaId, ct)
+            .ConfigureAwait(false);
+
+        if (!quanHe.ContainsKey(chaMoiId))
+        {
+            throw new KhongTimThayException("đơn vị cấp trên", chaMoiId);
+        }
+
+        var daQua = new HashSet<Guid>();
+        Guid? hienTai = chaMoiId;
+
+        // daQua cung la chot chan: neu du lieu san co da co vong lap thi thoat thay vi treo.
+        while (hienTai.HasValue && daQua.Add(hienTai.Value))
+        {
+            if (hienTai.Value == id)
+            {
+                throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                    $"Không chuyển \"{tenDonVi}\" vào đơn vị cấp dưới của chính nó.");
+            }
+
+            hienTai = quanHe.GetValueOrDefault(hienTai.Value);
+        }
+    }
+
+    /// <summary>
+    /// Gop don vi <paramref name="nguonId"/> vao <paramref name="dichId"/> — dung khi sap nhap
+    /// don vi hanh chinh.
+    ///
+    /// Ho so, tai khoan va don vi con duoc CHUYEN sang don vi dich roi moi xoa mem don vi nguon.
+    /// Xoa truoc rồi chuyen se de lai ho so tro toi mot don vi khong con ton tai.
+    /// </summary>
+    public async Task<int> GopAsync(Guid nguonId, Guid dichId, CancellationToken ct = default)
+    {
+        if (nguonId == dichId)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Đơn vị nguồn và đơn vị đích phải khác nhau.");
+        }
+
+        var nguon = await Db.DonVi.FirstOrDefaultAsync(x => x.Id == nguonId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("đơn vị nguồn", nguonId);
+
+        _ = await Db.DonVi.AsNoTracking().FirstOrDefaultAsync(x => x.Id == dichId, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("đơn vị đích", dichId);
+
+        await BatBuocKhongPhaiCapDuoiAsync(nguonId, dichId, nguon.Ten, ct).ConfigureAwait(false);
+
+        var hoSo = await Db.SangKien.Where(x => x.DonViId == nguonId).ToListAsync(ct)
+            .ConfigureAwait(false);
+        foreach (var x in hoSo) x.DonViId = dichId;
+
+        var nguoiDung = await Db.NguoiDung.Where(x => x.DonViId == nguonId).ToListAsync(ct)
+            .ConfigureAwait(false);
+        foreach (var x in nguoiDung) x.DonViId = dichId;
+
+        var con = await Db.DonVi.Where(x => x.DonViChaId == nguonId).ToListAsync(ct)
+            .ConfigureAwait(false);
+        foreach (var x in con) x.DonViChaId = dichId;
+
+        nguon.DaXoa = true;
+        await Db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        foreach (var x in con)
+        {
+            await CapNhatDuongDanCayAsync(x.Id, ct).ConfigureAwait(false);
+        }
+
+        return hoSo.Count + nguoiDung.Count + con.Count;
+    }
+
     public async Task CapNhatDuongDanCayAsync(Guid donViId, CancellationToken ct = default)
     {
         var tatCa = await Db.DonVi.ToListAsync(ct).ConfigureAwait(false);
         var theoCha = tatCa.ToLookup(x => x.DonViChaId);
 
+        // Chot chan: du lieu loi co the tao vong cha-con, khong co set nay thi de quy vo han
+        // va tien trinh chet vi tran ngan xep thay vi bao loi.
+        var daQua = new HashSet<Guid>();
+
         void Duyet(DonVi nut, string pathCha, int cap)
         {
+            if (!daQua.Add(nut.Id)) return;
+
             nut.Path = $"{pathCha}{VanBanTiengViet.TaoSlug(nut.Ma)}/";
             nut.Cap = cap;
 

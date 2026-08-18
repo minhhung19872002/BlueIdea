@@ -178,6 +178,8 @@ public sealed class LuuDonViDto : LuuDanhMucDto
     public string? ChucVuNguoiKyMacDinh { get; set; }
 }
 
+public sealed record ChuyenChaDonViDto(Guid? DonViChaMoiId);
+
 /// <summary>Chức năng 5, 44, 47 — Quản lý đơn vị/tổ chức dạng cây.</summary>
 [ApiController]
 [Route("api/v1/don-vi")]
@@ -229,6 +231,23 @@ public sealed class DonViController : ControllerBase
     {
         await _dichVu.XoaAsync(id, ct);
         return Ok(PhanHoiApi.Ok("Đã xóa"));
+    }
+
+    /// <summary>Chức năng 44 — Chuyển đơn vị sang cấp trên khác (kéo thả trên cây tổ chức).</summary>
+    [HttpPost("{id:guid}/chuyen-cha")]
+    public async Task<IActionResult> ChuyenChaAsync(
+        Guid id, [FromBody] ChuyenChaDonViDto duLieu, CancellationToken ct)
+    {
+        await _dichVu.ChuyenChaAsync(id, duLieu.DonViChaMoiId, ct);
+        return Ok(PhanHoiApi.Ok("Đã chuyển đơn vị"));
+    }
+
+    /// <summary>Chức năng 44 — Gộp đơn vị khi sáp nhập.</summary>
+    [HttpPost("{id:guid}/gop-vao/{dichId:guid}")]
+    public async Task<IActionResult> GopAsync(Guid id, Guid dichId, CancellationToken ct)
+    {
+        var soBanGhi = await _dichVu.GopAsync(id, dichId, ct);
+        return Ok(PhanHoiApi<int>.Ok(soBanGhi, $"Đã gộp và chuyển {soBanGhi} bản ghi liên quan"));
     }
 
     private static DonVi TaoThucThe(DonVi x, LuuDonViDto d)

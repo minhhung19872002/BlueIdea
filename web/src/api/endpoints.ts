@@ -93,6 +93,12 @@ export const apiDotDeNghi = {
 };
 
 export const apiDonVi = {
+  /** Chức năng 44 — kéo thả đổi cấp trên trên cây tổ chức. */
+  chuyenCha: (id: string, donViChaMoiId: string | null) =>
+    guiDuLieu(`/api/v1/don-vi/${id}/chuyen-cha`, { donViChaMoiId }),
+  /** Chức năng 44 — gộp đơn vị khi sáp nhập. */
+  gop: (nguonId: string, dichId: string) =>
+    guiDuLieu<number>(`/api/v1/don-vi/${nguonId}/gop-vao/${dichId}`),
   ...taoApiDanhMuc('/api/v1/don-vi'),
   cay: () => layDuLieu<NutCay[]>('/api/v1/don-vi/cay'),
 };
@@ -1433,6 +1439,45 @@ export const apiBieuMauXuat = {
 
     return `/api/v1/danh-muc/bieu-mau-xuat/${id}/xem-truoc.pdf${chuoi ? `?${chuoi}` : ''}`;
   },
+};
+
+export interface MucMenuQuanTri {
+  id: string;
+  ma: string;
+  ten: string;
+  icon?: string | null;
+  duongDan?: string | null;
+  menuChaId?: string | null;
+  thuTu: number;
+  quyenMa?: string | null;
+  /** WEB | MOBILE */
+  loai: string;
+  hienThi: boolean;
+  moTabMoi: boolean;
+}
+
+export interface LuuMucMenu {
+  ma: string;
+  ten: string;
+  icon?: string | null;
+  duongDan?: string | null;
+  menuChaId?: string | null;
+  thuTu: number;
+  quyenMa?: string | null;
+  loai: string;
+  hienThi: boolean;
+  moTabMoi: boolean;
+}
+
+/** Chức năng 48 — quản trị cây menu điều hướng. */
+export const apiCauHinhMenu = {
+  danhSach: (loai: 'WEB' | 'MOBILE') =>
+    layDuLieu<MucMenuQuanTri[]>('/api/v1/cau-hinh-menu', { params: { loai } }),
+  them: (duLieu: LuuMucMenu) => guiDuLieu<string>('/api/v1/cau-hinh-menu', duLieu),
+  sua: (id: string, duLieu: LuuMucMenu) => capNhatDuLieu(`/api/v1/cau-hinh-menu/${id}`, duLieu),
+  xoa: (id: string) => xoaDuLieu(`/api/v1/cau-hinh-menu/${id}`),
+  sapXep: (loai: 'WEB' | 'MOBILE', cay: { id: string; con?: unknown }[]) =>
+    capNhatDuLieu(`/api/v1/cau-hinh-menu/sap-xep?loai=${loai}`, cay),
 };
 
 export interface TepTinDaTaiLen {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -21,6 +21,8 @@ import {
 import {
   DeleteOutlined,
   EditOutlined,
+  MergeCellsOutlined,
+  PictureOutlined,
   PlusOutlined,
   SubnodeOutlined,
 } from '@ant-design/icons';
@@ -76,11 +78,17 @@ export default function TrangDonVi() {
   const [moForm, setMoForm] = useState(false);
   const [suaId, setSuaId] = useState<string | null>(null);
   const [chaMacDinh, setChaMacDinh] = useState<string | null>(null);
+  const [gopId, setGopId] = useState<string | null>(null);
+  const [gopDichId, setGopDichId] = useState<string | undefined>();
+  const [dangXuatAnh, setDangXuatAnh] = useState(false);
+  const khungCay = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['don-vi', 'cay'],
     queryFn: apiDonVi.cay,
   });
+
+  const { data: dsPhang } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
 
   const { data: dangChon } = useQuery({
     queryKey: ['don-vi-chi-tiet', chonId],
@@ -100,6 +108,64 @@ export default function TrangDonVi() {
 
   const cay = useMemo(() => chuyenDoi(data ?? []), [data]);
 
+  /** Bản đồ con -> cha, để biết thả vào khe giữa hai nút thì cha mới là ai. */
+  const chaCua = useMemo(() => {
+    const bang = new Map<string, string | null>();
+
+    const duyet = (cacNut: NutCay[], chaId: string | null) => {
+      cacNut.forEach((n) => {
+        bang.set(n.id, chaId);
+        duyet(n.con ?? [], n.id);
+      });
+    };
+
+    duyet(data ?? [], null);
+    return bang;
+  }, [data]);
+
+  const chuyenCha = useMutation({
+    mutationFn: ({ id, chaMoi }: { id: string; chaMoi: string | null }) =>
+      apiDonVi.chuyenCha(id, chaMoi),
+    onSuccess: () => {
+      message.success('Đã chuyển đơn vị');
+      void queryClient.invalidateQueries({ queryKey: ['don-vi'] });
+    },
+    onError: (loi) =>
+      message.error(loi instanceof LoiApi ? loi.message : 'Không chuyển được đơn vị.'),
+  });
+
+  const gop = useMutation({
+    mutationFn: ({ nguonId, dichId }: { nguonId: string; dichId: string }) =>
+      apiDonVi.gop(nguonId, dichId),
+    onSuccess: (soBanGhi) => {
+      message.success(`Đã gộp đơn vị, chuyển ${soBanGhi} bản ghi liên quan`);
+      setGopId(null);
+      setGopDichId(undefined);
+      setChonId(null);
+      void queryClient.invalidateQueries({ queryKey: ['don-vi'] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không gộp được.'),
+  });
+
+  async function xuatSoDo() {
+    if (!khungCay.current) return;
+
+    setDangXuatAnh(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const anh = await toPng(khungCay.current, { backgroundColor: '#ffffff', pixelRatio: 2 });
+
+      const a = document.createElement('a');
+      a.href = anh;
+      a.download = 'so-do-to-chuc.png';
+      a.click();
+    } catch {
+      message.error('Không xuất được sơ đồ.');
+    } finally {
+      setDangXuatAnh(false);
+    }
+  }
+
   if (isLoading) return <KhoiDangTai />;
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
 
@@ -108,17 +174,24 @@ export default function TrangDonVi() {
       <Card
         title="Cơ cấu tổ chức"
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setSuaId(null);
-              setChaMacDinh(null);
-              setMoForm(true);
-            }}
-          >
-            Thêm đơn vị gốc
-          </Button>
+          <Space>
+            <Tooltip title="Lưu sơ đồ tổ chức thành ảnh PNG để dán vào báo cáo">
+              <Button icon={<PictureOutlined />} loading={dangXuatAnh} onClick={xuatSoDo}>
+                Xuất sơ đồ
+              </Button>
+            </Tooltip>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setSuaId(null);
+                setChaMacDinh(null);
+                setMoForm(true);
+              }}
+            >
+              Thêm đơn vị gốc
+            </Button>
+          </Space>
         }
       >
         <Row gutter={16}>
@@ -128,14 +201,26 @@ export default function TrangDonVi() {
               đơn vị để xem và sửa chi tiết.
             </Typography.Paragraph>
 
-            <Tree
-              treeData={cay}
-              defaultExpandAll
-              showLine
-              blockNode
-              selectedKeys={chonId ? [chonId] : []}
-              onSelect={(khoa) => setChonId((khoa[0] as string | undefined) ?? null)}
-            />
+            <div ref={khungCay}>
+              <Tree
+                treeData={cay}
+                defaultExpandAll
+                showLine
+                blockNode
+                draggable
+                selectedKeys={chonId ? [chonId] : []}
+                onSelect={(khoa) => setChonId((khoa[0] as string | undefined) ?? null)}
+                onDrop={(thongTin) => {
+                  const id = String(thongTin.dragNode.key);
+                  // Thả GIỮA hai nút = cùng cấp với nút đích; thả LÊN nút = làm con của nút đó.
+                  const chaMoi = thongTin.dropToGap
+                    ? (chaCua.get(String(thongTin.node.key)) ?? null)
+                    : String(thongTin.node.key);
+
+                  chuyenCha.mutate({ id, chaMoi });
+                }}
+              />
+            </div>
           </Col>
 
           <Col xs={24} lg={12}>
@@ -163,6 +248,13 @@ export default function TrangDonVi() {
                           setChaMacDinh(dangChon.id);
                           setMoForm(true);
                         }}
+                      />
+                    </Tooltip>
+                    <Tooltip title="Gộp đơn vị này vào đơn vị khác (khi sáp nhập)">
+                      <Button
+                        size="small"
+                        icon={<MergeCellsOutlined />}
+                        onClick={() => setGopId(dangChon.id)}
                       />
                     </Tooltip>
                     <Tooltip title="Sửa">
@@ -222,6 +314,39 @@ export default function TrangDonVi() {
           </Col>
         </Row>
       </Card>
+
+      <Modal
+        open={!!gopId}
+        title="Gộp đơn vị"
+        okText="Gộp"
+        okButtonProps={{ danger: true, disabled: !gopDichId }}
+        cancelText="Huỷ"
+        confirmLoading={gop.isPending}
+        onCancel={() => {
+          setGopId(null);
+          setGopDichId(undefined);
+        }}
+        onOk={() => gop.mutate({ nguonId: gopId!, dichId: gopDichId! })}
+      >
+        <Typography.Paragraph>
+          Hồ sơ, tài khoản và đơn vị con của <strong>{dangChon?.ten}</strong> sẽ được chuyển sang
+          đơn vị đích, sau đó đơn vị này được đánh dấu đã xoá.
+        </Typography.Paragraph>
+        <Typography.Paragraph type="warning">
+          Thao tác này không tự hoàn tác được — hãy kiểm tra kỹ đơn vị đích trước khi gộp.
+        </Typography.Paragraph>
+        <Select
+          style={{ width: '100%' }}
+          showSearch
+          optionFilterProp="label"
+          placeholder="Chọn đơn vị đích"
+          value={gopDichId}
+          options={(dsPhang ?? [])
+            .filter((x) => x.id !== gopId)
+            .map((x) => ({ value: x.id, label: x.ten }))}
+          onChange={setGopDichId}
+        />
+      </Modal>
 
       {moForm && (
         <FormDonVi
