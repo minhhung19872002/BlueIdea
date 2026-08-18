@@ -330,6 +330,11 @@ else
 app.UseCors("MacDinh");
 app.UseRateLimiter();
 app.UseAuthentication();
+
+// Sau UseAuthentication vi can biet nguoi goi la ai; truoc UseAuthorization de yeu cau bi chan
+// khong kip cham vao nghiep vu.
+app.UseMiddleware<ChanIpQuanTri>();
+
 app.UseAuthorization();
 
 // Khong gan RequireRateLimiting o day: gioi han chung da do GlobalLimiter dam nhan.

@@ -208,8 +208,31 @@ public sealed class DangNhapCommandHandler : IRequestHandler<DangNhapCommand, Ke
             new ThongTinNguoiDungDto(
                 nguoiDung.Id, nguoiDung.TenDangNhap, nguoiDung.HoTen, nguoiDung.Email,
                 nguoiDung.ChucVu, nguoiDung.DonViId, tenDonVi,
-                vaiTro.ToList(), quyen.ToList(), nguoiDung.MfaEnabled),
+                vaiTro.ToList(), quyen.ToList(), nguoiDung.MfaEnabled,
+                await CanBatMfaAsync(vaiTro, nguoiDung.MfaEnabled, ct).ConfigureAwait(false)),
             nguoiDung.BuocDoiMatKhau);
+    }
+
+    /// <summary>
+    /// Tai khoan quan tri co dang bi buoc bat xac thuc hai lop khong.
+    ///
+    /// Dac ta Muc 6 doi "xac thuc tang cuong (MFA) cho vai tro quan tri". Truoc day MFA chi la
+    /// tuy chon tu bat: khong co gi buoc quan tri vien bat, va khong co gi kiem neu ho khong bat.
+    ///
+    /// Khong CHAN dang nhap ma bao cho giao dien dua nguoi dung sang man hinh cai dat MFA — chan
+    /// dang nhap thi ho khong con duong nao vao de bat, tuc la khoa cung ca he thong.
+    /// </summary>
+    private async Task<bool> CanBatMfaAsync(
+        IEnumerable<string> vaiTro, bool daBatMfa, CancellationToken ct)
+    {
+        if (daBatMfa || !vaiTro.Contains(MaVaiTro.QuanTriHeThong))
+        {
+            return false;
+        }
+
+        return await _cauHinh
+            .LayAsync(KhoaCauHinh.MfaBatBuocQuanTri, false, ct)
+            .ConfigureAwait(false);
     }
 
     private async Task XuLyDangNhapSaiAsync(NguoiDung nguoiDung, DateTimeOffset bayGio, CancellationToken ct)

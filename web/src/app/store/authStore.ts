@@ -15,6 +15,8 @@ export interface NguoiDung {
   vaiTro: string[];
   quyen: string[];
   mfaEnabled: boolean;
+  /** Đang bị buộc bật xác thực hai lớp trước khi dùng các chức năng khác. */
+  buocBatMfa?: boolean;
 }
 
 interface KetQuaDangNhap {
