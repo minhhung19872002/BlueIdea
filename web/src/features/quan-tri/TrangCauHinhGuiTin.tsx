@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Col,
-  Form,
   Input,
   InputNumber,
   Modal,
@@ -23,7 +22,11 @@ import {
 import { DeleteOutlined, EditOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { z } from 'zod';
+
 import { LoiApi } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { email, soNguyen, trangThai, tuyChon } from '@/components/bieu-mau/luat';
 import { apiCauHinhGuiTin, type CauHinhGuiTin, type LuuCauHinhGuiTin } from '@/api/endpoints';
 import { KhoiLoi } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
@@ -273,22 +276,51 @@ export default function TrangCauHinhGuiTin() {
 
 // ---------------------------------------------------------------------------
 
-interface GiaTriForm {
-  loai: string;
-  nhaCungCap?: string;
-  host?: string;
-  port?: number;
-  tenDangNhap?: string;
-  matKhau?: string;
-  suDungSsl: boolean;
-  emailGuiDi?: string;
-  tenHienThi?: string;
-  apiEndpoint?: string;
-  apiKey?: string;
-  brandname?: string;
-  trangThai: number;
-  laMacDinh: boolean;
-}
+/**
+ * Luật kiểm tra cấu hình gửi tin.
+ *
+ * Một form phục vụ hai loại cấu hình khác hẳn nhau (SMTP và API SMS), nên các trường bắt buộc
+ * phụ thuộc vào `loai`. Khai `required` cứng cho từng ô sẽ bắt người cấu hình SMS phải điền
+ * máy chủ SMTP — thứ họ không có. Vì vậy dùng `superRefine` để yêu cầu đúng nhóm trường của loại
+ * đang chọn.
+ */
+const luatGuiTin = z
+  .object({
+    loai: z.string(),
+    nhaCungCap: tuyChon(200),
+    host: tuyChon(200),
+    port: soNguyen('Cổng', 1, 65535).optional(),
+    tenDangNhap: tuyChon(200),
+    matKhau: tuyChon(500),
+    suDungSsl: z.boolean(),
+    emailGuiDi: email,
+    tenHienThi: tuyChon(200),
+    apiEndpoint: z
+      .string()
+      .trim()
+      .url('Phải là địa chỉ http/https tuyệt đối.')
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
+    apiKey: tuyChon(500),
+    brandname: tuyChon(100),
+    trangThai: trangThai,
+    laMacDinh: z.boolean(),
+  })
+  .superRefine((v, ctx) => {
+    const thieu = (duong: string, thongBao: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [duong], message: thongBao });
+
+    if (v.loai === 'EMAIL') {
+      if (!v.host) thieu('host', 'Cấu hình email cần máy chủ SMTP.');
+      if (!v.port) thieu('port', 'Cấu hình email cần cổng SMTP.');
+      if (!v.emailGuiDi) thieu('emailGuiDi', 'Cấu hình email cần địa chỉ gửi đi.');
+      return;
+    }
+
+    if (!v.apiEndpoint) thieu('apiEndpoint', 'Cấu hình SMS cần endpoint API của nhà cung cấp.');
+  });
+
+type GiaTriForm = z.infer<typeof luatGuiTin>;
 
 function FormCauHinh({
   banGhi,
@@ -300,8 +332,23 @@ function FormCauHinh({
   onXong: () => void;
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm<GiaTriForm>();
-  const [loai, setLoai] = useState(banGhi?.loai ?? 'EMAIL');
+  const form = useBieuMau(luatGuiTin, {
+    loai: banGhi?.loai ?? 'EMAIL',
+    nhaCungCap: banGhi?.nhaCungCap ?? undefined,
+    host: banGhi?.host ?? undefined,
+    port: banGhi?.port ?? 587,
+    tenDangNhap: banGhi?.tenDangNhap ?? undefined,
+    suDungSsl: banGhi?.suDungSsl ?? true,
+    emailGuiDi: banGhi?.emailGuiDi ?? undefined,
+    tenHienThi: banGhi?.tenHienThi ?? undefined,
+    apiEndpoint: banGhi?.apiEndpoint ?? undefined,
+    brandname: banGhi?.brandname ?? undefined,
+    trangThai: (banGhi?.trangThai ?? 1) as 0 | 1,
+    laMacDinh: banGhi?.laMacDinh ?? false,
+  } as GiaTriForm);
+
+  // Đọc thẳng từ form thay vì giữ state riêng — hai nguồn dễ lệch khi form được nạp lại.
+  const loai = form.watch('loai');
 
   const luu = useMutation({
     mutationFn: (giaTri: LuuCauHinhGuiTin) =>
@@ -313,9 +360,8 @@ function FormCauHinh({
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
 
-  async function xacNhan() {
-    const giaTri = await form.validateFields();
-    luu.mutate({ ...giaTri, trangThai: giaTri.trangThai ?? 1 });
+  function xacNhan(giaTri: GiaTriForm) {
+    return luu.mutateAsync({ ...giaTri, trangThai: giaTri.trangThai });
   }
 
   return (
@@ -325,57 +371,55 @@ function FormCauHinh({
       title={banGhi ? `Sửa cấu hình ${banGhi.loai}` : 'Thêm cấu hình gửi tin'}
       okText={banGhi ? 'Lưu thay đổi' : 'Thêm'}
       cancelText="Huỷ"
-      confirmLoading={luu.isPending}
-      onOk={xacNhan}
+      confirmLoading={luu.isPending || form.formState.isSubmitting}
+      okButtonProps={{ htmlType: 'submit', form: 'form-gui-tin' }}
       onCancel={onDong}
       destroyOnClose
     >
       <DaiTabTrang danhSach={DS_TAB_CAU_HINH} dangChon={'email-sms'} />
 
-      <Form<GiaTriForm>
-        form={form}
-        layout="vertical"
-        initialValues={{
-          loai: banGhi?.loai ?? 'EMAIL',
-          nhaCungCap: banGhi?.nhaCungCap ?? undefined,
-          host: banGhi?.host ?? undefined,
-          port: banGhi?.port ?? 587,
-          tenDangNhap: banGhi?.tenDangNhap ?? undefined,
-          suDungSsl: banGhi?.suDungSsl ?? true,
-          emailGuiDi: banGhi?.emailGuiDi ?? undefined,
-          tenHienThi: banGhi?.tenHienThi ?? undefined,
-          apiEndpoint: banGhi?.apiEndpoint ?? undefined,
-          brandname: banGhi?.brandname ?? undefined,
-          trangThai: banGhi?.trangThai ?? 1,
-          laMacDinh: banGhi?.laMacDinh ?? false,
-        }}
-      >
+      <BieuMau id="form-gui-tin" form={form} onGui={xacNhan}>
         <Row gutter={12}>
           <Col xs={24} md={8}>
-            <Form.Item name="loai" label="Loại">
-              <Select
-                options={[
-                  { value: 'EMAIL', label: 'Email (SMTP)' },
-                  { value: 'SMS', label: 'SMS (API)' },
-                ]}
-                onChange={setLoai}
-              />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="loai" label="Loại">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string}
+                  options={[
+                    { value: 'EMAIL', label: 'Email (SMTP)' },
+                    { value: 'SMS', label: 'SMS (API)' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={10}>
-            <Form.Item name="nhaCungCap" label="Nhà cung cấp">
-              <Input placeholder={loai === 'EMAIL' ? 'VNPT Mail, Google Workspace…' : 'Viettel, VNPT…'} />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="nhaCungCap" label="Nhà cung cấp">
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  placeholder={
+                    loai === 'EMAIL' ? 'VNPT Mail, Google Workspace…' : 'Viettel, VNPT…'
+                  }
+                />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={6}>
-            <Form.Item name="trangThai" label="Trạng thái">
-              <Select
-                options={[
-                  { value: 1, label: 'Hoạt động' },
-                  { value: 0, label: 'Ngừng' },
-                ]}
-              />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="trangThai" label="Trạng thái">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as number}
+                  options={[
+                    { value: 1, label: 'Hoạt động' },
+                    { value: 0, label: 'Ngừng' },
+                  ]}
+                />
+              )}
+            </Truong>
           </Col>
         </Row>
 
@@ -383,39 +427,48 @@ function FormCauHinh({
           <>
             <Row gutter={12}>
               <Col xs={24} md={12}>
-                <Form.Item
-                  name="host"
-                  label="Máy chủ SMTP"
-                  rules={[{ required: true, message: 'Nhập máy chủ SMTP' }]}
-                >
-                  <Input placeholder="smtp.donvi.gov.vn" />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="host" label="Máy chủ SMTP" required>
+                  {(o) => (
+                    <Input {...o} value={o.value as string} placeholder="smtp.donvi.gov.vn" />
+                  )}
+                </Truong>
               </Col>
               <Col xs={12} md={6}>
-                <Form.Item
-                  name="port"
-                  label="Cổng"
-                  rules={[{ required: true, message: 'Nhập cổng' }]}
-                >
-                  <InputNumber<number> min={1} max={65535} style={{ width: '100%' }} />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="port" label="Cổng" required>
+                  {(o) => (
+                    <InputNumber<number>
+                      {...o}
+                      value={o.value as number}
+                      min={1}
+                      max={65535}
+                      style={{ width: '100%' }}
+                    />
+                  )}
+                </Truong>
               </Col>
               <Col xs={12} md={6}>
-                <Form.Item name="suDungSsl" label="Dùng TLS" valuePropName="checked">
-                  <Switch checkedChildren="Có" unCheckedChildren="Không" />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="suDungSsl" label="Dùng TLS">
+                  {(o) => (
+                    <Switch
+                      checked={!!o.value}
+                      onChange={o.onChange}
+                      checkedChildren="Có"
+                      unCheckedChildren="Không"
+                    />
+                  )}
+                </Truong>
               </Col>
             </Row>
 
             <Row gutter={12}>
               <Col xs={24} md={12}>
-                <Form.Item name="tenDangNhap" label="Tài khoản SMTP">
-                  <Input autoComplete="off" />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="tenDangNhap" label="Tài khoản SMTP">
+                  {(o) => <Input {...o} value={o.value as string} autoComplete="off" />}
+                </Truong>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item
-                  name="matKhau"
+                <Truong<GiaTriForm>
+                  ten="matKhau"
                   label="Mật khẩu SMTP"
                   tooltip={
                     banGhi?.daDatMatKhau
@@ -423,48 +476,55 @@ function FormCauHinh({
                       : 'Mã hoá AES-256-GCM trước khi lưu.'
                   }
                 >
-                  <Input.Password
-                    autoComplete="new-password"
-                    placeholder={banGhi?.daDatMatKhau ? '•••••••• (giữ nguyên)' : ''}
-                  />
-                </Form.Item>
+                  {(o) => (
+                    <Input.Password
+                      {...o}
+                      value={o.value as string}
+                      autoComplete="new-password"
+                      placeholder={banGhi?.daDatMatKhau ? '•••••••• (giữ nguyên)' : ''}
+                    />
+                  )}
+                </Truong>
               </Col>
             </Row>
 
             <Row gutter={12}>
               <Col xs={24} md={12}>
-                <Form.Item
-                  name="emailGuiDi"
-                  label="Địa chỉ gửi đi"
-                  rules={[
-                    { required: true, message: 'Nhập địa chỉ gửi đi' },
-                    { type: 'email', message: 'Email không hợp lệ' },
-                  ]}
-                >
-                  <Input placeholder="khongtraloi@donvi.gov.vn" />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="emailGuiDi" label="Địa chỉ gửi đi" required>
+                  {(o) => (
+                    <Input
+                      {...o}
+                      value={o.value as string}
+                      placeholder="khongtraloi@donvi.gov.vn"
+                    />
+                  )}
+                </Truong>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item name="tenHienThi" label="Tên hiển thị">
-                  <Input placeholder="Hệ thống Sáng kiến" />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="tenHienThi" label="Tên hiển thị">
+                  {(o) => (
+                    <Input {...o} value={o.value as string} placeholder="Hệ thống Sáng kiến" />
+                  )}
+                </Truong>
               </Col>
             </Row>
           </>
         ) : (
           <>
-            <Form.Item
-              name="apiEndpoint"
-              label="Endpoint API"
-              rules={[{ required: true, message: 'Nhập endpoint API của nhà cung cấp' }]}
-            >
-              <Input placeholder="https://api.nhacungcap.vn/sms/send" />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="apiEndpoint" label="Endpoint API" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  placeholder="https://api.nhacungcap.vn/sms/send"
+                />
+              )}
+            </Truong>
 
             <Row gutter={12}>
               <Col xs={24} md={12}>
-                <Form.Item
-                  name="apiKey"
+                <Truong<GiaTriForm>
+                  ten="apiKey"
                   label="API key"
                   tooltip={
                     banGhi?.daDatApiKey
@@ -472,30 +532,40 @@ function FormCauHinh({
                       : 'Mã hoá AES-256-GCM trước khi lưu.'
                   }
                 >
-                  <Input.Password
-                    autoComplete="new-password"
-                    placeholder={banGhi?.daDatApiKey ? '•••••••• (giữ nguyên)' : ''}
-                  />
-                </Form.Item>
+                  {(o) => (
+                    <Input.Password
+                      {...o}
+                      value={o.value as string}
+                      autoComplete="new-password"
+                      placeholder={banGhi?.daDatApiKey ? '•••••••• (giữ nguyên)' : ''}
+                    />
+                  )}
+                </Truong>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item name="brandname" label="Brandname">
-                  <Input placeholder="SANGKIEN" />
-                </Form.Item>
+                <Truong<GiaTriForm> ten="brandname" label="Brandname">
+                  {(o) => <Input {...o} value={o.value as string} placeholder="SANGKIEN" />}
+                </Truong>
               </Col>
             </Row>
           </>
         )}
 
-        <Form.Item
-          name="laMacDinh"
+        <Truong<GiaTriForm>
+          ten="laMacDinh"
           label="Dùng làm cấu hình mặc định"
-          valuePropName="checked"
           tooltip="Công việc nền chọn cấu hình mặc định để gửi. Mỗi loại chỉ có một mặc định."
         >
-          <Switch checkedChildren="Có" unCheckedChildren="Không" />
-        </Form.Item>
-      </Form>
+          {(o) => (
+            <Switch
+              checked={!!o.value}
+              onChange={o.onChange}
+              checkedChildren="Có"
+              unCheckedChildren="Không"
+            />
+          )}
+        </Truong>
+      </BieuMau>
     </Modal>
   );
 }
