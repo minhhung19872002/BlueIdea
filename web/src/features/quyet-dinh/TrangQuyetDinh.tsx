@@ -5,7 +5,6 @@ import {
   Card,
   Col,
   DatePicker,
-  Form,
   Input,
   Modal,
   Popconfirm,
@@ -34,8 +33,12 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { z } from 'zod';
 
 import { LoiApi, taiTep } from '@/api/client';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, tuyChon } from '@/components/bieu-mau/luat';
 import {
   apiDonVi,
   apiDotDeNghi,
@@ -414,16 +417,26 @@ export default function TrangQuyetDinh() {
 
 // ---------------------------------------------------------------------------
 
-interface GiaTriForm {
-  soQuyetDinh: string;
-  ngayBanHanh: dayjs.Dayjs;
-  loai: string;
-  trichYeu?: string;
-  nguoiKy?: string;
-  chucVuNguoiKy?: string;
-  donViBanHanhId?: string;
-  dotDeNghiId?: string;
-}
+/**
+ * Luật kiểm tra quyết định công nhận.
+ *
+ * Chặn ngày ban hành ở tương lai: quyết định là văn bản đã ký, ghi ngày chưa tới sẽ làm sai mọi
+ * thống kê theo thời gian và khiến hồ sơ được công nhận trước cả ngày ghi trên giấy tờ.
+ */
+const luatQuyetDinh = z.object({
+  soQuyetDinh: batBuoc('Số quyết định', 100),
+  ngayBanHanh: z
+    .custom<Dayjs>((v) => dayjs.isDayjs(v) && v.isValid(), 'Vui lòng chọn ngày ban hành.')
+    .refine((v) => !v.isAfter(dayjs(), 'day'), 'Ngày ban hành không được ở tương lai.'),
+  loai: z.string(),
+  trichYeu: tuyChon(1000),
+  nguoiKy: tuyChon(200),
+  chucVuNguoiKy: tuyChon(200),
+  donViBanHanhId: z.string().uuid().optional(),
+  dotDeNghiId: z.string().uuid().optional(),
+});
+
+type GiaTriForm = z.infer<typeof luatQuyetDinh>;
 
 function FormQuyetDinh({
   banGhi,
@@ -435,11 +448,19 @@ function FormQuyetDinh({
   onXong: () => void;
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm<GiaTriForm>();
+  const form = useBieuMau(luatQuyetDinh, {
+    soQuyetDinh: banGhi?.soQuyetDinh ?? '',
+    ngayBanHanh: banGhi ? dayjs(banGhi.ngayBanHanh) : dayjs(),
+    loai: banGhi?.loai ?? 'CO_SO',
+    trichYeu: banGhi?.trichYeu ?? undefined,
+    nguoiKy: banGhi?.nguoiKy ?? undefined,
+    chucVuNguoiKy: banGhi?.chucVuNguoiKy ?? undefined,
+    donViBanHanhId: banGhi?.donViBanHanhId ?? undefined,
+    dotDeNghiId: banGhi?.dotDeNghiId ?? undefined,
+  } as GiaTriForm);
 
-  const [dotDeNghiId, setDotDeNghiId] = useState<string | undefined>(
-    banGhi?.dotDeNghiId ?? undefined,
-  );
+  // Danh sách sáng kiến đủ điều kiện lọc theo đợt đang chọn — đọc thẳng từ form.
+  const dotDeNghiId = form.watch('dotDeNghiId');
   const [daChon, setDaChon] = useState<string[]>([]);
   const [chiHienDaChon, setChiHienDaChon] = useState(false);
   const [tepTinId, setTepTinId] = useState<string | null>(banGhi?.tepTinId ?? null);
@@ -497,15 +518,13 @@ function FormQuyetDinh({
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
 
-  async function xacNhan() {
-    const giaTri = await form.validateFields();
-
+  function xacNhan(giaTri: GiaTriForm) {
     if (daChon.length === 0) {
       message.warning('Phải chọn ít nhất một sáng kiến để đưa vào quyết định.');
-      return;
+      return Promise.resolve();
     }
 
-    luu.mutate({
+    return luu.mutateAsync({
       soQuyetDinh: giaTri.soQuyetDinh,
       ngayBanHanh: giaTri.ngayBanHanh.format('YYYY-MM-DD'),
       loai: giaTri.loai,
@@ -526,97 +545,104 @@ function FormQuyetDinh({
       title={banGhi ? `Sửa quyết định ${banGhi.soQuyetDinh}` : 'Ban hành quyết định công nhận'}
       okText={banGhi ? 'Lưu thay đổi' : 'Ban hành'}
       cancelText="Huỷ"
-      confirmLoading={luu.isPending}
-      onOk={xacNhan}
+      confirmLoading={luu.isPending || form.formState.isSubmitting}
+      okButtonProps={{ htmlType: 'submit', form: 'form-quyet-dinh' }}
       onCancel={onDong}
       destroyOnClose
     >
-      <Form<GiaTriForm>
-        form={form}
-        layout="vertical"
-        initialValues={{
-          soQuyetDinh: banGhi?.soQuyetDinh ?? '',
-          ngayBanHanh: banGhi ? dayjs(banGhi.ngayBanHanh) : dayjs(),
-          loai: banGhi?.loai ?? 'CO_SO',
-          trichYeu: banGhi?.trichYeu ?? undefined,
-          nguoiKy: banGhi?.nguoiKy ?? undefined,
-          chucVuNguoiKy: banGhi?.chucVuNguoiKy ?? undefined,
-          donViBanHanhId: banGhi?.donViBanHanhId ?? undefined,
-          dotDeNghiId: banGhi?.dotDeNghiId ?? undefined,
-        }}
-      >
+      <BieuMau id="form-quyet-dinh" form={form} onGui={xacNhan}>
         <Row gutter={12}>
           <Col xs={24} md={8}>
-            <Form.Item
-              name="soQuyetDinh"
-              label="Số quyết định"
-              rules={[{ required: true, message: 'Nhập số quyết định' }]}
-            >
-              <Input placeholder="Ví dụ: 125/QĐ-UBND" />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="soQuyetDinh" label="Số quyết định" required>
+              {(o) => (
+                <Input {...o} value={o.value as string} placeholder="Ví dụ: 125/QĐ-UBND" />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={8}>
-            <Form.Item
-              name="ngayBanHanh"
-              label="Ngày ban hành"
-              rules={[{ required: true, message: 'Chọn ngày ban hành' }]}
-            >
-              <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="ngayBanHanh" label="Ngày ban hành" required>
+              {(o) => (
+                <DatePicker
+                  value={(o.value as Dayjs | undefined) ?? null}
+                  onChange={o.onChange}
+                  onBlur={o.onBlur}
+                  status={o.status}
+                  style={{ width: '100%' }}
+                  format="DD/MM/YYYY"
+                />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={8}>
-            <Form.Item name="loai" label="Cấp công nhận">
-              <Select options={CAP_CONG_NHAN} />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="loai" label="Cấp công nhận">
+              {(o) => <Select {...o} value={o.value as string} options={CAP_CONG_NHAN} />}
+            </Truong>
           </Col>
         </Row>
 
         <Row gutter={12}>
           <Col xs={24} md={12}>
-            <Form.Item name="donViBanHanhId" label="Đơn vị ban hành">
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="Chọn đơn vị"
-                options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-              />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="donViBanHanhId" label="Đơn vị ban hành">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Chọn đơn vị"
+                  options={(cacDonVi ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+                />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="dotDeNghiId" label="Đợt đề nghị">
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="Lọc sáng kiến theo đợt"
-                options={(cacDot ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-                onChange={(v: string | undefined) => setDotDeNghiId(v)}
-              />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="dotDeNghiId" label="Đợt đề nghị">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Lọc sáng kiến theo đợt"
+                  options={(cacDot ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+                />
+              )}
+            </Truong>
           </Col>
         </Row>
 
-        <Form.Item name="trichYeu" label="Trích yếu">
-          <Input.TextArea
-            rows={2}
-            placeholder="Về việc công nhận sáng kiến cấp cơ sở năm 2026"
-          />
-        </Form.Item>
+        <Truong<GiaTriForm> ten="trichYeu" label="Trích yếu">
+          {(o) => (
+            <Input.TextArea
+              {...o}
+              value={o.value as string}
+              rows={2}
+              placeholder="Về việc công nhận sáng kiến cấp cơ sở năm 2026"
+            />
+          )}
+        </Truong>
 
         <Row gutter={12}>
           <Col xs={24} md={12}>
-            <Form.Item name="nguoiKy" label="Người ký">
-              <Input placeholder="Họ và tên người ký" />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="nguoiKy" label="Người ký">
+              {(o) => <Input {...o} value={o.value as string} placeholder="Họ và tên người ký" />}
+            </Truong>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="chucVuNguoiKy" label="Chức vụ người ký">
-              <Input placeholder="Ví dụ: Chủ tịch UBND thành phố" />
-            </Form.Item>
+            <Truong<GiaTriForm> ten="chucVuNguoiKy" label="Chức vụ người ký">
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  placeholder="Ví dụ: Chủ tịch UBND thành phố"
+                />
+              )}
+            </Truong>
           </Col>
         </Row>
-      </Form>
+      </BieuMau>
 
       <div style={{ marginBottom: 16 }}>
         <Typography.Text strong>Tệp văn bản quyết định</Typography.Text>

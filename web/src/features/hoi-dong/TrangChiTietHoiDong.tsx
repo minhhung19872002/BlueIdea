@@ -11,7 +11,6 @@ import {
   Descriptions,
   Divider,
   Dropdown,
-  Form,
   Input,
   Modal,
   Row,
@@ -32,9 +31,13 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { z } from 'zod';
 
 import { layPhanTrang, LoiApi, taiTep } from '@/api/client';
 import { theoDoiPhienHop } from '@/api/realtime';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, tuyChon } from '@/components/bieu-mau/luat';
 import {
   apiDanhGia,
   apiHoiDong,
@@ -80,6 +83,56 @@ interface NguoiDungChon {
 /** Dòng thành viên đang sửa trên giao diện (id rỗng = thành viên mới thêm). */
 type DongThanhVien = ThanhVienHoiDong & { khoa: string };
 
+/**
+ * Luật kiểm tra phiên họp hội đồng.
+ *
+ * Chặn giờ kết thúc sớm hơn giờ bắt đầu, và chặn chủ trì trùng thư ký: một người vừa điều hành
+ * vừa ghi biên bản thì biên bản mất tính đối chứng — đây là yêu cầu về thể thức, không phải
+ * ràng buộc kỹ thuật, nên máy chủ không bắt và giao diện phải chặn.
+ */
+const luatPhienHop = z
+  .object({
+    tenPhien: batBuoc('Tên phiên họp'),
+    maPhien: tuyChon(100),
+    hinhThuc: z.string(),
+    thoiGianBatDau: z.custom<Dayjs>(
+      (v) => dayjs.isDayjs(v) && v.isValid(),
+      'Vui lòng chọn thời gian bắt đầu.',
+    ),
+    thoiGianKetThuc: z.custom<Dayjs>((v) => v == null || dayjs.isDayjs(v)).nullish(),
+    diaDiem: tuyChon(300),
+    chuTriId: z.string().uuid().optional().nullable(),
+    thuKyId: z.string().uuid().optional().nullable(),
+    sangKienIds: z.array(z.string()),
+    noiDung: tuyChon(2000),
+  })
+  .superRefine((v, ctx) => {
+    if (v.thoiGianKetThuc && v.thoiGianKetThuc.isBefore(v.thoiGianBatDau)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['thoiGianKetThuc'],
+        message: 'Giờ kết thúc phải sau giờ bắt đầu.',
+      });
+    }
+
+    if (v.chuTriId && v.thuKyId && v.chuTriId === v.thuKyId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['thuKyId'],
+        message: 'Chủ trì và thư ký phải là hai người khác nhau.',
+      });
+    }
+  });
+
+type GiaTriPhienHop = z.infer<typeof luatPhienHop>;
+
+const MAC_DINH_PHIEN: GiaTriPhienHop = {
+  tenPhien: '',
+  hinhThuc: 'TRUC_TIEP',
+  thoiGianBatDau: dayjs(),
+  sangKienIds: [],
+};
+
 /** Chức năng 19–20 — Chi tiết hội đồng: thành viên, phiên họp, điểm danh, bỏ phiếu. */
 export default function TrangChiTietHoiDong() {
   const { id = '' } = useParams<{ id: string }>();
@@ -92,7 +145,7 @@ export default function TrangChiTietHoiDong() {
   const [thanhVien, setThanhVien] = useState<DongThanhVien[]>([]);
   const [moTaoPhien, setMoTaoPhien] = useState(false);
   const [phienDangMo, setPhienDangMo] = useState<string | null>(null);
-  const [formPhien] = Form.useForm();
+  const formPhien = useBieuMau(luatPhienHop, MAC_DINH_PHIEN);
 
   const truyVan = useQuery({
     queryKey: ['hoi-dong', id],
@@ -139,26 +192,24 @@ export default function TrangChiTietHoiDong() {
   });
 
   const taoPhien = useMutation({
-    mutationFn: async (giaTri: Record<string, unknown>) =>
+    mutationFn: async (giaTri: GiaTriPhienHop) =>
       apiHoiDong.taoPhienHop({
         hoiDongId: id,
-        maPhien: (giaTri.maPhien as string) || null,
+        maPhien: giaTri.maPhien ?? null,
         tenPhien: giaTri.tenPhien,
-        thoiGianBatDau: dayjs(giaTri.thoiGianBatDau as string).toISOString(),
-        thoiGianKetThuc: giaTri.thoiGianKetThuc
-          ? dayjs(giaTri.thoiGianKetThuc as string).toISOString()
-          : null,
+        thoiGianBatDau: giaTri.thoiGianBatDau.toISOString(),
+        thoiGianKetThuc: giaTri.thoiGianKetThuc ? giaTri.thoiGianKetThuc.toISOString() : null,
         diaDiem: giaTri.diaDiem ?? null,
         hinhThuc: giaTri.hinhThuc,
         chuTriId: giaTri.chuTriId ?? null,
         thuKyId: giaTri.thuKyId ?? null,
         noiDung: giaTri.noiDung ?? null,
-        sangKienIds: (giaTri.sangKienIds as string[]) ?? [],
+        sangKienIds: giaTri.sangKienIds,
       }),
     onSuccess: (phien) => {
       message.success('Đã tạo phiên họp');
       setMoTaoPhien(false);
-      formPhien.resetFields();
+      formPhien.reset(MAC_DINH_PHIEN);
       void queryClient.invalidateQueries({ queryKey: ['hoi-dong', id] });
       setPhienDangMo(phien.id);
     },
@@ -381,9 +432,9 @@ export default function TrangChiTietHoiDong() {
         form={formPhien}
         thanhVien={thanhVien}
         dotDeNghiId={hoiDong.dotDeNghiId}
-        dangTao={taoPhien.isPending}
+        dangTao={taoPhien.isPending || formPhien.formState.isSubmitting}
         onHuy={() => setMoTaoPhien(false)}
-        onTao={async () => taoPhien.mutate(await formPhien.validateFields())}
+        onTao={(giaTri) => taoPhien.mutateAsync(giaTri)}
       />
 
       {phienDangMo && (
@@ -634,12 +685,12 @@ function ModalTaoPhien({
   onTao,
 }: {
   mo: boolean;
-  form: ReturnType<typeof Form.useForm>[0];
+  form: ReturnType<typeof useBieuMau<GiaTriPhienHop>>;
   thanhVien: DongThanhVien[];
   dotDeNghiId?: string | null;
   dangTao: boolean;
   onHuy: () => void;
-  onTao: () => void;
+  onTao: (giaTri: GiaTriPhienHop) => Promise<unknown>;
 }) {
   const { data: hoSo } = useQuery({
     queryKey: ['sang-kien-cho-hop', dotDeNghiId],
@@ -657,96 +708,130 @@ function ModalTaoPhien({
       cancelText="Huỷ"
       confirmLoading={dangTao}
       onCancel={onHuy}
-      onOk={onTao}
+      okButtonProps={{ htmlType: 'submit', form: 'form-phien-hop' }}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ hinhThuc: 'TRUC_TIEP', thoiGianBatDau: dayjs() }}
-      >
-        <Form.Item
-          name="tenPhien"
-          label="Tên phiên họp"
-          rules={[{ required: true, message: 'Nhập tên phiên họp' }]}
-        >
-          <Input placeholder="VD: Họp xét công nhận sáng kiến đợt 1 năm 2027" />
-        </Form.Item>
+      <BieuMau id="form-phien-hop" form={form} onGui={onTao}>
+        <Truong<GiaTriPhienHop> ten="tenPhien" label="Tên phiên họp" required>
+          {(o) => (
+            <Input
+              {...o}
+              value={o.value as string}
+              placeholder="VD: Họp xét công nhận sáng kiến đợt 1 năm 2027"
+            />
+          )}
+        </Truong>
 
         <Row gutter={12}>
           <Col xs={24} md={12}>
-            <Form.Item name="maPhien" label="Mã phiên" tooltip="Bỏ trống để hệ thống tự sinh.">
-              <Input placeholder="Tự sinh nếu bỏ trống" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="hinhThuc" label="Hình thức">
-              <Select options={HINH_THUC_HOP} />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={12}>
-          <Col xs={24} md={12}>
-            <Form.Item
-              name="thoiGianBatDau"
-              label="Bắt đầu"
-              rules={[{ required: true, message: 'Chọn thời gian bắt đầu' }]}
+            <Truong<GiaTriPhienHop>
+              ten="maPhien"
+              label="Mã phiên"
+              tooltip="Bỏ trống để hệ thống tự sinh."
             >
-              <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} />
-            </Form.Item>
+              {(o) => (
+                <Input {...o} value={o.value as string} placeholder="Tự sinh nếu bỏ trống" />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="thoiGianKetThuc" label="Kết thúc (dự kiến)">
-              <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} />
-            </Form.Item>
+            <Truong<GiaTriPhienHop> ten="hinhThuc" label="Hình thức">
+              {(o) => <Select {...o} value={o.value as string} options={HINH_THUC_HOP} />}
+            </Truong>
           </Col>
         </Row>
-
-        <Form.Item name="diaDiem" label="Địa điểm">
-          <Input placeholder="VD: Phòng họp A, trụ sở UBND" />
-        </Form.Item>
 
         <Row gutter={12}>
           <Col xs={24} md={12}>
-            <Form.Item name="chuTriId" label="Chủ trì">
-              <Select
-                allowClear
-                options={thanhVien
-                  .filter((x) => x.nguoiDungId)
-                  .map((x) => ({ value: x.nguoiDungId!, label: x.hoTenHienThi }))}
-              />
-            </Form.Item>
+            <Truong<GiaTriPhienHop> ten="thoiGianBatDau" label="Bắt đầu" required>
+              {(o) => (
+                <DatePicker
+                  value={(o.value as Dayjs | undefined) ?? null}
+                  onChange={o.onChange}
+                  onBlur={o.onBlur}
+                  status={o.status}
+                  showTime
+                  format="DD/MM/YYYY HH:mm"
+                  style={{ width: '100%' }}
+                />
+              )}
+            </Truong>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="thuKyId" label="Thư ký">
-              <Select
-                allowClear
-                options={thanhVien
-                  .filter((x) => x.nguoiDungId)
-                  .map((x) => ({ value: x.nguoiDungId!, label: x.hoTenHienThi }))}
-              />
-            </Form.Item>
+            <Truong<GiaTriPhienHop> ten="thoiGianKetThuc" label="Kết thúc (dự kiến)">
+              {(o) => (
+                <DatePicker
+                  value={(o.value as Dayjs | null | undefined) ?? null}
+                  onChange={o.onChange}
+                  onBlur={o.onBlur}
+                  status={o.status}
+                  showTime
+                  format="DD/MM/YYYY HH:mm"
+                  style={{ width: '100%' }}
+                />
+              )}
+            </Truong>
           </Col>
         </Row>
 
-        <Form.Item name="sangKienIds" label="Hồ sơ đưa ra họp">
-          <Select
-            mode="multiple"
-            allowClear
-            showSearch
-            optionFilterProp="label"
-            placeholder="Chọn hồ sơ sẽ xét trong phiên"
-            options={(hoSo?.duLieu ?? []).map((x) => ({
-              value: x.id,
-              label: `${x.maHoSo} — ${x.tenSangKien}`,
-            }))}
-          />
-        </Form.Item>
+        <Truong<GiaTriPhienHop> ten="diaDiem" label="Địa điểm">
+          {(o) => (
+            <Input {...o} value={o.value as string} placeholder="VD: Phòng họp A, trụ sở UBND" />
+          )}
+        </Truong>
 
-        <Form.Item name="noiDung" label="Nội dung, chương trình">
-          <Input.TextArea rows={3} />
-        </Form.Item>
-      </Form>
+        <Row gutter={12}>
+          <Col xs={24} md={12}>
+            <Truong<GiaTriPhienHop> ten="chuTriId" label="Chủ trì">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  allowClear
+                  options={thanhVien
+                    .filter((x) => x.nguoiDungId)
+                    .map((x) => ({ value: x.nguoiDungId!, label: x.hoTenHienThi }))}
+                />
+              )}
+            </Truong>
+          </Col>
+          <Col xs={24} md={12}>
+            <Truong<GiaTriPhienHop> ten="thuKyId" label="Thư ký">
+              {(o) => (
+                <Select
+                  {...o}
+                  value={o.value as string | undefined}
+                  allowClear
+                  options={thanhVien
+                    .filter((x) => x.nguoiDungId)
+                    .map((x) => ({ value: x.nguoiDungId!, label: x.hoTenHienThi }))}
+                />
+              )}
+            </Truong>
+          </Col>
+        </Row>
+
+        <Truong<GiaTriPhienHop> ten="sangKienIds" label="Hồ sơ đưa ra họp">
+          {(o) => (
+            <Select
+              {...o}
+              value={o.value as string[]}
+              mode="multiple"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Chọn hồ sơ sẽ xét trong phiên"
+              options={(hoSo?.duLieu ?? []).map((x) => ({
+                value: x.id,
+                label: `${x.maHoSo} — ${x.tenSangKien}`,
+              }))}
+            />
+          )}
+        </Truong>
+
+        <Truong<GiaTriPhienHop> ten="noiDung" label="Nội dung, chương trình">
+          {(o) => <Input.TextArea {...o} value={o.value as string} rows={3} />}
+        </Truong>
+      </BieuMau>
     </Modal>
   );
 }
