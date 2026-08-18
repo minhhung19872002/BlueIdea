@@ -148,9 +148,14 @@ public sealed class DichVuLoaiTacGia : DichVuDanhMucCoSo<LoaiTacGia>
 /// <summary>Chuc nang 5, 44, 47 - Co cau to chuc dang cay.</summary>
 public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
 {
-    public DichVuDonVi(IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo)
+    private readonly INguoiDungHienTai _nguoiDung;
+
+    public DichVuDonVi(
+        IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo,
+        INguoiDungHienTai nguoiDung)
         : base(db, phanQuyen, dongHo)
     {
+        _nguoiDung = nguoiDung;
     }
 
     protected override DbSet<DonVi> BangDuLieu => Db.DonVi;
@@ -215,6 +220,12 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     {
         await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DonViCauHinh, id, ct).ConfigureAwait(false);
 
+        await BatBuocDonViTrongPhamViAsync(id, ct).ConfigureAwait(false);
+        if (donViChaMoiId.HasValue)
+        {
+            await BatBuocDonViTrongPhamViAsync(donViChaMoiId.Value, ct).ConfigureAwait(false);
+        }
+
         var donVi = await Db.DonVi.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
             ?? throw new KhongTimThayException("đơn vị", id);
 
@@ -274,6 +285,21 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
         }
     }
 
+    private async Task BatBuocDonViTrongPhamViAsync(Guid donViId, CancellationToken ct)
+    {
+        var nguoiGoiId = _nguoiDung.Id
+                         ?? throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
+
+        var phamVi = await PhanQuyen.LayPhamViTruyCapAsync(nguoiGoiId, ct).ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong) return;
+
+        if (phamVi.ChiCaNhan || !phamVi.DonViIds.Contains(donViId))
+        {
+            throw new KhongTimThayException("đơn vị", donViId);
+        }
+    }
+
     /// <summary>
     /// Gop don vi <paramref name="nguonId"/> vao <paramref name="dichId"/> — dung khi sap nhap
     /// don vi hanh chinh.
@@ -284,6 +310,9 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     public async Task<int> GopAsync(Guid nguonId, Guid dichId, CancellationToken ct = default)
     {
         await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DonViCauHinh, ct: ct).ConfigureAwait(false);
+
+        await BatBuocDonViTrongPhamViAsync(nguonId, ct).ConfigureAwait(false);
+        await BatBuocDonViTrongPhamViAsync(dichId, ct).ConfigureAwait(false);
 
         if (nguonId == dichId)
         {

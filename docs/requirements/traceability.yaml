@@ -727,15 +727,16 @@ requirements:
     status: IMPLEMENTED_NOT_VERIFIED
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
-      backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
+      backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs", "src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs"]
       tests:
         - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
+        - "tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs"
     gaps:
       - "No test for tree-path auto-update when moving nodes"
-      - "ChuyenCha/Gop lack org-scope check — caller with DonViCauHinh can affect any unit (MEDIUM)"
     notes:
       - "Run-002-B17 SEC HIGH: ChuyenChaAsync/GopAsync now require DonViCauHinh permission"
       - "Run-002-B17: DonViController defense-in-depth — DonViXem for reads, DonViCauHinh for mutations"
+      - "Run-002-P0-B19 SEC MEDIUM: ChuyenChaAsync/GopAsync org-scope enforcement added — BatBuocDonViTrongPhamViAsync checks both source and target unit IDs against caller's PhamViTruyCap. ToanHeThong bypasses, ChiCaNhan/out-of-scope throws KhongTimThayException. 6 unit tests."
 
   - id: REQ-45
     source_number: 45
