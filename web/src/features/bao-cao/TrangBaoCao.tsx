@@ -17,7 +17,13 @@ import {
   type DongThoiGianXuLy,
   type MucThongKe,
 } from '@/api/endpoints';
-import { KhoiDangTai, KhoiLoi, KhoiRong, ngayGio } from '@/components/ThanhPhanChung';
+import {
+  KhoiDangTai,
+  KhoiKhongNhanRa,
+  KhoiLoi,
+  KhoiRong,
+  ngayGio,
+} from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 
 const CAU_HINH_BAO_CAO: Record<
@@ -80,6 +86,15 @@ const DS_TAB = [
 /** Chức năng 38–40 — Các báo cáo bắt buộc. */
 export default function TrangBaoCao() {
   const { loai = 'sang-kien-dat' } = useParams<{ loai: string }>();
+  /*
+   * Loại báo cáo lạ thì báo hẳn ra ở cuối hàm chứ không lặng lẽ hiện "Sáng kiến được công nhận".
+   * Hiện nhầm báo cáo nguy hiểm hơn báo lỗi: người dùng đem số liệu đó đi họp mà không biết mình
+   * đang xem báo cáo khác.
+   *
+   * Vẫn lấy cấu hình mặc định để các hook bên dưới chạy đủ: thoát sớm ở đây thì lần đổi loại từ
+   * hợp lệ sang không hợp lệ sẽ khiến React dựng ít hook hơn lần trước và vỡ.
+   */
+  const nhanRa = Object.prototype.hasOwnProperty.call(CAU_HINH_BAO_CAO, loai);
   const cauHinh = CAU_HINH_BAO_CAO[loai] ?? CAU_HINH_BAO_CAO['sang-kien-dat'];
 
   const [dotDeNghiId, setDotDeNghiId] = useState<string | undefined>();
@@ -102,7 +117,7 @@ export default function TrangBaoCao() {
     Array<DongBaoCaoSangKien | DongBaoCaoDonVi | DongBaoCaoTacGia | DongThoiGianXuLy>
   >({
     queryKey: ['bao-cao', loai, thamSo],
-    enabled: loai !== 'tong-hop-nam',
+    enabled: nhanRa && loai !== 'tong-hop-nam',
     queryFn: () => {
       if (loai === 'theo-don-vi') return apiBaoCao.theoDonVi(thamSo);
       if (loai === 'theo-tac-gia') return apiBaoCao.theoTacGia(thamSo);
@@ -114,9 +129,19 @@ export default function TrangBaoCao() {
 
   const tongHopNam = useQuery({
     queryKey: ['bao-cao-tong-hop-nam', nam, dotDeNghiId, linhVucId, donViId],
-    enabled: loai === 'tong-hop-nam',
+    enabled: nhanRa && loai === 'tong-hop-nam',
     queryFn: () => apiBaoCao.tongHopNam(nam, { dotDeNghiId, linhVucId, donViId }),
   });
+
+  if (!nhanRa) {
+    return (
+      <KhoiKhongNhanRa
+        ma={loai}
+        hopLe={Object.entries(CAU_HINH_BAO_CAO).map(([k, v]) => ({ ma: k, ten: v.tieuDe }))}
+        duongDanGoc="/bao-cao"
+      />
+    );
+  }
 
   if (truyVan.error) return <KhoiLoi loi={truyVan.error} thuLai={truyVan.refetch} />;
   if (tongHopNam.error) {

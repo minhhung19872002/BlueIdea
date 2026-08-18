@@ -37,7 +37,7 @@ import {
   type PhanHoiPhanTrang,
   type ThamSoLoc,
 } from '@/api/endpoints';
-import { KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
+import { KhoiKhongNhanRa, KhoiLoi, ngayGio } from '@/components/ThanhPhanChung';
 import { BocKeoTha, DongKeoTha } from '@/components/DongKeoTha';
 import { HopThoaiNhapDanhMuc } from './HopThoaiNhapDanhMuc';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
@@ -93,6 +93,18 @@ const CAU_HINH: Record<
 /** Chức năng 1–4 — Màn hình quản trị danh mục dùng chung. */
 export default function TrangDanhMuc() {
   const { ma = 'linh-vuc' } = useParams<{ ma: string }>();
+
+  /*
+   * Mã không nằm trong bảng thì báo hẳn ra ở cuối hàm, KHÔNG lặng lẽ hiện danh mục lĩnh vực.
+   *
+   * Rơi về mặc định nghĩa là gõ sai địa chỉ — hoặc vào một mục chưa dựng màn hình — lại hiện ra
+   * "Danh mục lĩnh vực" trông hoàn toàn bình thường, và người dùng tưởng mình đang xem đúng thứ
+   * vừa chọn. Đây cũng là thứ đã che một chức năng thiếu suốt nhiều lần rà soát.
+   *
+   * Vẫn lấy cấu hình mặc định để các hook bên dưới chạy đủ và đúng thứ tự: thoát sớm ở đây thì
+   * lần đổi mã từ hợp lệ sang không hợp lệ sẽ khiến React dựng ít hook hơn lần trước và vỡ.
+   */
+  const nhanRa = Object.prototype.hasOwnProperty.call(CAU_HINH, ma);
   const cauHinh = CAU_HINH[ma] ?? CAU_HINH['linh-vuc'];
 
   const { message, modal } = App.useApp();
@@ -112,6 +124,7 @@ export default function TrangDanhMuc() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['danh-muc', ma, thamSo],
     queryFn: () => cauHinh.api.danhSach(thamSo),
+    enabled: nhanRa,
   });
 
   const luu = useMutation({
@@ -154,6 +167,16 @@ export default function TrangDanhMuc() {
         content: loi instanceof LoiApi ? loi.message : 'Đã xảy ra lỗi.',
       }),
   });
+
+  if (!nhanRa) {
+    return (
+      <KhoiKhongNhanRa
+        ma={ma}
+        hopLe={Object.entries(CAU_HINH).map(([k, v]) => ({ ma: k, ten: v.tieuDe }))}
+        duongDanGoc="/quan-tri/danh-muc"
+      />
+    );
+  }
 
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
 

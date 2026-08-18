@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { LoiApi } from '@/api/client';
 import { apiHeThong, type CauHinhMuc } from '@/api/endpoints';
-import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
+import { KhoiDangTai, KhoiKhongNhanRa, KhoiLoi } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
 import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 import { DS_TAB_CAU_HINH } from './cauHinhTab';
@@ -109,6 +109,14 @@ type GiaTriCauHinh = Record<string, unknown>;
 /** Chức năng 46, 51 — Cấu hình hệ thống theo nhóm. */
 export default function TrangCauHinhHeThong() {
   const { nhom = 'he-thong' } = useParams<{ nhom: string }>();
+  /*
+   * Nhóm cấu hình lạ thì báo hẳn ra chứ không lặng lẽ hiện nhóm "Cấu hình hệ thống". Ở màn hình
+   * cấu hình thì hiện nhầm nhóm còn nguy hiểm hơn nơi khác: người dùng sửa và bấm Lưu, tưởng
+   * mình vừa đổi cấu hình email nhưng thực ra vừa ghi đè cấu hình chung.
+   *
+   * Vẫn lấy nhóm mặc định để các hook bên dưới chạy đủ và đúng thứ tự.
+   */
+  const nhanRa = Object.prototype.hasOwnProperty.call(NHOM_THEO_DUONG_DAN, nhom);
   const cauHinhTrang = NHOM_THEO_DUONG_DAN[nhom] ?? NHOM_THEO_DUONG_DAN['he-thong'];
 
   const { message } = App.useApp();
@@ -125,6 +133,7 @@ export default function TrangCauHinhHeThong() {
   const truyVan = useQuery({
     queryKey: ['cau-hinh', cauHinhTrang.nhom],
     queryFn: () => apiHeThong.cauHinh(cauHinhTrang.nhom),
+    enabled: nhanRa,
   });
 
   useEffect(() => {
@@ -169,6 +178,16 @@ export default function TrangCauHinhHeThong() {
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được.'),
   });
+
+  if (!nhanRa) {
+    return (
+      <KhoiKhongNhanRa
+        ma={nhom}
+        hopLe={Object.entries(NHOM_THEO_DUONG_DAN).map(([k, v]) => ({ ma: k, ten: v.tieuDe }))}
+        duongDanGoc="/quan-tri/cau-hinh"
+      />
+    );
+  }
 
   if (truyVan.isLoading) return <KhoiDangTai />;
   if (truyVan.error) return <KhoiLoi loi={truyVan.error} thuLai={truyVan.refetch} />;
