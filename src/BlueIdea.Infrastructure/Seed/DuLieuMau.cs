@@ -60,29 +60,55 @@ public sealed partial class DuLieuMau
 
     private async Task SeedQuyenVaVaiTroAsync(CancellationToken ct)
     {
-        if (!await _db.Quyen.AnyAsync(ct).ConfigureAwait(false))
-        {
-            var thuTu = 1;
-            foreach (var (ma, ten, nhom) in DanhSachQuyenChuan())
-            {
-                _db.Quyen.Add(new Quyen
-                {
-                    Ma = ma,
-                    Ten = ten,
-                    NhomChucNang = nhom,
-                    ThuTu = thuTu++
-                });
-            }
+        /*
+         * Doi chieu theo MA thay vi "bang rong thi nap".
+         *
+         * Truoc day chi nap khi bang con rong, nen mot quyen them o phien ban sau khong bao gio
+         * toi duoc he thong da cai dat. Hau qua khong hien ra ngay ma rat kho lan: khong co dong
+         * trong bang quyen -> khong hien tren man hinh ma tran vai tro -> khong ai cap duoc, ke ca
+         * quan tri vien -> endpoint bao ve bang quyen do tra 403 cho tat ca moi nguoi, vinh vien.
+         */
+        var quyenDaCo = await _db.Quyen
+            .Where(x => !x.DaXoa)
+            .ToDictionaryAsync(x => x.Ma, ct)
+            .ConfigureAwait(false);
 
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        var thuTu = quyenDaCo.Count + 1;
+        var quyenMoi = new List<Quyen>();
+
+        foreach (var (ma, ten, nhom) in DanhSachQuyenChuan())
+        {
+            if (quyenDaCo.ContainsKey(ma)) continue;
+
+            var q = new Quyen
+            {
+                Ma = ma,
+                Ten = ten,
+                NhomChucNang = nhom,
+                ThuTu = thuTu++
+            };
+
+            _db.Quyen.Add(q);
+            quyenMoi.Add(q);
         }
+
+        if (quyenMoi.Count > 0)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation("Da bo sung {SoQuyen} quyen con thieu.", quyenMoi.Count);
+        }
+
+        var tatCaQuyen = await _db.Quyen
+            .Where(x => !x.DaXoa)
+            .ToDictionaryAsync(x => x.Ma, ct)
+            .ConfigureAwait(false);
+
+        await CapQuyenMoiChoQuanTriAsync(tatCaQuyen, ct).ConfigureAwait(false);
 
         if (await _db.VaiTro.AnyAsync(ct).ConfigureAwait(false))
         {
             return;
         }
-
-        var tatCaQuyen = await _db.Quyen.ToDictionaryAsync(x => x.Ma, ct).ConfigureAwait(false);
 
         foreach (var (ma, ten, moTa, quyenCuaVaiTro, phamVi) in DanhSachVaiTroChuan())
         {
@@ -118,6 +144,45 @@ public sealed partial class DuLieuMau
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Cap moi quyen vua bo sung cho vai tro Quan tri he thong.
+    ///
+    /// Vai tro nay duoc dac ta dinh nghia la "toan quyen cau hinh", va danh sach quyen cua no
+    /// truoc day duoc tinh MOT LAN luc cai dat. Khong lam buoc nay thi quyen moi co dong trong
+    /// bang nhung khong ai duoc cap — ke ca quan tri vien — nen chuc nang moi khoa cung.
+    ///
+    /// Chi THEM, khong bao gio go: quan tri vien co the da co y bo bot quyen cua mot vai tro khac,
+    /// va viec cua ham nay khong phai la dat lai ma tran quyen ve mac dinh.
+    /// </summary>
+    private async Task CapQuyenMoiChoQuanTriAsync(
+        IReadOnlyDictionary<string, Quyen> tatCaQuyen, CancellationToken ct)
+    {
+        var quanTri = await _db.VaiTro
+            .Include(x => x.DanhSachQuyen)
+            .FirstOrDefaultAsync(x => x.Ma == MaVaiTro.QuanTriHeThong && !x.DaXoa, ct)
+            .ConfigureAwait(false);
+
+        if (quanTri is null) return;
+
+        var daCo = quanTri.DanhSachQuyen.Select(x => x.QuyenId).ToHashSet();
+        var soThem = 0;
+
+        foreach (var q in tatCaQuyen.Values)
+        {
+            if (daCo.Contains(q.Id)) continue;
+
+            quanTri.DanhSachQuyen.Add(new VaiTroQuyen { VaiTroId = quanTri.Id, QuyenId = q.Id });
+            soThem++;
+        }
+
+        if (soThem > 0)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Da cap {SoQuyen} quyen moi cho vai tro Quan tri he thong.", soThem);
+        }
     }
 
     private static IEnumerable<(string Ma, string Ten, string Nhom)> DanhSachQuyenChuan() => new[]
