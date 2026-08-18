@@ -69,7 +69,7 @@ public sealed class MfaController : ControllerBase
 
     /// <summary>
     /// Quản trị viên gỡ MFA cho tài khoản khác — dùng khi người dùng mất thiết bị và hết mã
-    /// khôi phục. Ghi nhật ký như mọi thao tác đổi dữ liệu.
+    /// khôi phục. Ghi nhật ký, thu hồi phiên, kiểm tra phạm vi đơn vị. Không dùng cho chính mình.
     /// </summary>
     [HttpPost("go/{nguoiDungId:guid}")]
     [Authorize(Policy = MaQuyen.NguoiDungDatLaiMatKhau)]

@@ -35,6 +35,8 @@ public sealed class DichVuMfa
     private readonly IDichVuMatKhau _matKhau;
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IDongHoHeThong _dongHo;
+    private readonly IDichVuPhanQuyen _phanQuyen;
+    private readonly IDichVuNhatKy _nhatKy;
 
     public DichVuMfa(
         IAppDbContext db,
@@ -42,7 +44,9 @@ public sealed class DichVuMfa
         IDichVuMaHoa maHoa,
         IDichVuMatKhau matKhau,
         IDichVuCauHinh cauHinh,
-        IDongHoHeThong dongHo)
+        IDongHoHeThong dongHo,
+        IDichVuPhanQuyen phanQuyen,
+        IDichVuNhatKy nhatKy)
     {
         _db = db;
         _nguoiDungHienTai = nguoiDungHienTai;
@@ -50,6 +54,8 @@ public sealed class DichVuMfa
         _matKhau = matKhau;
         _cauHinh = cauHinh;
         _dongHo = dongHo;
+        _phanQuyen = phanQuyen;
+        _nhatKy = nhatKy;
     }
 
     /// <summary>Trang thai MFA cua chinh nguoi dang dang nhap.</summary>
@@ -210,13 +216,41 @@ public sealed class DichVuMfa
     /// </summary>
     public async Task GoMfaChoNguoiKhacAsync(Guid nguoiDungId, CancellationToken ct = default)
     {
+        if (nguoiDungId == _nguoiDungHienTai.Id)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Dùng luồng tắt MFA thông thường để gỡ MFA của chính mình.");
+        }
+
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungDatLaiMatKhau, nguoiDungId, ct)
+            .ConfigureAwait(false);
+
         var nguoiDung = await _db.NguoiDung.FirstOrDefaultAsync(x => x.Id == nguoiDungId, ct)
             .ConfigureAwait(false)
             ?? throw new NghiepVuException(MaLoiHeThong.KhongTimThay, "Không tìm thấy tài khoản.");
 
+        await BatBuocNguoiDungTrongPhamViAsync(nguoiDung, ct).ConfigureAwait(false);
+
+        var truoc = new { nguoiDung.MfaEnabled, nguoiDung.MfaNgayBat };
+
         XoaSachMfa(nguoiDung);
 
+        var bayGio = _dongHo.BayGio;
+        var tokenDangMo = await _db.RefreshToken
+            .Where(x => x.NguoiDungId == nguoiDungId && x.ThoiGianThuHoi == null)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var token in tokenDangMo)
+        {
+            token.ThoiGianThuHoi = bayGio;
+        }
+
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        await _nhatKy.GhiAsync("GO_MFA_NGUOI_KHAC", "QUAN_TRI", "NguoiDung", nguoiDungId,
+            $"Gỡ MFA cho {nguoiDung.TenDangNhap}", duLieuTruoc: truoc, ct: ct)
+            .ConfigureAwait(false);
     }
 
     // ---------------------------------------------------------------- Dung trong luong dang nhap
@@ -256,6 +290,22 @@ public sealed class DichVuMfa
     }
 
     // ---------------------------------------------------------------- Ham phu tro
+
+    private async Task BatBuocNguoiDungTrongPhamViAsync(NguoiDung mucTieu, CancellationToken ct)
+    {
+        var nguoiGoiId = _nguoiDungHienTai.Id
+                         ?? throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiGoiId, ct).ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong) return;
+
+        if (phamVi.ChiCaNhan || !mucTieu.DonViId.HasValue
+                              || !phamVi.DonViIds.Contains(mucTieu.DonViId.Value))
+        {
+            throw new NghiepVuException(MaLoiHeThong.KhongTimThay, "Không tìm thấy tài khoản.");
+        }
+    }
 
     private async Task<NguoiDung> LayChinhMinhAsync(CancellationToken ct)
     {

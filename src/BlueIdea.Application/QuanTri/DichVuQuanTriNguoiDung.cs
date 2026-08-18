@@ -81,11 +81,12 @@ public sealed class DichVuQuanTriNguoiDung
     private readonly IDongHoHeThong _dongHo;
     private readonly IDichVuMaHoa _maHoa;
     private readonly IDichVuNhatKy _nhatKy;
+    private readonly INguoiDungHienTai _nguoiDungHienTai;
 
     public DichVuQuanTriNguoiDung(
         IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDichVuMatKhau matKhau,
         IDichVuCauHinh cauHinh, IDongHoHeThong dongHo, IDichVuMaHoa maHoa,
-        IDichVuNhatKy nhatKy)
+        IDichVuNhatKy nhatKy, INguoiDungHienTai nguoiDungHienTai)
     {
         _db = db;
         _phanQuyen = phanQuyen;
@@ -94,6 +95,7 @@ public sealed class DichVuQuanTriNguoiDung
         _dongHo = dongHo;
         _maHoa = maHoa;
         _nhatKy = nhatKy;
+        _nguoiDungHienTai = nguoiDungHienTai;
     }
 
     public async Task<ThongTinNguoiDungDto> ChiTietAsync(Guid id, CancellationToken ct = default)
@@ -283,6 +285,8 @@ public sealed class DichVuQuanTriNguoiDung
 
         var nguoiDung = await _db.NguoiDung.FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("người dùng", id);
+
+        await BatBuocNguoiDungTrongPhamViAsync(nguoiDung, ct).ConfigureAwait(false);
 
         var matKhauTam = await SinhMatKhauTamAsync(ct).ConfigureAwait(false);
         var (hash, salt) = _matKhau.BamMatKhau(matKhauTam);
@@ -561,5 +565,21 @@ public sealed class DichVuQuanTriNguoiDung
             .ConfigureAwait(false);
 
         return BoSinhMatKhauTam.Sinh(Math.Max(12, doDaiToiThieu));
+    }
+
+    private async Task BatBuocNguoiDungTrongPhamViAsync(NguoiDung mucTieu, CancellationToken ct)
+    {
+        var nguoiGoiId = _nguoiDungHienTai.Id
+                         ?? throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiGoiId, ct).ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong) return;
+
+        if (phamVi.ChiCaNhan || !mucTieu.DonViId.HasValue
+                              || !phamVi.DonViIds.Contains(mucTieu.DonViId.Value))
+        {
+            throw new KhongTimThayException("người dùng", mucTieu.Id);
+        }
     }
 }
