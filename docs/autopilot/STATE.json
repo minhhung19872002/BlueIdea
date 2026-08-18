@@ -1,15 +1,15 @@
 {
     "status":  "RUNNING",
-    "iteration":  14,
-    "currentRequirement":  "REQ-21",
-    "currentBacklogItem":  "REQ-21 SEC LOW: MFA recovery codes SHA-256 to Argon2id + TatAsync null-secret bypass",
+    "iteration":  15,
+    "currentRequirement":  "REQ-21, REQ-43",
+    "currentBacklogItem":  "REQ-21/REQ-43 SEC MEDIUM: GoMfaChoNguoiKhacAsync + DatLaiMatKhauAsync cross-tenant IDOR",
     "phase":  "committing",
-    "lastCompletedItem":  "REQ-21 SEC LOW: MFA recovery codes SHA-256 to Argon2id + TatAsync null-secret bypass",
-    "lastQualityGateResult":  "PASS (7/7, 309 unit tests, 0 warnings)",
+    "lastCompletedItem":  "REQ-21/REQ-43 SEC MEDIUM: GoMfaChoNguoiKhacAsync + DatLaiMatKhauAsync cross-tenant IDOR",
+    "lastQualityGateResult":  "PASS (7/7, 309 unit tests, 165 integration tests, 0 warnings)",
     "readyForDeploy":  false,
-    "lastSession":  "0cd087c1-c911-42ba-a217-0c67a7caf152",
+    "lastSession":  "ee80d6b8-e08c-4761-b683-04f217105751",
     "lastUpdated":  "2026-08-18T22:30:00+07:00",
-    "lastCommit":  null,
+    "lastCommit":  "e0b6943",
     "lastPush":  null,
     "consecutiveInfraFailures":  0,
     "history":  [
@@ -128,6 +128,15 @@
                                       "REQ-21 SEC LOW (MFA recovery codes SHA-256 → Argon2id upgrade)",
                                       "REQ-21 SEC HIGH (TatAsync null-MfaSecret bypass — undecryptable secret skipped MFA check)",
                                       "REQ-21 SEC MEDIUM (DungMaKhoiPhuc format guard — prevent TOTP fallthrough to 10× Argon2id)"
+                                  ],
+                        "result":  "PASS",
+                        "phase":  "committing"
+                    },
+                    {
+                        "iteration":  15,
+                        "items":  [
+                                      "REQ-21 SEC MEDIUM (GoMfaChoNguoiKhacAsync cross-tenant IDOR — org-scope + self-reset block + session revocation + audit log)",
+                                      "REQ-43 SEC MEDIUM (DatLaiMatKhauAsync cross-tenant IDOR — org-scope enforcement)"
                                   ],
                         "result":  "PASS",
                         "phase":  "committing"

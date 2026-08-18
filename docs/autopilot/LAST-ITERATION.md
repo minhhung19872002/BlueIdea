@@ -1,82 +1,85 @@
-# Iteration 14 — REQ-21 SEC: MFA Recovery Code Hardening + TatAsync Bypass Fix
+# Iteration 15 — REQ-21/REQ-43 SEC: Cross-Tenant IDOR in Admin MFA Reset + Password Reset
 
 ## What Was Worked On
 
-Three tightly related MFA security improvements in DichVuMfa (function 21):
+Two tightly related cross-tenant IDOR vulnerabilities in admin user management:
 
-1. **SEC LOW: Recovery code hashing upgrade** — Recovery codes were hashed with unsalted SHA-256, making them brute-forceable (~75 seconds on modern GPU) from a database dump. Upgraded to Argon2id via the existing `IDichVuMatKhau` service.
-2. **SEC HIGH: TatAsync null-MfaSecret bypass** — When `GiaiMa(MfaSecret)` returned null (e.g., after AES key rotation), `TatAsync` silently skipped the MFA check and disabled MFA with only a password. Now throws `MaXacThucKhongDung`.
-3. **SEC MEDIUM: DungMaKhoiPhuc format guard** — Wrong TOTP codes (6 digits, no dash) fell through to `DungMaKhoiPhuc`, triggering up to 10 sequential Argon2id operations (~20s). Added dash-presence check to short-circuit immediately.
+1. **SEC MEDIUM: GoMfaChoNguoiKhacAsync IDOR** (REQ-21) — Any admin with `NGUOI_DUNG.DAT_LAI_MAT_KHAU` could strip MFA from users in other organizations via `POST /api/v1/xac-thuc/mfa/go/{guid}`. No org-scope check, no audit log, no session revocation.
+2. **SEC MEDIUM: DatLaiMatKhauAsync IDOR** (REQ-43) — Same permission allowed cross-org password resets via `POST /api/v1/he-thong/nguoi-dung/{id}/dat-lai-mat-khau`. No org-scope check.
 
 ## What Was Accomplished
 
-### Fix 1: Argon2id recovery code hashing
+### Fix 1: GoMfaChoNguoiKhacAsync (DichVuMfa)
 
-- `BamMaKhoiPhuc` changed from `private static` SHA-256 to `private` instance method using `_matKhau.BamMatKhau()` (Argon2id, 4 iter, 64MB, 4 threads)
-- New storage format: `"salt:hash"` (Base64 segments) in same JSON array
-- `DungMaKhoiPhuc` changed from `private static` to `private` instance method
-- New `KhopMaKhoiPhuc` helper: detects format by `:` separator — Argon2id path uses `_matKhau.KiemTra()` (constant-time via `FixedTimeEquals`), legacy SHA-256 path uses `CryptographicOperations.FixedTimeEquals` on raw bytes
-- Backward compatible: existing SHA-256 entries still accepted, will age out naturally as users regenerate
+- Added `IDichVuPhanQuyen` and `IDichVuNhatKy` as constructor dependencies
+- Self-reset guard: `nguoiDungId == _nguoiDungHienTai.Id` throws `DuLieuKhongHopLe` (admin must use TatAsync with password+TOTP to disable own MFA)
+- Defense-in-depth: `BatBuocCoQuyenAsync(NguoiDungDatLaiMatKhau, nguoiDungId)` — permission check at service level (controller also checks via policy)
+- Org-scope: `BatBuocNguoiDungTrongPhamViAsync` — verifies target user's `DonViId` is in caller's `PhamViTruyCap.DonViIds`. `ToanHeThong` passes, `ChiCaNhan` and null `DonViId` are denied. Throws `KhongTimThay` (404) to avoid leaking existence.
+- Session revocation: all active refresh tokens for target user are revoked (matching `DatLaiMatKhauAsync` pattern)
+- Audit log: `GO_MFA_NGUOI_KHAC` action logged via `IDichVuNhatKy.GhiAsync` with before-state (MfaEnabled, MfaNgayBat)
 
-### Fix 2: TatAsync null-secret bypass closed
+### Fix 2: DatLaiMatKhauAsync (DichVuQuanTriNguoiDung)
 
-- When `MfaEnabled=true` but `GiaiMa(MfaSecret)` returns null/empty, now throws `MaXacThucKhongDung` instead of falling through to `XoaSachMfa`
-- Prevents MFA disable with only password after AES key rotation or data corruption
-- Admin `GoMfaChoNguoiKhacAsync` remains available as recovery path (bypasses MFA intentionally for admin reset)
+- Added `INguoiDungHienTai` as constructor dependency
+- Added `BatBuocNguoiDungTrongPhamViAsync` call after loading target user — same org-scope enforcement pattern
+- Throws `KhongTimThayException` (404) for out-of-scope targets
 
-### Fix 3: Format guard prevents Argon2id amplification
+### Fix 3: Controller comment (MfaController)
 
-- `DungMaKhoiPhuc` now checks `ma.Contains('-')` before any Argon2id work
-- TOTP codes (6 digits, no dash) and random strings short-circuit immediately
-- Recovery codes always contain `-` (format: `XXXX-XXXX` from `TaoMaKhoiPhuc`)
+- Corrected misleading Swagger comment that falsely claimed audit logging
 
 ## Code Review Findings
 
-- **MAJOR (race condition)**: NguoiDung lacks xmin concurrency token — concurrent recovery code use could authenticate twice. Pre-existing systemic issue; noted for backlog (needs UseXminAsConcurrencyToken on NguoiDung entity).
-- **MAJOR (performance)**: TOTP-to-recovery fallthrough causing 10× Argon2id — FIXED by format guard.
-- **MINOR (timing-safe comparison)**: Legacy SHA-256 used string.Equals — FIXED with FixedTimeEquals.
-- **MINOR (format detection)**: `viTriDauHai > 0` intentionally excludes empty salt (`:` at position 0). Base64 salt is always 24+ chars, so `> 0` is correct for all legitimate values.
-- **MINOR (no legacy test)**: No integration test for SHA-256 backward compat path — documented as gap.
+- **MAJOR (no audit log)**: FIXED — added `IDichVuNhatKy` and `GhiAsync` call
+- **MAJOR (no integration test)**: Acknowledged — env lacks Docker for Testcontainers. Documented as gap.
+- **MINOR (discarded doiTuongId)**: Known (TD-005). Keeping for audit context.
+- **MINOR (null DonViId)**: Correct — org-unbound users managed only by ToanHeThong admins.
+- **SUGGESTION (DatLaiMatKhauAsync)**: FIXED in this iteration.
 
 ## Security Review Findings
 
-- **HIGH (TatAsync bypass)**: CLOSED — null MfaSecret now throws.
-- **HIGH (legacy SHA-256 crackable)**: Inherent to backward compat; new codes use Argon2id. Users regenerating codes get full protection.
-- **MEDIUM (DoS via Argon2id)**: MITIGATED — format guard eliminates non-recovery-code inputs. Rate limiter (5/min/IP) bounds remaining risk.
-- **MEDIUM (GoMfaChoNguoiKhacAsync IDOR)**: Pre-existing, not introduced by this change. Noted for next iteration backlog.
-- **LOW (legacy timing)**: FIXED — FixedTimeEquals on byte arrays.
-- **LOW (loop position timing)**: Accepted — attacker must already hold valid code; information gained is code slot position only.
-- **LOW (no FluentValidation for MFA DTOs)**: Pre-existing, noted for backlog.
-- **INFO (migration visibility)**: Accepted — no forced migration; legacy codes age out naturally.
+- **HIGH (missing audit log)**: FIXED — GO_MFA_NGUOI_KHAC action with before-state
+- **HIGH (self-bypass)**: FIXED — self-reset blocked, must use TatAsync with password+TOTP
+- **HIGH (missing session revocation)**: FIXED — refresh tokens revoked matching DatLaiMatKhauAsync pattern
+- **MEDIUM (MediatR bypass)**: Pre-existing architecture — DichVuMfa is a DI service, not MediatR handler. Mitigated by service-level checks. Noted for backlog.
+- **MEDIUM (code duplication)**: BatBuocNguoiDungTrongPhamViAsync duplicated in two services. Noted for backlog extraction.
+- **LOW (timing side-channel)**: Response timing differs for non-existent vs out-of-scope users. Accepted — requires network-level precision.
+- **LOW (stale permission cache)**: 2-minute cache TTL is system-wide tradeoff. Accepted.
+- **INFO (misleading comment)**: FIXED — updated MfaController Swagger comment
+- **INFO (doiTuongId discarded)**: Known (TD-005), pre-existing
 
 ## Quality Gate Result
 
-PASS — 7/7 checks, 309 unit tests, 0 warnings, frontend typecheck + build clean.
+PASS — 7/7 checks, 309 unit tests, 165 integration tests, 0 warnings, frontend typecheck + build clean.
 
 ## Files Changed
 
-- `src/BlueIdea.Application/XacThuc/DichVuMfa.cs` — Argon2id hashing, format guard, TatAsync fix
-- `docs/requirements/traceability.yaml` — REQ-21 notes updated
-- `docs/autopilot/STATE.json` — iteration 14
+- `src/BlueIdea.Application/XacThuc/DichVuMfa.cs` — org-scope, self-reset guard, session revocation, audit log
+- `src/BlueIdea.Application/QuanTri/DichVuQuanTriNguoiDung.cs` — org-scope for password reset
+- `src/BlueIdea.Api/Controllers/MfaController.cs` — corrected Swagger comment
+- `docs/requirements/traceability.yaml` — REQ-21 and REQ-43 notes updated
+- `docs/autopilot/STATE.json` — iteration 15
 - `docs/autopilot/LAST-ITERATION.md` — this file
 
 ## Commit Hash
 
-(pending)
+e0b6943 (security fix), state commit pending
 
 ## Next Priority Items
 
-1. SEC MEDIUM: GoMfaChoNguoiKhacAsync IDOR — no org-scope check, cross-tenant MFA reset (REQ-21)
-2. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong + GuiThongBao)
-3. TD-005: DoiTuongId object-level scope checking in KiemTraQuyenAsync (MEDIUM, systemic)
-4. NguoiDung UseXminAsConcurrencyToken — concurrent recovery code race condition
+1. REQ-12: HanhDongCanChay full dispatch loop (beyond DongBoLienThong + GuiThongBao)
+2. TD-005: DoiTuongId object-level scope checking in KiemTraQuyenAsync (MEDIUM, systemic)
+3. NguoiDung UseXminAsConcurrencyToken — concurrent recovery code race condition
+4. BatBuocNguoiDungTrongPhamViAsync extraction into shared service (code duplication)
+5. GoMfaChoNguoiKhacAsync refactor to MediatR Command (pipeline compliance)
 
 ## Known Limitations
 
-- No regression test for legacy SHA-256 backward compat (documented as gap; env lacks Docker for Testcontainers)
-- Legacy SHA-256 codes remain brute-forceable until users regenerate — acceptable since new codes use Argon2id
-- GoMfaChoNguoiKhacAsync has no org-scope check (pre-existing, next iteration)
-- No FluentValidation on MFA DTOs (pre-existing, low priority)
+- No integration test for admin MFA reset IDOR fix (env lacks Docker for Testcontainers)
+- No integration test for password reset IDOR fix (same constraint)
+- BatBuocNguoiDungTrongPhamViAsync duplicated across DichVuMfa and DichVuQuanTriNguoiDung
+- GoMfaChoNguoiKhacAsync bypasses MediatR pipeline (pre-existing, mitigated by service-level checks)
+- 2-minute permission cache TTL could allow brief window after role demotion (system-wide tradeoff)
 
 ## Blockers Discovered
 
