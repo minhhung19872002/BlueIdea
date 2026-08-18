@@ -1466,6 +1466,36 @@ export interface BieuMauDaPhanGiai {
   truongThieu: string[];
 }
 
+export interface CotBaoCao {
+  ma: string;
+  tieuDe: string;
+  nguon: string;
+  hamTongHop?: string | null;
+  thuTu: number;
+}
+
+export interface BieuMauThongKeChiTiet extends DanhMucDto {
+  loaiBaoCao?: string | null;
+  cauHinhCot: CotBaoCao[];
+  dinhDangXuat: string[];
+}
+
+export interface LuuBieuMauThongKe {
+  ma: string;
+  ten: string;
+  moTa?: string | null;
+  loaiBaoCao?: string | null;
+  thuTu: number;
+  trangThai: number;
+  cauHinhCot: CotBaoCao[];
+  dinhDangXuat: string[];
+}
+
+/** Chức năng 7 — Biểu mẫu thống kê dùng cho báo cáo tuỳ biến. */
+export const apiBieuMauThongKe = taoApiDanhMuc<BieuMauThongKeChiTiet, LuuBieuMauThongKe>(
+  '/api/v1/danh-muc/bieu-mau-thong-ke',
+);
+
 export const apiBieuMauXuat = {
   ...taoApiDanhMuc<BieuMauXuat, LuuBieuMauXuat>('/api/v1/danh-muc/bieu-mau-xuat'),
   truongKhaDung: (loai: string) =>

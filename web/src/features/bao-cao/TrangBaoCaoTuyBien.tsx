@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   App,
   Button,
@@ -42,7 +43,14 @@ const DS_TAB = [
 export default function TrangBaoCaoTuyBien() {
   const { message } = App.useApp();
 
-  const [bieuMauId, setBieuMauId] = useState<string | undefined>();
+  /*
+   * Nhận sẵn biểu mẫu qua địa chỉ: màn hình quản trị Biểu mẫu thống kê có nút "chạy thử" trỏ
+   * sang đây, mở ra mà phải tự tìm lại đúng biểu mẫu vừa sửa trong ô chọn thì nút đó vô nghĩa.
+   */
+  const [thamSoUrl] = useSearchParams();
+  const [bieuMauId, setBieuMauId] = useState<string | undefined>(
+    thamSoUrl.get('bieuMauId') ?? undefined,
+  );
   const [dotDeNghiId, setDotDeNghiId] = useState<string | undefined>();
   const [donViId, setDonViId] = useState<string | undefined>();
   const [linhVucId, setLinhVucId] = useState<string | undefined>();
