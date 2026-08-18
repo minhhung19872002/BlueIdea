@@ -1,20 +1,47 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { App, Alert, Button, Form, Input, Steps } from 'antd';
+import { App, Alert, Button, Input, Steps } from 'antd';
 import { LockOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons';
+import { z } from 'zod';
 
 import { guiDuLieu, LoiApi } from '@/api/client';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc } from '@/components/bieu-mau/luat';
 
-interface FormYeuCau {
-  dinhDanh: string;
-}
+const luatYeuCau = z.object({
+  dinhDanh: batBuoc('Tên đăng nhập hoặc email', 200),
+});
 
-interface FormDatLai {
-  ma: string;
-  matKhauMoi: string;
-  xacNhan: string;
-}
+type FormYeuCau = z.infer<typeof luatYeuCau>;
+
+/**
+ * Luật đặt lại mật khẩu.
+ *
+ * Mã đặt lại là 6 chữ số: bắt định dạng ngay tại đây để người dán nhầm cả dòng chữ trong email
+ * biết ngay, thay vì gửi lên rồi nhận về "mã không đúng" và tưởng mã đã hết hạn.
+ */
+const luatDatLai = z
+  .object({
+    tenDangNhap: batBuoc('Tên đăng nhập', 100),
+    ma: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, 'Mã đặt lại gồm đúng 6 chữ số.'),
+    matKhauMoi: z.string().min(8, 'Mật khẩu mới phải có ít nhất 8 ký tự.'),
+    xacNhan: z.string().min(1, 'Vui lòng nhập lại mật khẩu.'),
+  })
+  .superRefine((giaTri, ctx) => {
+    if (giaTri.matKhauMoi !== giaTri.xacNhan) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['xacNhan'],
+        message: 'Hai mật khẩu không khớp.',
+      });
+    }
+  });
+
+type FormDatLai = z.infer<typeof luatDatLai>;
 
 /**
  * Chức năng 21 — Quên mật khẩu, đặt lại bằng mã OTP gửi qua email.
@@ -28,8 +55,15 @@ export default function TrangQuenMatKhau() {
   const { tenHeThong } = useCauHinhStore();
 
   const [buoc, setBuoc] = useState(0);
-  const [tenDangNhap, setTenDangNhap] = useState('');
   const [dangGui, setDangGui] = useState(false);
+
+  const formYeuCau = useBieuMau(luatYeuCau, { dinhDanh: '' });
+  const formDatLai = useBieuMau<FormDatLai>(luatDatLai, {
+    tenDangNhap: '',
+    ma: '',
+    matKhauMoi: '',
+    xacNhan: '',
+  });
 
   async function guiYeuCau(giaTri: FormYeuCau) {
     setDangGui(true);
@@ -38,7 +72,8 @@ export default function TrangQuenMatKhau() {
 
       // Người dùng có thể nhập email, nhưng bước 2 cần tên đăng nhập. Nếu họ nhập email,
       // ô tên đăng nhập ở bước sau để trống cho họ tự điền.
-      setTenDangNhap(giaTri.dinhDanh.includes('@') ? '' : giaTri.dinhDanh.trim());
+      const tenSuyRa = giaTri.dinhDanh.includes('@') ? '' : giaTri.dinhDanh.trim();
+      formDatLai.reset({ tenDangNhap: tenSuyRa, ma: '', matKhauMoi: '', xacNhan: '' });
       setBuoc(1);
     } catch (loi) {
       message.error(loi instanceof LoiApi ? loi.message : 'Không gửi được yêu cầu.');
@@ -47,7 +82,7 @@ export default function TrangQuenMatKhau() {
     }
   }
 
-  async function datLai(giaTri: FormDatLai & { tenDangNhap: string }) {
+  async function datLai(giaTri: FormDatLai) {
     setDangGui(true);
     try {
       await guiDuLieu('/api/v1/xac-thuc/dat-lai-mat-khau', {
@@ -81,19 +116,24 @@ export default function TrangQuenMatKhau() {
         />
 
         {buoc === 0 ? (
-          <Form<FormYeuCau> layout="vertical" onFinish={guiYeuCau} requiredMark={false} size="large">
-            <Form.Item
-              name="dinhDanh"
-              label="Tên đăng nhập hoặc email"
-              rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập hoặc email' }]}
-            >
-              <Input prefix={<UserOutlined />} autoFocus autoComplete="username" />
-            </Form.Item>
+          <BieuMau form={formYeuCau} onGui={guiYeuCau}>
+            <Truong<FormYeuCau> ten="dinhDanh" label="Tên đăng nhập hoặc email" required>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  prefix={<UserOutlined />}
+                  autoFocus
+                  autoComplete="username"
+                  size="large"
+                />
+              )}
+            </Truong>
 
-            <Button type="primary" htmlType="submit" block loading={dangGui}>
+            <Button type="primary" htmlType="submit" block size="large" loading={dangGui}>
               Gửi mã đặt lại
             </Button>
-          </Form>
+          </BieuMau>
         ) : (
           <>
             <Alert
@@ -104,62 +144,64 @@ export default function TrangQuenMatKhau() {
               description="Mã có hiệu lực 15 phút và chỉ dùng được một lần."
             />
 
-            <Form<FormDatLai & { tenDangNhap: string }>
-              layout="vertical"
-              onFinish={datLai}
-              requiredMark={false}
-              size="large"
-              initialValues={{ tenDangNhap }}
-            >
-              <Form.Item
-                name="tenDangNhap"
-                label="Tên đăng nhập"
-                rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
-              >
-                <Input prefix={<UserOutlined />} autoComplete="username" />
-              </Form.Item>
+            <BieuMau form={formDatLai} onGui={datLai}>
+              <Truong<FormDatLai> ten="tenDangNhap" label="Tên đăng nhập" required>
+                {(o) => (
+                  <Input
+                    {...o}
+                    value={o.value as string}
+                    prefix={<UserOutlined />}
+                    autoComplete="username"
+                    size="large"
+                  />
+                )}
+              </Truong>
 
-              <Form.Item
-                name="ma"
-                label="Mã đặt lại (6 chữ số)"
-                rules={[{ required: true, message: 'Vui lòng nhập mã trong email' }]}
-              >
-                <Input prefix={<SafetyOutlined />} autoComplete="one-time-code" autoFocus />
-              </Form.Item>
+              <Truong<FormDatLai> ten="ma" label="Mã đặt lại (6 chữ số)" required>
+                {(o) => (
+                  <Input
+                    {...o}
+                    value={o.value as string}
+                    prefix={<SafetyOutlined />}
+                    autoComplete="one-time-code"
+                    autoFocus
+                    size="large"
+                  />
+                )}
+              </Truong>
 
-              <Form.Item
-                name="matKhauMoi"
-                label="Mật khẩu mới"
-                rules={[{ required: true, message: 'Vui lòng nhập mật khẩu mới' }]}
-              >
-                <Input.Password prefix={<LockOutlined />} autoComplete="new-password" />
-              </Form.Item>
+              <Truong<FormDatLai> ten="matKhauMoi" label="Mật khẩu mới" required>
+                {(o) => (
+                  <Input.Password
+                    {...o}
+                    value={o.value as string}
+                    prefix={<LockOutlined />}
+                    autoComplete="new-password"
+                    size="large"
+                  />
+                )}
+              </Truong>
 
-              <Form.Item
-                name="xacNhan"
-                label="Nhập lại mật khẩu mới"
-                dependencies={['matKhauMoi']}
-                rules={[
-                  { required: true, message: 'Vui lòng nhập lại mật khẩu' },
-                  ({ getFieldValue }) => ({
-                    validator: (_, giaTri) =>
-                      !giaTri || getFieldValue('matKhauMoi') === giaTri
-                        ? Promise.resolve()
-                        : Promise.reject(new Error('Hai mật khẩu không khớp')),
-                  }),
-                ]}
-              >
-                <Input.Password prefix={<LockOutlined />} autoComplete="new-password" />
-              </Form.Item>
+              <Truong<FormDatLai> ten="xacNhan" label="Nhập lại mật khẩu mới" required>
+                {(o) => (
+                  <Input.Password
+                    {...o}
+                    value={o.value as string}
+                    prefix={<LockOutlined />}
+                    autoComplete="new-password"
+                    size="large"
+                  />
+                )}
+              </Truong>
 
-              <Button type="primary" htmlType="submit" block loading={dangGui}>
+              <Button type="primary" htmlType="submit" block size="large" loading={dangGui}>
                 Đặt lại mật khẩu
               </Button>
 
               <Button type="link" block onClick={() => setBuoc(0)} style={{ marginTop: 8 }}>
                 Gửi lại mã khác
               </Button>
-            </Form>
+            </BieuMau>
           </>
         )}
 

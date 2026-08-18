@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { App, Alert, Button, Divider, Form, Input, Typography } from 'antd';
+import { App, Alert, Button, Divider, Input, Typography } from 'antd';
 import {
   LockOutlined,
   LoginOutlined,
@@ -9,19 +9,50 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { layDuLieu, LoiApi } from '@/api/client';
 import { apiSso } from '@/api/endpoints';
 import { useAuthStore } from '@/app/store/authStore';
 import { useCauHinhStore } from '@/app/store/cauHinhStore';
 import { batDauDangNhapSso } from '@/features/xac-thuc/sso';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, tuyChon } from '@/components/bieu-mau/luat';
 
-interface FormDangNhap {
-  tenDangNhap: string;
-  matKhau: string;
-  maMfa?: string;
-  captchaLoiGiai?: string;
+/**
+ * Luật kiểm tra biểu mẫu đăng nhập.
+ *
+ * Mã xác thực hai lớp và mã trong ảnh chỉ bắt buộc khi máy chủ đã yêu cầu, nên hai điều kiện này
+ * đọc qua hàm chứ không khai cứng — cùng một biểu mẫu phục vụ cả ba trạng thái đăng nhập.
+ */
+function taoLuatDangNhap(canMfa: () => boolean, canCaptcha: () => boolean) {
+  return z
+    .object({
+      tenDangNhap: batBuoc('Tên đăng nhập', 100),
+      matKhau: z.string().min(1, 'Vui lòng nhập mật khẩu.'),
+      maMfa: tuyChon(50),
+      captchaLoiGiai: tuyChon(20),
+    })
+    .superRefine((giaTri, ctx) => {
+      if (canMfa() && !giaTri.maMfa?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['maMfa'],
+          message: 'Vui lòng nhập mã xác thực.',
+        });
+      }
+
+      if (canCaptcha() && !giaTri.captchaLoiGiai?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['captchaLoiGiai'],
+          message: 'Vui lòng nhập mã trong ảnh.',
+        });
+      }
+    });
 }
+
+type FormDangNhap = z.infer<ReturnType<typeof taoLuatDangNhap>>;
 
 interface ThuThachCaptcha {
   id: string;
@@ -41,6 +72,18 @@ export default function TrangDangNhap() {
   const [canMfa, setCanMfa] = useState(false);
   const [captcha, setCaptcha] = useState<ThuThachCaptcha | null>(null);
   const [dangChuyenSso, setDangChuyenSso] = useState(false);
+
+  // Hai ràng buộc dưới đây bật/tắt theo phản hồi của máy chủ; đọc qua ref để biểu mẫu chỉ dựng
+  // một lần mà luật vẫn thấy trạng thái hiện tại.
+  const refCanMfa = useRef(false);
+  const refCanCaptcha = useRef(false);
+  const form = useBieuMau<FormDangNhap>(
+    useMemo(() => taoLuatDangNhap(() => refCanMfa.current, () => refCanCaptcha.current), []),
+    { tenDangNhap: '', matKhau: '' },
+  );
+
+  refCanMfa.current = canMfa;
+  refCanCaptcha.current = !!captcha;
 
   // Chỉ hiện nút SSO khi máy chủ báo đã cấu hình nhà cung cấp — tránh dẫn người dùng vào
   // một luồng chắc chắn lỗi.
@@ -133,22 +176,31 @@ export default function TrangDangNhap() {
           )}
         </div>
 
-        <Form<FormDangNhap> layout="vertical" onFinish={xuLyGui} requiredMark={false} size="large">
-          <Form.Item
-            name="tenDangNhap"
-            label="Tên đăng nhập"
-            rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
-          >
-            <Input prefix={<UserOutlined />} autoComplete="username" autoFocus />
-          </Form.Item>
+        <BieuMau form={form} onGui={xuLyGui}>
+          <Truong<FormDangNhap> ten="tenDangNhap" label="Tên đăng nhập" required>
+            {(o) => (
+              <Input
+                {...o}
+                value={o.value as string}
+                prefix={<UserOutlined />}
+                autoComplete="username"
+                autoFocus
+                size="large"
+              />
+            )}
+          </Truong>
 
-          <Form.Item
-            name="matKhau"
-            label="Mật khẩu"
-            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-          >
-            <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
-          </Form.Item>
+          <Truong<FormDangNhap> ten="matKhau" label="Mật khẩu" required>
+            {(o) => (
+              <Input.Password
+                {...o}
+                value={o.value as string}
+                prefix={<LockOutlined />}
+                autoComplete="current-password"
+                size="large"
+              />
+            )}
+          </Truong>
 
           {canMfa && (
             <>
@@ -159,46 +211,55 @@ export default function TrangDangNhap() {
                 message="Tài khoản đang bật xác thực hai lớp"
                 description="Nhập mã 6 chữ số từ ứng dụng xác thực, hoặc một mã khôi phục."
               />
-              <Form.Item
-                name="maMfa"
-                label="Mã xác thực"
-                rules={[{ required: true, message: 'Vui lòng nhập mã xác thực' }]}
-              >
-                <Input
-                  prefix={<SafetyOutlined />}
-                  placeholder="123456 hoặc mã khôi phục"
-                  autoComplete="one-time-code"
-                  autoFocus
-                />
-              </Form.Item>
+              <Truong<FormDangNhap> ten="maMfa" label="Mã xác thực" required>
+                {(o) => (
+                  <Input
+                    {...o}
+                    value={o.value as string}
+                    prefix={<SafetyOutlined />}
+                    placeholder="123456 hoặc mã khôi phục"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    size="large"
+                  />
+                )}
+              </Truong>
             </>
           )}
 
           {captcha && (
-            <Form.Item
-              name="captchaLoiGiai"
-              label="Mã xác nhận trong ảnh"
-              rules={[{ required: true, message: 'Vui lòng nhập mã trong ảnh' }]}
-            >
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* Ảnh do máy chủ tự sinh, nhúng thẳng chứ không tải từ dịch vụ ngoài. */}
-                <span
-                  aria-hidden
-                  style={{ lineHeight: 0, flexShrink: 0 }}
-                  dangerouslySetInnerHTML={{ __html: captcha.anhSvg }}
-                />
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => void napCaptcha()}
-                  title="Đổi ảnh khác"
-                />
-                <Input
-                  placeholder="Nhập mã trong ảnh"
-                  style={{ flex: '1 1 140px', minWidth: 0 }}
-                  autoComplete="off"
-                />
-              </div>
-            </Form.Item>
+            <Truong<FormDangNhap> ten="captchaLoiGiai" label="Mã xác nhận trong ảnh" required>
+              {(o) => (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Ảnh do máy chủ tự sinh, nhúng thẳng chứ không tải từ dịch vụ ngoài. */}
+                  <span
+                    aria-hidden
+                    style={{ lineHeight: 0, flexShrink: 0 }}
+                    dangerouslySetInnerHTML={{ __html: captcha.anhSvg }}
+                  />
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={() => void napCaptcha()}
+                    title="Đổi ảnh khác"
+                    size="large"
+                  />
+                  {/*
+                   * Ô nhập phải nhận trực tiếp value/onChange của trường. Trước đây nó nằm lồng
+                   * trong <div> con của Form.Item, mà Ant Design chỉ nối dữ liệu vào PHẦN TỬ CON
+                   * TRỰC TIẾP — nên mã người dùng gõ vào đây không bao giờ được gửi đi, và đăng
+                   * nhập luôn báo sai CAPTCHA dù gõ đúng.
+                   */}
+                  <Input
+                    {...o}
+                    value={o.value as string}
+                    placeholder="Nhập mã trong ảnh"
+                    style={{ flex: '1 1 140px', minWidth: 0 }}
+                    autoComplete="off"
+                    size="large"
+                  />
+                </div>
+              )}
+            </Truong>
           )}
 
           {soLanSai >= 3 && !canMfa && (
@@ -207,10 +268,16 @@ export default function TrangDangNhap() {
             </Typography.Paragraph>
           )}
 
-          <Button type="primary" htmlType="submit" block loading={dangTai}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            size="large"
+            loading={dangTai || form.formState.isSubmitting}
+          >
             Đăng nhập
           </Button>
-        </Form>
+        </BieuMau>
 
         {trangThaiSso?.daCauHinh && (
           <>

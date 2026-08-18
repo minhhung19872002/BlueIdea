@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { App, Alert, Button, Descriptions, Form, Input, Modal, Space, Steps, Tag } from 'antd';
+import { App, Alert, Button, Descriptions, Input, Modal, Space, Steps, Tag } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { guiDuLieu, layDuLieu, LoiApi } from '@/api/client';
 import { ngayGio } from '@/components/ThanhPhanChung';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 
 interface TrangThaiMfa {
   daBat: boolean;
@@ -18,6 +20,21 @@ interface BatDauGhiDanh {
 }
 
 /**
+ * Luật xác nhận bật xác thực hai lớp.
+ *
+ * Mã TOTP luôn là 6 chữ số. Bắt định dạng tại đây để người gõ nhầm khoá bí mật vào ô mã biết ngay,
+ * thay vì gửi lên rồi nhận "mã không đúng" và tưởng ứng dụng xác thực lệch giờ.
+ */
+const luatXacNhanMfa = z.object({
+  ma: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Mã xác thực gồm đúng 6 chữ số.'),
+});
+
+type GiaTriXacNhanMfa = z.infer<typeof luatXacNhanMfa>;
+
+/**
  * Chức năng 21 — Bật/tắt xác thực hai lớp cho chính tài khoản đang đăng nhập.
  *
  * Ghi danh chia hai bước: quét mã rồi phải nhập đúng một mã sinh từ chính bí mật đó thì MFA
@@ -27,6 +44,7 @@ export default function TrangBaoMatTaiKhoan() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
 
+  const formXacNhan = useBieuMau(luatXacNhanMfa, { ma: '' });
   const [ghiDanh, setGhiDanh] = useState<BatDauGhiDanh | null>(null);
   const [maKhoiPhuc, setMaKhoiPhuc] = useState<string[] | null>(null);
 
@@ -200,23 +218,28 @@ export default function TrangBaoMatTaiKhoan() {
             onFocus={(e) => e.target.select()}
           />
 
-          <Form
+          <BieuMau
+            form={formXacNhan}
             layout="inline"
-            onFinish={(v: { ma: string }) => xacNhan.mutate(v.ma)}
+            onGui={(giaTri) => xacNhan.mutateAsync(giaTri.ma)}
             style={{ gap: 8, flexWrap: 'wrap' }}
           >
-            <Form.Item
-              name="ma"
-              rules={[{ required: true, message: 'Nhập mã 6 chữ số' }]}
-              style={{ marginInlineEnd: 0 }}
-            >
-              <Input placeholder="Mã 6 chữ số" style={{ width: 160 }} autoComplete="one-time-code" />
-            </Form.Item>
+            <Truong<GiaTriXacNhanMfa> ten="ma" style={{ marginInlineEnd: 0 }}>
+              {(o) => (
+                <Input
+                  {...o}
+                  value={o.value as string}
+                  placeholder="Mã 6 chữ số"
+                  style={{ width: 160 }}
+                  autoComplete="one-time-code"
+                />
+              )}
+            </Truong>
             <Button type="primary" htmlType="submit" loading={xacNhan.isPending}>
               Xác nhận và bật
             </Button>
             <Button onClick={() => setGhiDanh(null)}>Huỷ</Button>
-          </Form>
+          </BieuMau>
         </div>
       )}
 
