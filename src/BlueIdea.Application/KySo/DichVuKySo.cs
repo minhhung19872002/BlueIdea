@@ -15,7 +15,19 @@ public sealed record KetQuaKySo(
     string? NguoiCapChungThu,
     DateTimeOffset? HieuLucTu,
     DateTimeOffset? HieuLucDen,
-    string? ThongBaoLoi);
+    string? ThongBaoLoi,
+    /// <summary>PADES (chữ ký nằm trong PDF) | CMS_DETACHED (tệp .p7s riêng).</summary>
+    string ChuanKy = ChuanChuKySo.CmsDetached);
+
+/// <summary>Chuẩn chữ ký áp dụng cho một lần ký.</summary>
+public static class ChuanChuKySo
+{
+    /// <summary>Chữ ký nhúng trong PDF — trình đọc PDF thông thường kiểm tra được.</summary>
+    public const string Pades = "PADES";
+
+    /// <summary>Chữ ký tách rời, sinh ra tệp .p7s đi kèm bản gốc.</summary>
+    public const string CmsDetached = "CMS_DETACHED";
+}
 
 /// <summary>Ket qua xac minh chu ky tren mot tep.</summary>
 public sealed record KetQuaXacMinhChuKy(
@@ -147,24 +159,30 @@ public sealed class DichVuKySo
                 $"Ký số thất bại: {ketQua.ThongBaoLoi}");
         }
 
+        // PAdES tra ve MOT TEP PDF da nhung chu ky; CMS detached tra ve tep .p7s di kem ban goc.
+        // Luu dung phan mo rong va MIME cua tung loai, neu khong trinh duyet tai ve mot tep PDF
+        // mang duoi .p7s va nguoi dung khong mo duoc.
+        var laPades = ketQua.ChuanKy == ChuanChuKySo.Pades;
+        var phanMoRong = laPades ? ".pdf" : ".p7s";
+        var mime = laPades ? "application/pdf" : "application/pkcs7-signature";
+
         // Lưu tệp đã ký thành bản ghi RIÊNG, giữ nguyên bản gốc.
-        var tenLuuTru = $"{Guid.NewGuid():N}.p7s";
+        var tenLuuTru = $"{Guid.NewGuid():N}{phanMoRong}";
 
         var duongDan = await _luuTru
-            .TaiLenAsync(new MemoryStream(ketQua.TepDaKy), tenLuuTru,
-                "application/pkcs7-signature", tepGoc.Bucket, ct)
+            .TaiLenAsync(new MemoryStream(ketQua.TepDaKy), tenLuuTru, mime, tepGoc.Bucket, ct)
             .ConfigureAwait(false);
 
         var tepDaKy = new Domain.SangKien.TepTin
         {
             Id = Guid.NewGuid(),
-            TenGoc = $"{Path.GetFileNameWithoutExtension(tepGoc.TenGoc)}-da-ky.p7s",
+            TenGoc = $"{Path.GetFileNameWithoutExtension(tepGoc.TenGoc)}-da-ky{phanMoRong}",
             TenLuuTru = tenLuuTru,
             DuongDan = duongDan,
             Bucket = tepGoc.Bucket,
             KichThuoc = ketQua.TepDaKy.Length,
-            MimeType = "application/pkcs7-signature",
-            PhanMoRong = ".p7s",
+            MimeType = mime,
+            PhanMoRong = phanMoRong,
             HashSha256 = Convert.ToHexString(
                 System.Security.Cryptography.SHA256.HashData(ketQua.TepDaKy)).ToLowerInvariant(),
             NguoiTaiLenId = _nguoiDung.Id,
@@ -179,7 +197,8 @@ public sealed class DichVuKySo
         {
             ["thuatToan"] = cauHinh.ThuatToan,
             ["nhaCungCap"] = cauHinh.NhaCungCap,
-            ["loaiKy"] = cauHinh.LoaiKy
+            ["loaiKy"] = cauHinh.LoaiKy,
+            ["chuanKy"] = ketQua.ChuanKy
         };
 
         _db.NhatKyKySo.Add(banGhi);

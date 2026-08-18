@@ -36,25 +36,27 @@ public sealed class BoKySoPkcs7 : IBoKySo
     /// <summary>Có đường lấy chứng thư nào khả dụng hay không.</summary>
     public bool DaCauHinh => true;
 
-    public Task<KetQuaKySo> KyAsync(
+    public async Task<KetQuaKySo> KyAsync(
         byte[] noiDung, CauHinhChuKySo cauHinh, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(cauHinh);
+
         try
         {
             using var chungThu = LayChungThu(cauHinh);
 
             if (chungThu is null)
             {
-                return Task.FromResult(new KetQuaKySo(
+                return new KetQuaKySo(
                     false, null, null, null, null, null,
-                    "Không tìm thấy chứng thư số theo cấu hình."));
+                    "Không tìm thấy chứng thư số theo cấu hình.");
             }
 
             if (!chungThu.HasPrivateKey)
             {
-                return Task.FromResult(new KetQuaKySo(
+                return new KetQuaKySo(
                     false, null, null, null, null, null,
-                    "Chứng thư số không kèm khoá bí mật nên không ký được."));
+                    "Chứng thư số không kèm khoá bí mật nên không ký được.");
             }
 
             // Chứng thư hết hạn vẫn ký được về mặt kỹ thuật, nhưng văn bản sẽ không có giá trị
@@ -63,11 +65,35 @@ public sealed class BoKySoPkcs7 : IBoKySo
 
             if (bayGio < chungThu.NotBefore || bayGio > chungThu.NotAfter)
             {
-                return Task.FromResult(new KetQuaKySo(
+                return new KetQuaKySo(
                     false, null, chungThu.SerialNumber, chungThu.Issuer,
                     chungThu.NotBefore, chungThu.NotAfter,
                     $"Chứng thư số hết hiệu lực (từ {chungThu.NotBefore:dd/MM/yyyy} "
-                    + $"đến {chungThu.NotAfter:dd/MM/yyyy})."));
+                    + $"đến {chungThu.NotAfter:dd/MM/yyyy}).");
+            }
+
+            // PDF thi ky NHUNG theo chuan PAdES: nguoi nhan mo bang trinh doc PDF thong thuong
+            // la thay ngay trang thai chu ky, khong phai duoc gui kem mot tep .p7s va mot cong cu
+            // kiem tra rieng. Tep khong phai PDF thi khong nhung duoc, giu chu ky tach roi.
+            if (BoKySoPades.LaPdf(noiDung))
+            {
+                try
+                {
+                    var pdfDaKy = await BoKySoPades
+                        .KyAsync(noiDung, chungThu, chungThu.Subject, null, null, ct)
+                        .ConfigureAwait(false);
+
+                    return new KetQuaKySo(
+                        true, pdfDaKy, chungThu.SerialNumber, chungThu.Issuer,
+                        chungThu.NotBefore, chungThu.NotAfter, null, ChuanChuKySo.Pades);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Khong nhung duoc (PDF cau truc la, ban ma hoa...) thi lui ve chu ky tach
+                    // roi thay vi bao loi: van ban van duoc ky hop le, chi khac cach dong goi.
+                    _logger.LogWarning(ex,
+                        "Không nhúng được chữ ký vào PDF, chuyển sang chữ ký tách rời.");
+                }
             }
 
             var noiDungKy = new ContentInfo(noiDung);
@@ -87,21 +113,21 @@ public sealed class BoKySoPkcs7 : IBoKySo
 
             chuKy.ComputeSignature(nguoiKy);
 
-            return Task.FromResult(new KetQuaKySo(
+            return new KetQuaKySo(
                 true,
                 chuKy.Encode(),
                 chungThu.SerialNumber,
                 chungThu.Issuer,
                 chungThu.NotBefore,
                 chungThu.NotAfter,
-                null));
+                null,
+                ChuanChuKySo.CmsDetached);
         }
         catch (CryptographicException ex)
         {
             _logger.LogError(ex, "Ký số thất bại.");
 
-            return Task.FromResult(new KetQuaKySo(
-                false, null, null, null, null, null, ex.Message));
+            return new KetQuaKySo(false, null, null, null, null, null, ex.Message);
         }
     }
 
