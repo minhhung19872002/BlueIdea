@@ -8,7 +8,6 @@ import {
   Col,
   DatePicker,
   Descriptions,
-  Form,
   Input,
   InputNumber,
   Row,
@@ -33,6 +32,8 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { z } from 'zod';
 
 import { boNhoToken, http, LoiApi, xoaDuLieu } from '@/api/client';
 import {
@@ -45,9 +46,12 @@ import {
   apiSangKien,
   type NoiDungHoSo,
   type TacGia,
+  type ThanhPhanHoSo,
 } from '@/api/endpoints';
 import { KhoiDangTai } from '@/components/ThanhPhanChung';
 import { ONoiDungDai } from '@/components/ONoiDungDai';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { batBuoc, tuyChon } from '@/components/bieu-mau/luat';
 
 /** Khoảng thời gian tự động lưu nháp (Mục 5 — chức năng 22). */
 const CHU_KY_TU_LUU_MS = 30_000;
@@ -61,6 +65,80 @@ const BUOC = [
   { title: 'Xem lại & Nộp' },
 ];
 
+/**
+ * Luật kiểm tra hồ sơ sáng kiến.
+ *
+ * Các ô nội dung dài (mô tả giải pháp, tính mới, hiệu quả…) là *thành phần hồ sơ* do quản trị cấu
+ * hình: bắt buộc hay không, tối thiểu bao nhiêu ký tự đều đọc từ máy chủ. Vì vậy luật nhận một hàm
+ * lấy cấu hình thành phần hiện tại thay vì khai cứng — form giữ nguyên một resolver suốt vòng đời
+ * mà vẫn áp đúng cấu hình của đợt đang nộp.
+ */
+function taoLuatHoSo(layThanhPhan: () => ThanhPhanHoSo[]) {
+  return z
+    .object({
+      dotDeNghiId: z.string().uuid('Vui lòng chọn đợt đề nghị.'),
+      tenSangKien: batBuoc('Tên sáng kiến', 1000),
+      linhVucId: z.string().uuid('Vui lòng chọn lĩnh vực.'),
+      doiTuongId: z.string().uuid().nullish(),
+      loaiTacGiaId: z.string().uuid().nullish(),
+      moTaGiaiPhap: tuyChon(20000),
+      tinhTrangTruocKhiApDung: tuyChon(20000),
+      noiDungGiaiPhap: tuyChon(20000),
+      tinhMoi: tuyChon(20000),
+      khaNangApDung: tuyChon(20000),
+      phamViApDung: tuyChon(20000),
+      hieuQuaKinhTe: tuyChon(20000),
+      hieuQuaXaHoi: tuyChon(20000),
+      giaTriLamLoiUocTinh: z
+        .number({ invalid_type_error: 'Giá trị làm lợi phải là một số.' })
+        .min(0, 'Giá trị làm lợi không được âm.')
+        .nullish(),
+      thoiGianApDungTu: z.custom<Dayjs>((v) => v == null || dayjs.isDayjs(v)).nullish(),
+      thoiGianApDungDen: z.custom<Dayjs>((v) => v == null || dayjs.isDayjs(v)).nullish(),
+    })
+    .superRefine((giaTri, ctx) => {
+      const tu = giaTri.thoiGianApDungTu;
+      const den = giaTri.thoiGianApDungDen;
+
+      if (tu && den && den.isBefore(tu, 'day')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['thoiGianApDungDen'],
+          message: 'Ngày kết thúc áp dụng phải sau ngày bắt đầu.',
+        });
+      }
+
+      for (const tp of layThanhPhan()) {
+        if (!tp.batBuoc || tp.loaiDuLieu === 'TEP') continue;
+
+        const truong = tenTruongTheoMa(tp.ma);
+        const noiDung = String(giaTri[truong as keyof typeof giaTri] ?? '').trim();
+
+        if (!noiDung) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [truong],
+            message: `Vui lòng nhập ${tp.ten.toLowerCase()}.`,
+          });
+        } else if (noiDung.length < tp.soKyTuToiThieu) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [truong],
+            message: `Cần tối thiểu ${tp.soKyTuToiThieu} ký tự, hiện có ${noiDung.length}.`,
+          });
+        }
+      }
+    });
+}
+
+type GiaTriHoSo = z.infer<ReturnType<typeof taoLuatHoSo>>;
+
+const MAC_DINH_HO_SO: GiaTriHoSo = {
+  dotDeNghiId: '',
+  tenSangKien: '',
+  linhVucId: '',
+};
+
 export default function TrangNopHoSo() {
   const { id } = useParams<{ id: string }>();
   const dieuHuong = useNavigate();
@@ -69,7 +147,15 @@ export default function TrangNopHoSo() {
 
   const [buocHienTai, setBuocHienTai] = useState(0);
   const [hoSoId, setHoSoId] = useState<string | undefined>(id);
-  const [form] = Form.useForm<NoiDungHoSo>();
+  /*
+   * Cấu hình thành phần hồ sơ về sau lần tải đầu, nên luật đọc qua ref: form dựng một lần với
+   * một resolver, ref cập nhật sau vẫn khiến luật thấy đúng cấu hình của đợt đang nộp.
+   */
+  const refThanhPhan = useRef<ThanhPhanHoSo[]>([]);
+  const form = useBieuMau<GiaTriHoSo>(
+    useMemo(() => taoLuatHoSo(() => refThanhPhan.current), []),
+    MAC_DINH_HO_SO as never,
+  );
   const [tacGia, setTacGia] = useState<TacGia[]>([
     { hoTen: '', tyLeDongGop: 100, laTacGiaChinh: true },
   ]);
@@ -90,11 +176,13 @@ export default function TrangNopHoSo() {
     enabled: !!hoSoId,
   });
 
+  refThanhPhan.current = chiTiet?.thanhPhanHoSo ?? [];
+
   // Nạp dữ liệu vào form khi mở hồ sơ đã có.
   useEffect(() => {
     if (!chiTiet) return;
 
-    form.setFieldsValue({
+    form.reset({
       tenSangKien: chiTiet.tenSangKien,
       dotDeNghiId: chiTiet.dotDeNghiId,
       linhVucId: chiTiet.linhVucId,
@@ -109,7 +197,11 @@ export default function TrangNopHoSo() {
       hieuQuaKinhTe: chiTiet.hieuQuaKinhTe,
       giaTriLamLoiUocTinh: chiTiet.giaTriLamLoiUocTinh,
       hieuQuaXaHoi: chiTiet.hieuQuaXaHoi,
-    });
+      // Trước đây hai mốc thời gian không được nạp lại: mở nháp lên là chúng biến mất, người nộp
+      // tưởng mình chưa điền rồi điền lại từ đầu.
+      thoiGianApDungTu: chiTiet.thoiGianApDungTu ? dayjs(chiTiet.thoiGianApDungTu) : null,
+      thoiGianApDungDen: chiTiet.thoiGianApDungDen ? dayjs(chiTiet.thoiGianApDungDen) : null,
+    } as GiaTriHoSo);
 
     if (chiTiet.danhSachTacGia.length > 0) {
       setTacGia(chiTiet.danhSachTacGia);
@@ -118,8 +210,23 @@ export default function TrangNopHoSo() {
 
   const luuNhap = useMutation({
     mutationFn: async () => {
-      const giaTri = form.getFieldsValue();
-      const duLieu: NoiDungHoSo = { ...giaTri, danhSachTacGia: tacGia };
+      const { thoiGianApDungTu, thoiGianApDungDen, ...conLai } = form.getValues();
+      const duLieu: NoiDungHoSo = {
+        ...conLai,
+        /*
+         * Ô chọn chưa điền giữ chuỗi rỗng ở phía giao diện, nhưng máy chủ khai các trường này là
+         * Guid: gửi "" thì mô hình không dựng được và cả yêu cầu bị từ chối 400 trước khi tới
+         * nghiệp vụ — bỏ hẳn khoá đi thì lưu nháp dở dang vẫn chạy.
+         */
+        dotDeNghiId: conLai.dotDeNghiId || (undefined as unknown as string),
+        linhVucId: conLai.linhVucId || (undefined as unknown as string),
+        doiTuongId: conLai.doiTuongId || null,
+        loaiTacGiaId: conLai.loaiTacGiaId || null,
+        // Máy chủ nhận chuỗi ISO; giữ nguyên đối tượng Dayjs thì đúng nhờ may mắn của JSON.
+        thoiGianApDungTu: thoiGianApDungTu ? thoiGianApDungTu.toISOString() : null,
+        thoiGianApDungDen: thoiGianApDungDen ? thoiGianApDungDen.toISOString() : null,
+        danhSachTacGia: tacGia,
+      };
 
       if (hoSoId) {
         await apiSangKien.capNhat(hoSoId, duLieu, chiTiet?.phienBan);
@@ -134,6 +241,9 @@ export default function TrangNopHoSo() {
       hasThayDoi.current = false;
       void queryClient.invalidateQueries({ queryKey: ['sang-kien'] });
     },
+    // Không báo lỗi thì bấm "Tiếp theo" mà nháp lưu hỏng sẽ đứng im không rõ nguyên do.
+    onError: (loi) =>
+      message.error(loi instanceof LoiApi ? loi.message : 'Không lưu được bản nháp.'),
   });
 
   const nopHoSo = useMutation({
@@ -160,7 +270,7 @@ export default function TrangNopHoSo() {
   // Tự động lưu nháp định kỳ khi có thay đổi.
   useEffect(() => {
     const dinhKy = setInterval(() => {
-      if (hasThayDoi.current && form.getFieldValue('tenSangKien')) {
+      if (hasThayDoi.current && duDeLuuNhap()) {
         luuNhap.mutate();
       }
     }, CHU_KY_TU_LUU_MS);
@@ -173,32 +283,57 @@ export default function TrangNopHoSo() {
     [tacGia],
   );
 
-  const loaiTacGiaDaChon = Form.useWatch('loaiTacGiaId', form);
+  const loaiTacGiaDaChon = form.watch('loaiTacGiaId');
   const soTacGiaToiDa = useMemo(() => {
     const loai = cacLoaiTacGia?.find((l) => l.id === loaiTacGiaDaChon);
     // Mã danh mục cho biết có cho nhiều tác giả hay không.
     return loai?.ma === 'CA_NHAN' ? 1 : loai?.ma === 'NHOM_TAC_GIA' ? 5 : 10;
   }, [cacLoaiTacGia, loaiTacGiaDaChon]);
 
+  // Đánh dấu có sửa để vòng tự lưu nháp biết mà chạy.
+  useEffect(() => {
+    const dangKy = form.watch(() => {
+      hasThayDoi.current = true;
+    });
+
+    return () => dangKy.unsubscribe();
+  }, [form]);
+
   const thanhPhanThieu = (chiTiet?.thanhPhanHoSo ?? []).filter(
     (t) => t.batBuoc && t.trangThai !== 'DU',
   );
 
+  /** Bản nháp chỉ ghi xuống được khi đã có tên sáng kiến và lĩnh vực — máy chủ bắt buộc cả hai. */
+  function duDeLuuNhap() {
+    const giaTri = form.getValues();
+    return !!giaTri.tenSangKien?.trim() && !!giaTri.linhVucId;
+  }
+
   async function sangBuoc(buocMoi: number) {
     // Lưu nháp mỗi khi rời bước để không mất dữ liệu.
     if (buocMoi > buocHienTai) {
-      try {
-        await form.validateFields(truongCuaBuoc(buocHienTai));
-      } catch {
-        return;
-      }
+      const canKiemTra = truongCuaBuoc(buocHienTai);
+
+      if (canKiemTra.length > 0 && !(await form.trigger(canKiemTra))) return;
 
       if (buocHienTai === 2 && Math.abs(tongTyLe - 100) > 0.01) {
         message.error(`Tổng tỷ lệ đóng góp phải bằng 100%, hiện tại là ${tongTyLe}%.`);
         return;
       }
 
-      await luuNhap.mutateAsync();
+      /*
+       * Chỉ lưu nháp khi đã có đủ tên sáng kiến và lĩnh vực. Máy chủ bắt buộc hai trường này ngay
+       * cả với bản nháp, nhưng người nộp mới điền chúng ở bước 2 — gọi lưu ở bước 1 thì luôn bị
+       * 422 và người dùng kẹt lại ngay bước đầu tiên, không cách nào đi tiếp.
+       */
+      if (duDeLuuNhap()) {
+        try {
+          await luuNhap.mutateAsync();
+        } catch {
+          // Thông báo đã hiện ở onError; giữ nguyên bước để người dùng sửa rồi thử lại.
+          return;
+        }
+      }
     }
 
     setBuocHienTai(buocMoi);
@@ -214,7 +349,14 @@ export default function TrangNopHoSo() {
           <Button
             icon={<SaveOutlined />}
             loading={luuNhap.isPending}
-            onClick={() => luuNhap.mutate()}
+            onClick={() => {
+              if (!duDeLuuNhap()) {
+                message.warning('Cần có tên sáng kiến và lĩnh vực trước khi lưu nháp.');
+                return;
+              }
+
+              luuNhap.mutate();
+            }}
           >
             Lưu nháp
           </Button>
@@ -230,14 +372,7 @@ export default function TrangNopHoSo() {
         responsive
       />
 
-      <Form<NoiDungHoSo>
-        form={form}
-        layout="vertical"
-        requiredMark
-        onValuesChange={() => {
-          hasThayDoi.current = true;
-        }}
-      >
+      <BieuMau form={form} onGui={() => luuNhap.mutateAsync()}>
         {/* Bước 1 — Đợt đề nghị */}
         <div style={{ display: buocHienTai === 0 ? 'block' : 'none' }}>
           <Alert
@@ -246,75 +381,102 @@ export default function TrangNopHoSo() {
             style={{ marginBottom: 16 }}
             message="Chỉ các đợt đang mở và còn hạn nộp mới hiển thị ở đây."
           />
-          <Form.Item
-            name="dotDeNghiId"
-            label="Đợt đề nghị"
-            rules={[{ required: true, message: 'Vui lòng chọn đợt đề nghị' }]}
-          >
-            <Select
-              placeholder="Chọn đợt đề nghị"
-              options={(cacDot ?? []).map((d) => ({ value: d.id, label: d.ten }))}
-              showSearch
-              optionFilterProp="label"
-            />
-          </Form.Item>
+          <Truong<GiaTriHoSo> ten="dotDeNghiId" label="Đợt đề nghị" required>
+            {(o) => (
+              <Select
+                {...o}
+                value={(o.value as string) || undefined}
+                placeholder="Chọn đợt đề nghị"
+                options={(cacDot ?? []).map((d) => ({ value: d.id, label: d.ten }))}
+                showSearch
+                optionFilterProp="label"
+              />
+            )}
+          </Truong>
         </div>
 
         {/* Bước 2 — Thông tin chung */}
         <div style={{ display: buocHienTai === 1 ? 'block' : 'none' }}>
-          <Form.Item
-            name="tenSangKien"
-            label="Tên sáng kiến"
-            rules={[
-              { required: true, message: 'Vui lòng nhập tên sáng kiến' },
-              { max: 1000, message: 'Tối đa 1000 ký tự' },
-            ]}
-          >
-            <Input.TextArea rows={2} showCount maxLength={1000} />
-          </Form.Item>
+          <Truong<GiaTriHoSo> ten="tenSangKien" label="Tên sáng kiến" required>
+            {(o) => (
+              <Input.TextArea
+                {...o}
+                value={o.value as string}
+                rows={2}
+                showCount
+                maxLength={1000}
+              />
+            )}
+          </Truong>
 
           <Row gutter={12}>
             <Col xs={24} md={8}>
-              <Form.Item
-                name="linhVucId"
-                label="Lĩnh vực"
-                rules={[{ required: true, message: 'Vui lòng chọn lĩnh vực' }]}
-              >
-                <Select
-                  options={(cacLinhVuc ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-                  showSearch
-                  optionFilterProp="label"
-                />
-              </Form.Item>
+              <Truong<GiaTriHoSo> ten="linhVucId" label="Lĩnh vực" required>
+                {(o) => (
+                  <Select
+                    {...o}
+                    value={(o.value as string) || undefined}
+                    options={(cacLinhVuc ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+                    showSearch
+                    optionFilterProp="label"
+                  />
+                )}
+              </Truong>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="doiTuongId" label="Đối tượng áp dụng">
-                <Select
-                  allowClear
-                  options={(cacDoiTuong ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-                />
-              </Form.Item>
+              <Truong<GiaTriHoSo> ten="doiTuongId" label="Đối tượng áp dụng">
+                {(o) => (
+                  <Select
+                    {...o}
+                    value={(o.value as string | null) ?? undefined}
+                    allowClear
+                    options={(cacDoiTuong ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+                  />
+                )}
+              </Truong>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="loaiTacGiaId" label="Loại tác giả">
-                <Select
-                  allowClear
-                  options={(cacLoaiTacGia ?? []).map((x) => ({ value: x.id, label: x.ten }))}
-                />
-              </Form.Item>
+              <Truong<GiaTriHoSo> ten="loaiTacGiaId" label="Loại tác giả">
+                {(o) => (
+                  <Select
+                    {...o}
+                    value={(o.value as string | null) ?? undefined}
+                    allowClear
+                    options={(cacLoaiTacGia ?? []).map((x) => ({ value: x.id, label: x.ten }))}
+                  />
+                )}
+              </Truong>
             </Col>
           </Row>
 
           <Row gutter={12}>
             <Col xs={24} md={12}>
-              <Form.Item name="thoiGianApDungTu" label="Áp dụng từ ngày">
-                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-              </Form.Item>
+              <Truong<GiaTriHoSo> ten="thoiGianApDungTu" label="Áp dụng từ ngày">
+                {(o) => (
+                  <DatePicker
+                    value={(o.value as Dayjs | null | undefined) ?? null}
+                    onChange={o.onChange}
+                    onBlur={o.onBlur}
+                    status={o.status}
+                    style={{ width: '100%' }}
+                    format="DD/MM/YYYY"
+                  />
+                )}
+              </Truong>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item name="thoiGianApDungDen" label="Áp dụng đến ngày">
-                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-              </Form.Item>
+              <Truong<GiaTriHoSo> ten="thoiGianApDungDen" label="Áp dụng đến ngày">
+                {(o) => (
+                  <DatePicker
+                    value={(o.value as Dayjs | null | undefined) ?? null}
+                    onChange={o.onChange}
+                    onBlur={o.onBlur}
+                    status={o.status}
+                    style={{ width: '100%' }}
+                    format="DD/MM/YYYY"
+                  />
+                )}
+              </Truong>
             </Col>
           </Row>
         </div>
@@ -438,9 +600,10 @@ export default function TrangNopHoSo() {
           {(chiTiet?.thanhPhanHoSo ?? [])
             .filter((t) => t.loaiDuLieu !== 'TEP')
             .map((tp) => (
-              <Form.Item
+              <Truong<GiaTriHoSo>
                 key={tp.ma}
-                name={tenTruongTheoMa(tp.ma)}
+                ten={tenTruongTheoMa(tp.ma) as never}
+                required={tp.batBuoc}
                 label={
                   <Space>
                     {tp.ten}
@@ -453,34 +616,31 @@ export default function TrangNopHoSo() {
                   </Space>
                 }
                 extra={tp.moTaHuongDan}
-                rules={
-                  tp.batBuoc
-                    ? [
-                        { required: true, message: `Vui lòng nhập ${tp.ten.toLowerCase()}` },
-                        {
-                          min: tp.soKyTuToiThieu,
-                          message: `Cần tối thiểu ${tp.soKyTuToiThieu} ký tự`,
-                        },
-                      ]
-                    : undefined
-                }
               >
-                <ONoiDungDai
-                  rows={6}
-                  soKyTuToiThieu={tp.soKyTuToiThieu}
-                  placeholder={tp.moTaHuongDan ?? undefined}
-                />
-              </Form.Item>
+                {(o) => (
+                  <ONoiDungDai
+                    value={(o.value as string) ?? ''}
+                    onChange={o.onChange}
+                    rows={6}
+                    soKyTuToiThieu={tp.soKyTuToiThieu}
+                    placeholder={tp.moTaHuongDan ?? undefined}
+                  />
+                )}
+              </Truong>
             ))}
 
-          <Form.Item name="giaTriLamLoiUocTinh" label="Giá trị làm lợi ước tính (VNĐ)">
-            <InputNumber<number>
-              style={{ width: '100%' }}
-              min={0}
-              formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-              parser={(v) => Number(v?.replace(/\./g, '') ?? 0)}
-            />
-          </Form.Item>
+          <Truong<GiaTriHoSo> ten="giaTriLamLoiUocTinh" label="Giá trị làm lợi ước tính (VNĐ)">
+            {(o) => (
+              <InputNumber<number>
+                {...o}
+                value={(o.value as number | null) ?? null}
+                style={{ width: '100%' }}
+                min={0}
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                parser={(v) => Number(v?.replace(/\./g, '') ?? 0)}
+              />
+            )}
+          </Truong>
         </div>
 
         {/* Bước 5 — Tệp đính kèm */}
@@ -583,13 +743,13 @@ export default function TrangNopHoSo() {
             <Col xs={24} lg={14}>
               <Descriptions bordered size="small" column={1} title="Thông tin hồ sơ">
                 <Descriptions.Item label="Tên sáng kiến">
-                  {form.getFieldValue('tenSangKien')}
+                  {form.watch('tenSangKien')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Đợt đề nghị">
-                  {cacDot?.find((d) => d.id === form.getFieldValue('dotDeNghiId'))?.ten}
+                  {cacDot?.find((d) => d.id === form.watch('dotDeNghiId'))?.ten}
                 </Descriptions.Item>
                 <Descriptions.Item label="Lĩnh vực">
-                  {cacLinhVuc?.find((d) => d.id === form.getFieldValue('linhVucId'))?.ten}
+                  {cacLinhVuc?.find((d) => d.id === form.watch('linhVucId'))?.ten}
                 </Descriptions.Item>
                 <Descriptions.Item label="Tác giả">
                   {tacGia.map((t) => `${t.hoTen} (${t.tyLeDongGop}%)`).join(', ')}
@@ -652,7 +812,7 @@ export default function TrangNopHoSo() {
             Nộp hồ sơ
           </Button>
         </div>
-      </Form>
+      </BieuMau>
 
       <Space style={{ marginTop: 24, width: '100%', justifyContent: 'space-between' }}>
         <Button disabled={buocHienTai === 0} onClick={() => setBuocHienTai((b) => b - 1)}>
@@ -690,7 +850,7 @@ function tenTruongTheoMa(ma: string): keyof NoiDungHoSo {
 }
 
 /** Các trường cần kiểm tra khi rời từng bước. */
-function truongCuaBuoc(buoc: number): (keyof NoiDungHoSo)[] {
+function truongCuaBuoc(buoc: number): (keyof GiaTriHoSo)[] {
   switch (buoc) {
     case 0:
       return ['dotDeNghiId'];
