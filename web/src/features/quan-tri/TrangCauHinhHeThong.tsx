@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { App, Button, Card, ColorPicker, Form, Input, InputNumber, Space, Switch } from 'antd';
+import { App, Button, Card, ColorPicker, Input, InputNumber, Space, Switch } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { LoiApi } from '@/api/client';
 import { apiHeThong, type CauHinhMuc } from '@/api/endpoints';
 import { KhoiDangTai, KhoiLoi } from '@/components/ThanhPhanChung';
 import { DaiTabTrang } from '@/components/DaiTabTrang';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 import { DS_TAB_CAU_HINH } from './cauHinhTab';
 
 const NHOM_THEO_DUONG_DAN: Record<string, { nhom?: string; tieuDe: string }> = {
@@ -19,14 +21,106 @@ const NHOM_THEO_DUONG_DAN: Record<string, { nhom?: string; tieuDe: string }> = {
   menu: { nhom: 'MENU', tieuDe: 'Cấu hình menu' },
 };
 
+/**
+ * Luật kiểm tra cấu hình hệ thống.
+ *
+ * Danh sách trường do máy chủ trả về nên không dựng được schema tĩnh. Thay vào đó nhận một hàm
+ * đọc danh mục mục cấu hình hiện tại, để `useForm` giữ nguyên đúng một resolver suốt vòng đời.
+ *
+ * Các luật ở đây bắt những sai sót mà máy chủ không bắt được và cũng không báo lỗi — chỉ âm thầm
+ * cho ra kết quả sai cho tới khi có người phát hiện:
+ *   - hai hệ số trùng lặp phải cộng lại bằng 1, vì điểm trùng lặp là tổng có trọng số
+ *     `heSoTuVung * tuVung + heSoNguNghia * nguNghia` không hề chuẩn hoá lại. Đặt 0,5 và 0,9 thì
+ *     hai hồ sơ giống hệt nhau sẽ báo trùng 140%;
+ *   - ngưỡng cảnh báo vàng phải thấp hơn ngưỡng đỏ, nếu không thang cảnh báo bị lộn ngược;
+ *   - mẫu mã hồ sơ phải có chỗ chèn số thứ tự, nếu không mọi hồ sơ nhận cùng một mã.
+ */
+const KHOA = {
+  emailHoTro: 'EMAIL_HO_TRO',
+  dienThoaiHoTro: 'DIEN_THOAI_HO_TRO',
+  mauMaHoSo: 'MAU_MA_HO_SO',
+  trungLapVang: 'MUC_CANH_BAO_TRUNG_LAP_VANG',
+  trungLapDo: 'MUC_CANH_BAO_TRUNG_LAP_DO',
+  heSoTuVung: 'HE_SO_TU_VUNG',
+  heSoNguNghia: 'HE_SO_NGU_NGHIA',
+} as const;
+
+function taoLuatCauHinh(layDsMuc: () => CauHinhMuc[]) {
+  return z.record(z.string(), z.unknown()).superRefine((giaTri, ctx) => {
+    const loi = (khoa: string, message: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [khoa], message });
+
+    const co = (khoa: string) => Object.prototype.hasOwnProperty.call(giaTri, khoa);
+    const chuoi = (khoa: string) =>
+      typeof giaTri[khoa] === 'string' ? (giaTri[khoa] as string).trim() : '';
+    const so = (khoa: string) => Number(giaTri[khoa]);
+
+    for (const m of layDsMuc()) {
+      if (m.kieuDuLieu !== 'NUMBER' || !co(m.khoa)) continue;
+
+      if (giaTri[m.khoa] === null || giaTri[m.khoa] === '' || Number.isNaN(so(m.khoa))) {
+        loi(m.khoa, 'Phải là một số.');
+      } else if (so(m.khoa) < 0) {
+        loi(m.khoa, 'Không được là số âm.');
+      }
+    }
+
+    const email = chuoi(KHOA.emailHoTro);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      loi(KHOA.emailHoTro, 'Địa chỉ email không hợp lệ.');
+    }
+
+    const dienThoai = chuoi(KHOA.dienThoaiHoTro).replace(/[\s.()-]/g, '');
+    if (dienThoai && !/^\+?\d{8,15}$/.test(dienThoai)) {
+      loi(KHOA.dienThoaiHoTro, 'Số điện thoại phải có 8–15 chữ số.');
+    }
+
+    const mauMa = chuoi(KHOA.mauMaHoSo);
+    if (mauMa && !mauMa.includes('{STT')) {
+      loi(KHOA.mauMaHoSo, 'Mẫu mã phải có {STT} để mỗi hồ sơ nhận một mã khác nhau.');
+    }
+
+    if (co(KHOA.trungLapVang) && co(KHOA.trungLapDo)) {
+      const vang = so(KHOA.trungLapVang);
+      const do_ = so(KHOA.trungLapDo);
+
+      if (!Number.isNaN(vang) && !Number.isNaN(do_) && vang >= do_) {
+        loi(KHOA.trungLapVang, 'Ngưỡng cảnh báo vàng phải thấp hơn ngưỡng đỏ.');
+      }
+
+      if (do_ > 100) loi(KHOA.trungLapDo, 'Ngưỡng cảnh báo tính theo phần trăm, tối đa 100.');
+    }
+
+    if (co(KHOA.heSoTuVung) && co(KHOA.heSoNguNghia)) {
+      const tong = so(KHOA.heSoTuVung) + so(KHOA.heSoNguNghia);
+
+      if (!Number.isNaN(tong) && Math.abs(tong - 1) > 0.001) {
+        loi(
+          KHOA.heSoNguNghia,
+          `Hai hệ số phải cộng lại bằng 1 (đang là ${tong.toFixed(2)}), nếu không tỷ lệ trùng lặp sẽ sai thang.`,
+        );
+      }
+    }
+  });
+}
+
+type GiaTriCauHinh = Record<string, unknown>;
+
 /** Chức năng 46, 51 — Cấu hình hệ thống theo nhóm. */
 export default function TrangCauHinhHeThong() {
   const { nhom = 'he-thong' } = useParams<{ nhom: string }>();
   const cauHinhTrang = NHOM_THEO_DUONG_DAN[nhom] ?? NHOM_THEO_DUONG_DAN['he-thong'];
 
   const { message } = App.useApp();
-  const [form] = Form.useForm();
   const [dsMuc, setDsMuc] = useState<CauHinhMuc[]>([]);
+
+  // Luật đọc danh mục qua ref nên resolver không đổi khi máy chủ trả về danh sách trường.
+  const refMuc = useRef<CauHinhMuc[]>([]);
+  refMuc.current = dsMuc;
+  const form = useBieuMau<GiaTriCauHinh>(
+    useMemo(() => taoLuatCauHinh(() => refMuc.current), []),
+    {},
+  );
 
   const truyVan = useQuery({
     queryKey: ['cau-hinh', cauHinhTrang.nhom],
@@ -48,11 +142,11 @@ export default function TrangCauHinhHeThong() {
             : m.giaTri;
     });
 
-    form.setFieldsValue(giaTri);
+    form.reset(giaTri);
   }, [truyVan.data, form]);
 
   const luu = useMutation({
-    mutationFn: (giaTri: Record<string, unknown>) =>
+    mutationFn: (giaTri: GiaTriCauHinh) =>
       apiHeThong.luuCauHinh(
         dsMuc
           .filter((m) => m.choPhepSua)
@@ -86,8 +180,8 @@ export default function TrangCauHinhHeThong() {
         <Button
           type="primary"
           icon={<SaveOutlined />}
-          loading={luu.isPending}
-          onClick={async () => luu.mutate(await form.validateFields())}
+          loading={luu.isPending || form.formState.isSubmitting}
+          onClick={form.handleSubmit((giaTri) => luu.mutateAsync(giaTri))}
         >
           Lưu cấu hình
         </Button>
@@ -95,27 +189,42 @@ export default function TrangCauHinhHeThong() {
     >
       <DaiTabTrang danhSach={DS_TAB_CAU_HINH} dangChon={nhom} />
 
-      <Form form={form} layout="vertical" style={{ maxWidth: 720 }}>
+      <BieuMau
+        id="form-cau-hinh"
+        form={form}
+        onGui={(giaTri) => luu.mutateAsync(giaTri)}
+        style={{ maxWidth: 720 }}
+      >
         {dsMuc.map((m) => (
-          <Form.Item
-            key={m.khoa}
-            name={m.khoa}
-            label={m.tenHienThi}
-            extra={m.moTa}
-            valuePropName={m.kieuDuLieu === 'BOOLEAN' ? 'checked' : 'value'}
-          >
-            {m.kieuDuLieu === 'BOOLEAN' ? (
-              <Switch disabled={!m.choPhepSua} />
-            ) : m.kieuDuLieu === 'NUMBER' ? (
-              <InputNumber style={{ width: 220 }} disabled={!m.choPhepSua} />
-            ) : m.kieuDuLieu === 'COLOR' ? (
-              <ColorPicker showText disabled={!m.choPhepSua} />
-            ) : (
-              <Input disabled={!m.choPhepSua} />
-            )}
-          </Form.Item>
+          <Truong<GiaTriCauHinh> key={m.khoa} ten={m.khoa} label={m.tenHienThi} extra={m.moTa}>
+            {(o) =>
+              m.kieuDuLieu === 'BOOLEAN' ? (
+                <Switch
+                  checked={!!o.value}
+                  onChange={o.onChange}
+                  disabled={!m.choPhepSua}
+                />
+              ) : m.kieuDuLieu === 'NUMBER' ? (
+                <InputNumber
+                  {...o}
+                  value={o.value as number}
+                  style={{ width: 220 }}
+                  disabled={!m.choPhepSua}
+                />
+              ) : m.kieuDuLieu === 'COLOR' ? (
+                <ColorPicker
+                  value={o.value as string}
+                  onChange={o.onChange}
+                  showText
+                  disabled={!m.choPhepSua}
+                />
+              ) : (
+                <Input {...o} value={o.value as string} disabled={!m.choPhepSua} />
+              )
+            }
+          </Truong>
         ))}
-      </Form>
+      </BieuMau>
 
       <Space />
     </Card>

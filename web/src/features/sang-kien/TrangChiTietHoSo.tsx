@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   App,
@@ -9,7 +9,6 @@ import {
   Col,
   Descriptions,
   Dropdown,
-  Form,
   Input,
   Modal,
   Progress,
@@ -35,6 +34,7 @@ import {
   UndoOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { LoiApi, taiTep } from '@/api/client';
 import {
@@ -56,8 +56,35 @@ import {
   ngayGio,
 } from '@/components/ThanhPhanChung';
 import { XemTruocVanBan } from '@/components/ONoiDungDai';
+import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
+import { tuyChon } from '@/components/bieu-mau/luat';
 import { DatePicker, Select, Switch } from 'antd';
 import dayjs from 'dayjs';
+
+/**
+ * Luật kiểm tra ô ý kiến xử lý.
+ *
+ * Ràng buộc bật/tắt theo từng bước quy trình nên đọc qua hàm thay vì hằng số: cùng một form được
+ * dùng lại cho mọi nhánh chuyển bước, mỗi nhánh có yêu cầu ý kiến khác nhau.
+ *
+ * Bước có bật "bắt buộc nhập ý kiến" thì không cho gửi rỗng — ý kiến xử lý là căn cứ để giải
+ * trình vì sao hồ sơ được duyệt hay bị loại, thiếu nó thì hồ sơ đi tiếp mà không ai truy được lý do.
+ */
+function taoLuatXuLy(batBuocYKien: () => boolean) {
+  return z
+    .object({ yKien: tuyChon(2000) })
+    .superRefine((giaTri, ctx) => {
+      if (batBuocYKien() && !giaTri.yKien?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['yKien'],
+          message: 'Bước này bắt buộc nhập ý kiến xử lý.',
+        });
+      }
+    });
+}
+
+type GiaTriXuLy = { yKien?: string };
 
 export default function TrangChiTietHoSo() {
   const { id = '' } = useParams<{ id: string }>();
@@ -65,7 +92,16 @@ export default function TrangChiTietHoSo() {
   const queryClient = useQueryClient();
 
   const [hanhDongDangChon, setHanhDongDangChon] = useState<HanhDongKhaDung | null>(null);
-  const [formXuLy] = Form.useForm<{ yKien: string }>();
+  /*
+   * Ràng buộc "bắt buộc ý kiến" thay đổi theo nhánh người dùng bấm, nhưng resolver của form thì
+   * chỉ nhận một lần. Đọc qua ref để luật luôn thấy nhánh đang chọn mà form không phải dựng lại.
+   */
+  const refBatBuocYKien = useRef(false);
+  refBatBuocYKien.current = !!hanhDongDangChon?.batBuocNhapYKien;
+  const formXuLy = useBieuMau<GiaTriXuLy>(
+    useMemo(() => taoLuatXuLy(() => refBatBuocYKien.current), []),
+    { yKien: '' },
+  );
   const [moPhanCong, setMoPhanCong] = useState(false);
 
   const duocThuHoi = useAuthStore((st) => st.coQuyen('XU_LY.THU_HOI'));
@@ -108,7 +144,7 @@ export default function TrangChiTietHoSo() {
     onSuccess: (ketQua) => {
       message.success(ketQua.thongBao);
       setHanhDongDangChon(null);
-      formXuLy.resetFields();
+      formXuLy.reset({ yKien: '' });
       void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Xử lý thất bại.'),
@@ -507,12 +543,9 @@ export default function TrangChiTietHoSo() {
         title={hanhDongDangChon?.ten}
         okText="Xác nhận"
         cancelText="Hủy"
-        confirmLoading={thucThi.isPending}
+        confirmLoading={thucThi.isPending || formXuLy.formState.isSubmitting}
         onCancel={() => setHanhDongDangChon(null)}
-        onOk={async () => {
-          const giaTri = await formXuLy.validateFields();
-          thucThi.mutate({ truongHopId: hanhDongDangChon!.truongHopId, yKien: giaTri.yKien });
-        }}
+        okButtonProps={{ htmlType: 'submit', form: 'form-xu-ly' }}
       >
         {hanhDongDangChon?.tenBuocTiepTheo && (
           <Alert
@@ -523,19 +556,31 @@ export default function TrangChiTietHoSo() {
           />
         )}
 
-        <Form form={formXuLy} layout="vertical">
-          <Form.Item
-            name="yKien"
+        <BieuMau
+          id="form-xu-ly"
+          form={formXuLy}
+          onGui={(giaTri) =>
+            thucThi.mutateAsync({
+              truongHopId: hanhDongDangChon!.truongHopId,
+              yKien: giaTri.yKien,
+            })
+          }
+        >
+          <Truong<GiaTriXuLy>
+            ten="yKien"
             label="Ý kiến xử lý"
-            rules={
-              hanhDongDangChon?.batBuocNhapYKien
-                ? [{ required: true, message: 'Bước này bắt buộc nhập ý kiến xử lý' }]
-                : undefined
-            }
+            required={hanhDongDangChon?.batBuocNhapYKien}
           >
-            <Input.TextArea rows={4} placeholder="Nhập ý kiến xử lý..." />
-          </Form.Item>
-        </Form>
+            {(o) => (
+              <Input.TextArea
+                {...o}
+                value={o.value as string}
+                rows={4}
+                placeholder="Nhập ý kiến xử lý..."
+              />
+            )}
+          </Truong>
+        </BieuMau>
       </Modal>
     </div>
   );

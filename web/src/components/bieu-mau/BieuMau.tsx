@@ -45,6 +45,7 @@ interface PropsBieuMau<T extends FieldValues> extends React.PropsWithChildren {
   onGui: (giaTri: T) => void | Promise<unknown>;
   layout?: 'vertical' | 'horizontal' | 'inline';
   id?: string;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -58,6 +59,7 @@ export function BieuMau<T extends FieldValues>({
   onGui,
   layout = 'vertical',
   id,
+  style,
   children,
 }: PropsBieuMau<T>) {
   return (
@@ -65,6 +67,7 @@ export function BieuMau<T extends FieldValues>({
       <Form
         id={id}
         layout={layout}
+        style={style}
         component="form"
         onFinish={undefined}
         onSubmitCapture={form.handleSubmit(async (giaTri) => {
