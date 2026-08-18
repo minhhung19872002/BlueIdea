@@ -1,49 +1,54 @@
-# Autopilot Iteration 18
+# Autopilot Iteration 19
 
 ## Summary
 
-Closed remaining controller-level `[Authorize(Policy)]` defense-in-depth gaps across 8 controllers, adding 51 action-level policy attributes. This continues the pattern from iteration 17 which covered catalog and org management controllers.
+Closed cross-tenant IDOR vulnerability in `DichVuDonVi.ChuyenChaAsync` and `GopAsync` by adding org-scope enforcement. Both methods had `DonViCauHinh` permission gates (added in iteration 17) but no check that the affected unit IDs fell within the caller's accessible organizations.
 
 ## Changes
 
-### Controllers modified (51 policy additions total)
+### DichVuDonVi (src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs)
 
-| Controller | Policies Added | Permission Codes |
-|---|---|---|
-| BieuMauXuatController | 8 | DanhMucXem, DanhMucThem, DanhMucSua, DanhMucXoa |
-| BieuMauThongKeController | 5 | DanhMucXem, DanhMucThem, DanhMucSua, DanhMucXoa |
-| BaoCaoController | 7 | BaoCaoXem (7 read endpoints; export already had BaoCaoXuat) |
-| SangKienController | 14 | SangKienXem, SangKienThem, SangKienSua, SangKienNop, SangKienRut, TrungLapXem |
-| QuyTrinhController | 5 | QuyTrinhXem |
-| TieuChiController | 3 | TieuChiXem |
-| HoiDongController | 4 | HoiDongXem |
-| BienBanHopController | 4 | HoiDongXem |
-| DanhGiaController | 1 | DanhGiaChamDiem |
+- Added `INguoiDungHienTai` dependency to constructor
+- Added `BatBuocDonViTrongPhamViAsync` private method — checks `donViId` against `PhamViTruyCap.DonViIds` via `LayPhamViTruyCapAsync`. ToanHeThong bypasses; ChiCaNhan or out-of-scope throws `KhongTimThayException`
+- `ChuyenChaAsync`: scope-checks both the moved unit and the new parent
+- `GopAsync`: scope-checks both source and destination units
 
-### Dropdown endpoints (by design — bare [Authorize])
+### Unit tests (tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs)
 
-All `LayDanhSachChonAsync` ("chon") endpoints kept bare `[Authorize]` without policy — they serve dropdown/selection data for any authenticated user.
-
-### Test coverage
-
-Expanded `ChinhSachPhanQuyenControllerTests.cs` from 45 to 107+ parameterized tests covering all controller authorization policies via reflection. Added 5 new dropdown exemption test entries.
-
-### By-design exclusions
-
-- TepTinController: data-layer scope via `BatBuocTepTrongPhamViAsync`/`BatBuocHoSoTrongPhamViAsync`
-- BoLocYeuThichController: personal data, cross-role
-- MfaController: personal security, authenticated-only
+6 tests covering:
+- ChuyenCha with unit outside scope → throws
+- ChuyenCha with new parent outside scope → throws
+- Gop with source outside scope → throws
+- Gop with destination outside scope → throws
+- ChuyenCha with CA_NHAN scope → throws
+- Gop with CA_NHAN scope → throws
 
 ## Quality Gate
 
 - Result: PASS (7/7)
-- Unit tests: 476 (up from 369)
+- Unit tests: 482 (up from 476)
 - Warnings: 0
 
 ## Requirements Affected
 
-REQ-06, REQ-07, REQ-09 through REQ-13, REQ-19, REQ-20, REQ-22, REQ-23, REQ-26, REQ-28 through REQ-30, REQ-33 through REQ-35, REQ-37 through REQ-40, REQ-44
+REQ-44 (Quan ly don vi, to chuc) — MEDIUM security gap closed
+
+## Files Changed
+
+- `src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs` (modified)
+- `tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs` (new)
+- `docs/requirements/traceability.yaml` (updated)
+
+## Commit
+
+052e897
 
 ## Next Priority
 
-Resource-level scope validation in DichVuPhanQuyen (TD-005: DoiTuongId currently discarded in KiemTraQuyenAsync).
+TD-005: DoiTuongId discarded in KiemTraQuyenAsync — architectural decision needed (implement object-level scope in pipeline, or remove DoiTuongId and document per-service IDOR responsibility).
+
+Alternative: REQ-05 gap — DonViController dual-permission gate (DonViXem at controller vs DanhMucXem at service) inconsistency.
+
+## Blockers
+
+None discovered.
