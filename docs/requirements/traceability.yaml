@@ -210,10 +210,11 @@ requirements:
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/XuLy/LayKenhChoPhepTests.cs", "tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs"]
     gaps:
       - "No runtime integration test for feature toggles affecting live workflow execution"
-      - "5 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, TAO_BIEN_BAN, PHAN_CONG_CHAM, CONG_BO_KET_QUA) log warnings — require future implementation"
+      - "4 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, TAO_BIEN_BAN, CONG_BO_KET_QUA) log warnings — require future implementation"
     notes:
       - "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
+      - "Iteration-23: PHAN_CONG_CHAM automated — CongViecPhanCongCham background job auto-assigns council members to score innovations when workflow transitions to a scoring step. Conflict-of-interest exclusion (authors can't score their own work), idempotent assignment (no duplicates), deadline from step config, notifications to assigned members. 4 remaining unimplemented actions: TAO_QUYET_DINH (needs admin input), YEU_CAU_KY_SO (interactive signing), TAO_BIEN_BAN, CONG_BO_KET_QUA."
 
   - id: REQ-13
     source_number: 13
@@ -548,12 +549,13 @@ requirements:
     status: IMPLEMENTED_NOT_VERIFIED
     evidence:
       frontend: ["web/src/features/danh-gia/TrangViecDanhGia.tsx"]
-      backend: ["src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs"]
+      backend: ["src/BlueIdea.Application/DanhGia/DichVuDanhGia.cs", "src/BlueIdea.Infrastructure/CongViecNen/CongViecNen.cs"]
       tests: []
     gaps:
       - "Score visibility before form submission not verified by test"
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
+      - "Iteration-23: Automated scoring assignment via PHAN_CONG_CHAM workflow action — CongViecPhanCongCham background job triggered by DichVuDieuPhaiHanhDong when workflow transitions to a scoring step"
 
   - id: REQ-34
     source_number: 34

@@ -2,7 +2,9 @@ using BlueIdea.Application.Chung;
 using BlueIdea.Application.TrungLap;
 using BlueIdea.Domain.Ai;
 using BlueIdea.Domain.Chung;
+using BlueIdea.Domain.HoiDong;
 using BlueIdea.Domain.QuanTri;
+using BlueIdea.Domain.SangKien;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -557,5 +559,170 @@ public sealed class CongViecGuiHangDoi
             _logger.LogInformation(
                 "Hàng đợi gửi tin: {SoThanhCong} thành công, {SoLoi} lỗi.", soThanhCong, soLoi);
         }
+    }
+}
+
+/// <summary>
+/// Chuc nang 33 tu dong — khi buoc quy trinh CHAM_DIEM bat dau, tu dong phan cong
+/// thanh vien hoi dong cham ho so. Xung dot loi ich duoc loai tru (tac gia khong cham ho so minh).
+/// Luy dang: goi nhieu lan cho cung (sangKien, buoc) khong tao ban ghi trung.
+/// </summary>
+public sealed class CongViecPhanCongCham
+{
+    private readonly IAppDbContext _db;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly IDichVuThongBao _thongBao;
+    private readonly ILogger<CongViecPhanCongCham> _logger;
+
+    public CongViecPhanCongCham(
+        IAppDbContext db, IDongHoHeThong dongHo, IDichVuThongBao thongBao,
+        ILogger<CongViecPhanCongCham> logger)
+    {
+        _db = db;
+        _dongHo = dongHo;
+        _thongBao = thongBao;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })]
+    public async Task ChayAsync(Guid sangKienId, Guid buocMoiId, CancellationToken ct = default)
+    {
+        var buoc = await _db.QuyTrinhBuoc.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == buocMoiId, ct)
+            .ConfigureAwait(false);
+
+        if (buoc?.HoiDongId is null)
+        {
+            _logger.LogWarning(
+                "PHAN_CONG_CHAM bỏ qua: bước {BuocId} không có hội đồng gắn kết cho sáng kiến {SangKienId}.",
+                buocMoiId, sangKienId);
+            return;
+        }
+
+        var hoiDongId = buoc.HoiDongId.Value;
+
+        var hoiDong = await _db.HoiDong.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == hoiDongId, ct)
+            .ConfigureAwait(false);
+
+        if (hoiDong is null)
+        {
+            _logger.LogWarning(
+                "PHAN_CONG_CHAM bỏ qua: hội đồng {HoiDongId} không tồn tại cho sáng kiến {SangKienId}.",
+                hoiDongId, sangKienId);
+            return;
+        }
+
+        var thanhVien = await _db.HoiDongThanhVien.AsNoTracking()
+            .Where(x => x.HoiDongId == hoiDongId
+                        && x.QuyenChamDiem
+                        && x.TrangThai == TrangThaiDanhMuc.HoatDong)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (thanhVien.Count == 0)
+        {
+            _logger.LogWarning(
+                "PHAN_CONG_CHAM bỏ qua: hội đồng {TenHoiDong} không có thành viên nào có quyền chấm điểm.",
+                hoiDong.Ten);
+            return;
+        }
+
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false);
+
+        if (hoSo is null)
+        {
+            return;
+        }
+
+        var tacGiaIds = hoSo.DanhSachTacGia
+            .Where(t => t.NguoiDungId.HasValue)
+            .Select(t => t.NguoiDungId!.Value)
+            .ToHashSet();
+
+        var duocPhep = thanhVien
+            .Where(tv => tv.NguoiDungId is null || !tacGiaIds.Contains(tv.NguoiDungId.Value))
+            .ToList();
+
+        if (duocPhep.Count < thanhVien.Count)
+        {
+            _logger.LogInformation(
+                "PHAN_CONG_CHAM: loại {SoBiLoai} thành viên do xung đột lợi ích cho sáng kiến {MaHoSo}.",
+                thanhVien.Count - duocPhep.Count, hoSo.MaHoSo);
+        }
+
+        if (duocPhep.Count == 0)
+        {
+            _logger.LogWarning(
+                "PHAN_CONG_CHAM bỏ qua: tất cả thành viên hội đồng đều bị xung đột lợi ích cho sáng kiến {MaHoSo}.",
+                hoSo.MaHoSo);
+            return;
+        }
+
+        var hanXuLy = await _db.SangKienXuLy.AsNoTracking()
+            .Where(x => x.SangKienId == sangKienId && x.BuocId == buocMoiId && x.HanXuLy != null)
+            .OrderByDescending(x => x.NgayTao)
+            .Select(x => x.HanXuLy)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var daPhanCong = 0;
+
+        foreach (var tv in duocPhep)
+        {
+            var daCo = await _db.SangKienPhanCong
+                .AnyAsync(x => x.SangKienId == sangKienId && x.ThanhVienId == tv.Id, ct)
+                .ConfigureAwait(false);
+
+            if (daCo)
+            {
+                continue;
+            }
+
+            _db.SangKienPhanCong.Add(new SangKienPhanCong
+            {
+                SangKienId = sangKienId,
+                HoiDongId = hoiDongId,
+                ThanhVienId = tv.Id,
+                NguoiPhanCongId = null,
+                NgayPhanCong = _dongHo.BayGio,
+                HanHoanThanh = hanXuLy,
+                TrangThaiPhanCong = TrangThaiPhanCong.ChuaCham
+            });
+
+            daPhanCong++;
+        }
+
+        if (daPhanCong > 0)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        var nguoiNhan = duocPhep
+            .Where(t => t.NguoiDungId.HasValue)
+            .Select(t => t.NguoiDungId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (nguoiNhan.Count > 0 && daPhanCong > 0)
+        {
+            await _thongBao.GuiTheoSuKienAsync(
+                SuKienThongBao.DuocPhanCongCham, nguoiNhan,
+                new Dictionary<string, object?>
+                {
+                    ["soHoSo"] = 1,
+                    ["tenHoiDong"] = hoiDong.Ten,
+                    ["hanHoanThanh"] = hanXuLy,
+                    ["duongDan"] = DuongDanGiaoDien.DanhSachViecDanhGia
+                }, ct).ConfigureAwait(false);
+        }
+
+        _logger.LogInformation(
+            "PHAN_CONG_CHAM tự động: đã phân công {SoLuot} thành viên chấm sáng kiến {MaHoSo} "
+            + "trong hội đồng {TenHoiDong}.",
+            daPhanCong, hoSo.MaHoSo, hoiDong.Ten);
     }
 }

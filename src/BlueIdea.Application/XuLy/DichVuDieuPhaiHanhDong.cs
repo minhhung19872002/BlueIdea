@@ -77,10 +77,23 @@ public sealed class DichVuDieuPhaiHanhDong
                     sangKienId);
                 break;
 
+            case HanhDongTuDong.PhanCongCham:
+                if (ketQua.BuocMoiId is not null)
+                {
+                    _hangDoi.XepLichPhanCongCham(sangKienId, ketQua.BuocMoiId.Value);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "PHAN_CONG_CHAM bỏ qua: không có bước mới (quy trình đã kết thúc?) " +
+                        "cho sáng kiến {SangKienId}.",
+                        sangKienId);
+                }
+                break;
+
             case HanhDongTuDong.TaoQuyetDinh:
             case HanhDongTuDong.YeuCauKySo:
             case HanhDongTuDong.TaoBienBan:
-            case HanhDongTuDong.PhanCongCham:
             case HanhDongTuDong.CongBoKetQua:
                 _logger.LogWarning(
                     "Hành động tự động {HanhDong} được cấu hình nhưng chưa có bộ xử lý tự động " +

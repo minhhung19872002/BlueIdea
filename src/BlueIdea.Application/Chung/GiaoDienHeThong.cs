@@ -318,6 +318,9 @@ public interface IHangDoiCongViecNen
 
     /// <summary>Gui ngay cac tin dang cho trong hang doi (khong doi den luot dinh ky).</summary>
     void XepLichGuiHangDoi();
+
+    /// <summary>Tu dong phan cong thanh vien hoi dong cham diem khi buoc quy trinh CHAM_DIEM bat dau.</summary>
+    void XepLichPhanCongCham(Guid sangKienId, Guid buocMoiId);
 }
 
 /// <summary>
