@@ -44,7 +44,13 @@ public sealed record ThongTinNguoiDungDto(
     /// Tinh o may chu chu khong de giao dien tu suy ra: chinh sach bat/tat nam trong cau hinh, va
     /// giao dien khong nen phai biet quy tac ay.
     /// </summary>
-    bool BuocBatMfa = false);
+    bool BuocBatMfa = false,
+
+    // --- Thong tin ca nhan nguoi dung tu sua duoc (chuc nang 21/43) ---
+    string? DienThoai = null,
+    DateOnly? NgaySinh = null,
+    string? GioiTinh = null,
+    Guid? AnhDaiDienId = null);
 
 /// <summary>Mot muc menu da loc theo quyen cua nguoi dung (chuc nang 48).</summary>
 public sealed record MenuDto(

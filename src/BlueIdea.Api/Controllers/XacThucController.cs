@@ -332,9 +332,26 @@ public sealed class XacThucController : ControllerBase
             nguoiDung.Id, nguoiDung.TenDangNhap, nguoiDung.HoTen, nguoiDung.Email,
             nguoiDung.ChucVu, nguoiDung.DonViId, tenDonVi,
             _nguoiDung.VaiTro.ToList(), _nguoiDung.Quyen.ToList(), nguoiDung.MfaEnabled,
-            buocBatMfa);
+            buocBatMfa,
+            nguoiDung.DienThoai, nguoiDung.NgaySinh, nguoiDung.GioiTinh, nguoiDung.AnhDaiDienId);
 
         return Ok(PhanHoiApi<ThongTinNguoiDungDto>.Ok(dto));
+    }
+
+    /// <summary>
+    /// Chức năng 21, 43 — Người dùng tự cập nhật thông tin cá nhân.
+    ///
+    /// Không sửa được đơn vị, vai trò hay trạng thái tài khoản: đó là quyết định của tổ chức,
+    /// người dùng tự đổi được là mở đường cho leo thang đặc quyền.
+    /// </summary>
+    [HttpPut("toi")]
+    [Authorize]
+    [ProducesResponseType(typeof(PhanHoiApi), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CapNhatHoSoCaNhanAsync(
+        [FromBody] CapNhatHoSoCaNhanCommand yeuCau, CancellationToken ct)
+    {
+        await _mediator.Send(yeuCau, ct);
+        return Ok(PhanHoiApi.Ok("Đã cập nhật thông tin cá nhân."));
     }
 
     /// <summary>Chức năng 48 — Menu đã lọc theo quyền của người dùng hiện tại.</summary>
