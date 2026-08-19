@@ -1,63 +1,49 @@
-# Autopilot Iteration 21
+# Autopilot Iteration 22
 
 ## Summary
 
-Resolved TD-005: DoiTuongId was passed through the MediatR authorization pipeline but explicitly discarded in `KiemTraQuyenAsync`, creating false security documentation. Four mutation/query handlers lacked IDOR scope checks.
+Fixed REQ-15 bug: CHU_TICH_QUYET_DINH processing rule in the workflow engine was functionally identical to MOT_NGUOI, allowing any step actor (including regular council members) to advance a Chairman-decision step. The Chairman's decision should be the only one that advances the workflow.
 
 ## Changes
 
-### Interface refactoring (HanhViPipeline.cs)
+### Workflow engine fix (BoMayQuyTrinh.cs)
 
-- Removed `DoiTuongId` from `ICoYeuCauQuyen` (authorization interface)
-- Added `DoiTuongId` to `ICoGhiNhatKy` (audit logging interface) — preserving audit trail
-- `HanhViPhanQuyen` no longer passes `DoiTuongId` to `BatBuocCoQuyenAsync`
-- `HanhViGhiNhatKy` now reads `DoiTuongId` from `ICoGhiNhatKy` instead of casting to `ICoYeuCauQuyen`
+- Extracted `KhopTacNhan` helper from `LaTacNhanCuaBuoc` — single-actor matching logic now reusable without duplication
+- Refactored `LaTacNhanCuaBuoc` to use `KhopTacNhan`
+- **Fixed `DemTacNhan`**: Separated ChuTichQuyetDinh from MotNguoi. When ChuTichQuyetDinh is the effective rule, only actors whose `QuyTacXuLy == ChuTichQuyetDinh` can advance the step. Other actors' actions are recorded (ThanhCong=true, ChoThemTacNhan=true) but the step does not advance until the Chairman acts.
 
-### Authorization API cleanup (IDichVuPhanQuyen + DichVuPhanQuyen)
+### Test helpers (XuongDuLieuTest.cs)
 
-- Removed `doiTuongId` parameter from `KiemTraQuyenAsync` and `BatBuocCoQuyenAsync`
-- Removed the explicit discard `_ = doiTuongId` line
-- Updated ~55 call sites across 17 service files to use new 2-parameter signature
+- Added `ThemTacNhanChucDanh` extension method for creating `ChucDanhHoiDong`-type actors in tests
 
-### IDOR scope checks added (SangKienCommands.cs + ThucThiBuocCommand.cs)
+### Unit tests (BoMayQuyTrinhTests.cs)
 
-- `CapNhatHoSoCommandHandler`: Added `BatBuocTrongPhamViAsync` after loading record
-- `NopHoSoCommandHandler`: Added `BatBuocTrongPhamViAsync` after loading record
-- `RutHoSoCommandHandler`: Added `BatBuocTrongPhamViAsync` after loading record + added `.Include(DanhSachTacGia)` for co-author check
-- `LayHanhDongKhaDungQueryHandler`: Added scope check before engine call, returns empty for out-of-scope requests
-
-### Tests
-
-- Updated 5 existing `DichVuDonViPhamViTests` for new `BatBuocCoQuyenAsync` signature
-- Added 4 integration tests in `IdorBaoVeTests.cs` for cross-org IDOR on CapNhat/Nop/Rut/HanhDong
+- Added `NguoiVoiChucDanh` helper for creating user context with council role
+- Added 3 tests:
+  1. `Quy_Tac_CHU_TICH_QUYET_DINH_Chu_Tich_Chuyen_Buoc_Ngay` — Chairman advances immediately
+  2. `Quy_Tac_CHU_TICH_QUYET_DINH_Uy_Vien_Ghi_Nhan_Nhung_Chua_Chuyen_Buoc` — Member recorded but step stays
+  3. `Quy_Tac_CHU_TICH_QUYET_DINH_Sau_Uy_Vien_Chu_Tich_Chuyen_Buoc` — Chairman advances after member already recorded
 
 ## Quality Gate
 
 - Result: PASS (7/7)
-- Unit tests: 493 (unchanged)
+- Unit tests: 496 (493 + 3 new)
 - Warnings: 0
 
 ## Requirements Affected
 
-- REQ-23 (Quan ly ho so sang kien) — 2 security gaps closed (DoiTuongId discard, missing hanh-dong auth test)
-- TD-005 — Resolved (moved to Resolved Items in technical-debt.md)
+- REQ-15 (Tac nhan xu ly) — ChuTichQuyetDinh bug fixed, gap updated
 
 ## Files Changed
 
-- `src/BlueIdea.Application/Chung/HanhViPipeline.cs` (interface + pipeline changes)
-- `src/BlueIdea.Application/Chung/GiaoDienHeThong.cs` (IDichVuPhanQuyen signature)
-- `src/BlueIdea.Infrastructure/DichVu/DichVuPhanQuyen.cs` (implementation)
-- `src/BlueIdea.Application/SangKien/SangKienCommands.cs` (3 IDOR checks + constructor DI)
-- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` (1 IDOR check + remove dead DoiTuongId)
-- 17 service files (BatBuocCoQuyenAsync call site updates)
-- `tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs` (signature update)
-- `tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs` (4 new tests)
-- `docs/requirements/traceability.yaml` (REQ-23 updated)
-- `docs/audit/technical-debt.md` (TD-005 resolved)
+- `src/BlueIdea.Workflow/BoMayQuyTrinh.cs` (KhopTacNhan extraction + DemTacNhan fix)
+- `tests/BlueIdea.UnitTests/TienIch/XuongDuLieuTest.cs` (ThemTacNhanChucDanh helper)
+- `tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs` (3 new tests + NguoiVoiChucDanh helper)
+- `docs/requirements/traceability.yaml` (REQ-15 updated)
 
 ## Commit
 
-4a5fdd7
+(pending)
 
 ## Next Priority
 
@@ -69,4 +55,4 @@ Remaining items by priority:
 
 ## Blockers
 
-Integration tests (4 new + many existing) require Docker for Testcontainers — cannot be executed in current environment.
+Integration tests require Docker for Testcontainers — cannot be executed in current environment.

@@ -24,6 +24,14 @@ public class BoMayQuyTrinhTests
         MaVaiTro = vaiTro.ToHashSet()
     };
 
+    private static NguCanhNguoiXuLy NguoiVoiChucDanh(Guid hoiDongId, string chucDanh) => new()
+    {
+        NguoiDungId = Guid.NewGuid(),
+        DonViId = Guid.NewGuid(),
+        MaVaiTro = new HashSet<string>(),
+        ChucDanhTheoHoiDong = new Dictionary<Guid, string> { [hoiDongId] = chucDanh }
+    };
+
     private static NguCanhThucThi TaoNguCanh(
         HoSoSangKien hoSo,
         QuyTrinh quyTrinh,
@@ -738,5 +746,114 @@ public class BoMayQuyTrinhTests
         nguCanh.Lay(BienNguCanh.TyLeTrungLap).Should().Be(12.5m);
         nguCanh.Lay(BienNguCanh.LinhVucId).Should().Be(hoSo.LinhVucId);
         nguCanh.Lay(BienNguCanh.CapXetDuyet).Should().Be(CapXetDuyet.CoSo);
+    }
+
+    // ---- Quy tac CHU_TICH_QUYET_DINH ----
+
+    [Fact]
+    public void Quy_Tac_CHU_TICH_QUYET_DINH_Chu_Tich_Chuyen_Buoc_Ngay()
+    {
+        var hoiDongId = Guid.NewGuid();
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau(hoiDongId: hoiDongId);
+        var buocHop = quyTrinh.DanhSachBuoc.First(b => b.Ma == "B5");
+        buocHop.TacNhan.Clear();
+        buocHop.HoiDongId = hoiDongId;
+        buocHop.ThemTacNhanChucDanh(ChucDanhHoiDong.UyVien, QuyTacXuLy.MotNguoi, hoiDongId);
+        buocHop.ThemTacNhanChucDanh(ChucDanhHoiDong.ChuTich, QuyTacXuLy.ChuTichQuyetDinh, hoiDongId);
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        hoSo.BuocHienTaiId = buocHop.Id;
+        hoSo.TongDiem = 80m;
+
+        var chuTich = NguoiVoiChucDanh(hoiDongId, ChucDanhHoiDong.ChuTich);
+        var nguCanh = TaoNguCanh(hoSo, quyTrinh, chuTich);
+        var truongHopDat = buocHop.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(nguCanh, new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = chuTich.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "Đồng ý công nhận."
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.ChoThemTacNhan.Should().BeFalse("chủ tịch quyết định nên chuyển bước ngay");
+        hoSo.BuocHienTaiId.Should().NotBe(buocHop.Id, "đã rời khỏi bước họp hội đồng");
+    }
+
+    [Fact]
+    public void Quy_Tac_CHU_TICH_QUYET_DINH_Uy_Vien_Ghi_Nhan_Nhung_Chua_Chuyen_Buoc()
+    {
+        var hoiDongId = Guid.NewGuid();
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau(hoiDongId: hoiDongId);
+        var buocHop = quyTrinh.DanhSachBuoc.First(b => b.Ma == "B5");
+        buocHop.TacNhan.Clear();
+        buocHop.HoiDongId = hoiDongId;
+        buocHop.ThemTacNhanChucDanh(ChucDanhHoiDong.UyVien, QuyTacXuLy.MotNguoi, hoiDongId);
+        buocHop.ThemTacNhanChucDanh(ChucDanhHoiDong.ChuTich, QuyTacXuLy.ChuTichQuyetDinh, hoiDongId);
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        hoSo.BuocHienTaiId = buocHop.Id;
+        hoSo.TongDiem = 80m;
+
+        var uyVien = NguoiVoiChucDanh(hoiDongId, ChucDanhHoiDong.UyVien);
+        var nguCanh = TaoNguCanh(hoSo, quyTrinh, uyVien);
+        var truongHopDat = buocHop.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(nguCanh, new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = uyVien.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "Tôi đồng ý."
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.ChoThemTacNhan.Should().BeTrue("ủy viên không phải chủ tịch nên bước chưa chuyển");
+        ketQua.SoTacNhanCanThiet.Should().Be(1);
+        ketQua.SoTacNhanDaXuLy.Should().Be(0);
+        hoSo.BuocHienTaiId.Should().Be(buocHop.Id, "hồ sơ vẫn ở bước họp hội đồng");
+    }
+
+    [Fact]
+    public void Quy_Tac_CHU_TICH_QUYET_DINH_Sau_Uy_Vien_Chu_Tich_Chuyen_Buoc()
+    {
+        var hoiDongId = Guid.NewGuid();
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau(hoiDongId: hoiDongId);
+        var buocHop = quyTrinh.DanhSachBuoc.First(b => b.Ma == "B5");
+        buocHop.TacNhan.Clear();
+        buocHop.HoiDongId = hoiDongId;
+        buocHop.ThemTacNhanChucDanh(ChucDanhHoiDong.UyVien, QuyTacXuLy.MotNguoi, hoiDongId);
+        buocHop.ThemTacNhanChucDanh(ChucDanhHoiDong.ChuTich, QuyTacXuLy.ChuTichQuyetDinh, hoiDongId);
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        hoSo.BuocHienTaiId = buocHop.Id;
+        hoSo.TongDiem = 80m;
+
+        var lichSuUyVien = new List<SangKienXuLy>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(), SangKienId = hoSo.Id, BuocId = buocHop.Id,
+                NguoiXuLyId = Guid.NewGuid(), ThoiGianXuLy = ThoiDiemTest.AddHours(-1)
+            }
+        };
+
+        var chuTich = NguoiVoiChucDanh(hoiDongId, ChucDanhHoiDong.ChuTich);
+        var nguCanh = TaoNguCanh(hoSo, quyTrinh, chuTich, lichSuUyVien);
+        var truongHopDat = buocHop.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+
+        var ketQua = _boMay.ThucThi(nguCanh, new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = chuTich.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "Chủ tịch kết luận: đồng ý."
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.ChoThemTacNhan.Should().BeFalse("chủ tịch đã quyết định");
+        hoSo.BuocHienTaiId.Should().NotBe(buocHop.Id);
     }
 }

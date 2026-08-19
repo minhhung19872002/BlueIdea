@@ -412,48 +412,35 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
     /// <summary>Doi chieu nguoi dung voi danh sach tac nhan duoc cau hinh cho buoc.</summary>
     private static bool LaTacNhanCuaBuoc(QuyTrinhBuoc buoc, NguCanhThucThi nguCanh)
     {
-        var tacNhan = buoc.TacNhan.Where(t => !t.DaXoa).ToList();
-        if (tacNhan.Count == 0)
+        return buoc.TacNhan.Where(t => !t.DaXoa).Any(tn => KhopTacNhan(buoc, tn, nguCanh.NguoiXuLy));
+    }
+
+    private static bool KhopTacNhan(QuyTrinhBuoc buoc, QuyTrinhBuocTacNhan tn, NguCanhNguoiXuLy nguoi)
+    {
+        return tn.LoaiTacNhan switch
         {
-            return false;
-        }
+            LoaiTacNhan.NguoiDung => tn.ThamChieuId == nguoi.NguoiDungId,
 
-        var nguoi = nguCanh.NguoiXuLy;
+            LoaiTacNhan.VaiTro =>
+                (tn.ThamChieuId.HasValue && nguoi.VaiTroIds.Contains(tn.ThamChieuId.Value))
+                || (!string.IsNullOrEmpty(tn.ThamChieuMa) && nguoi.MaVaiTro.Contains(tn.ThamChieuMa)),
 
-        foreach (var tn in tacNhan)
-        {
-            var khop = tn.LoaiTacNhan switch
-            {
-                LoaiTacNhan.NguoiDung => tn.ThamChieuId == nguoi.NguoiDungId,
+            LoaiTacNhan.DonVi =>
+                tn.ThamChieuId.HasValue
+                && (nguoi.DonViId == tn.ThamChieuId.Value
+                    || nguoi.DonViTrongPhamVi.Contains(tn.ThamChieuId.Value)),
 
-                LoaiTacNhan.VaiTro =>
-                    (tn.ThamChieuId.HasValue && nguoi.VaiTroIds.Contains(tn.ThamChieuId.Value))
-                    || (!string.IsNullOrEmpty(tn.ThamChieuMa) && nguoi.MaVaiTro.Contains(tn.ThamChieuMa)),
+            LoaiTacNhan.HoiDong =>
+                tn.ThamChieuId.HasValue && nguoi.ChucDanhTheoHoiDong.ContainsKey(tn.ThamChieuId.Value),
 
-                LoaiTacNhan.DonVi =>
-                    tn.ThamChieuId.HasValue
-                    && (nguoi.DonViId == tn.ThamChieuId.Value
-                        || nguoi.DonViTrongPhamVi.Contains(tn.ThamChieuId.Value)),
+            LoaiTacNhan.ChucDanhHoiDong => KhopChucDanhHoiDong(buoc, tn, nguoi),
 
-                LoaiTacNhan.HoiDong =>
-                    tn.ThamChieuId.HasValue && nguoi.ChucDanhTheoHoiDong.ContainsKey(tn.ThamChieuId.Value),
+            LoaiTacNhan.NguoiTaoHoSo => nguoi.LaNguoiTaoHoSo,
 
-                LoaiTacNhan.ChucDanhHoiDong => KhopChucDanhHoiDong(buoc, tn, nguoi),
+            LoaiTacNhan.LanhDaoDonViTacGia => nguoi.LaLanhDaoDonViTacGia,
 
-                LoaiTacNhan.NguoiTaoHoSo => nguoi.LaNguoiTaoHoSo,
-
-                LoaiTacNhan.LanhDaoDonViTacGia => nguoi.LaLanhDaoDonViTacGia,
-
-                _ => false
-            };
-
-            if (khop)
-            {
-                return true;
-            }
-        }
-
-        return false;
+            _ => false
+        };
     }
 
     private static bool KhopChucDanhHoiDong(
@@ -493,9 +480,17 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
             : quyTac.Contains(QuyTacXuLy.ChuTichQuyetDinh) ? QuyTacXuLy.ChuTichQuyetDinh
             : QuyTacXuLy.MotNguoi;
 
-        if (quyTacApDung is QuyTacXuLy.MotNguoi or QuyTacXuLy.ChuTichQuyetDinh)
+        if (quyTacApDung == QuyTacXuLy.MotNguoi)
         {
             return (1, 1);
+        }
+
+        if (quyTacApDung == QuyTacXuLy.ChuTichQuyetDinh)
+        {
+            var laChuTich = buoc.TacNhan
+                .Where(t => !t.DaXoa && t.QuyTacXuLy == QuyTacXuLy.ChuTichQuyetDinh)
+                .Any(tn => KhopTacNhan(buoc, tn, nguCanh.NguoiXuLy));
+            return laChuTich ? (1, 1) : (0, 1);
         }
 
         var tong = Math.Max(nguCanh.SoTacNhanDuKien, 1);

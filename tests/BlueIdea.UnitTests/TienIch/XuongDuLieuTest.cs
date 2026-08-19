@@ -52,6 +52,24 @@ public static class XuongDuLieuTest
         return buoc;
     }
 
+    public static QuyTrinhBuoc ThemTacNhanChucDanh(
+        this QuyTrinhBuoc buoc,
+        string maChucDanh,
+        string quyTac = QuyTacXuLy.MotNguoi,
+        Guid? hoiDongId = null)
+    {
+        buoc.TacNhan.Add(new QuyTrinhBuocTacNhan
+        {
+            Id = Guid.NewGuid(),
+            BuocId = buoc.Id,
+            LoaiTacNhan = LoaiTacNhan.ChucDanhHoiDong,
+            ThamChieuMa = maChucDanh,
+            QuyTacXuLy = quyTac
+        });
+
+        return buoc;
+    }
+
     public static QuyTrinhTruongHop ThemTruongHop(
         this QuyTrinhBuoc buoc,
         string ma,

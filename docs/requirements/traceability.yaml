@@ -252,9 +252,11 @@ requirements:
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
       backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs", "tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
     gaps:
-      - "CHU_TICH_QUYET_DINH processing rule is identical to MOT_NGUOI — may not be intentional"
+      - "No runtime integration test for all 7 actor types"
+    notes:
+      - "Iteration-22: CHU_TICH_QUYET_DINH processing rule fixed — was identical to MOT_NGUOI (any actor could advance). Now only actors with QuyTacXuLy=ChuTichQuyetDinh can advance the step; other actors' opinions are recorded but step stays. 3 unit tests added. KhopTacNhan extracted from LaTacNhanCuaBuoc for reuse."
 
   - id: REQ-16
     source_number: 16
