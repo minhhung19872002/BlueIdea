@@ -102,7 +102,8 @@ public static partial class VanBanTiengViet
                 continue;
             }
 
-            // Ky tu co dau khac (vi du tieng Phap) -> tach to hop roi bo dau thanh.
+            if (char.IsSurrogate(kyTu)) continue;
+
             var tach = kyTu.ToString().Normalize(NormalizationForm.FormD);
             foreach (var c in tach)
             {
