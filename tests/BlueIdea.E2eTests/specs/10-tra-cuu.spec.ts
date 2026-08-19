@@ -221,10 +221,20 @@ test.describe('REQ-37: Tra cứu và tìm kiếm sáng kiến', () => {
 
   test.describe('Cổng công khai — không cần xác thực', () => {
     test('trang công khai tải không cần đăng nhập', async ({ page }) => {
+      const phanHoiLoi: number[] = [];
+      page.on('response', (r) => {
+        if (r.url().includes('/api/') && (r.status() === 401 || r.status() === 403)) {
+          phanHoiLoi.push(r.status());
+        }
+      });
+
       await page.goto(ROUTES.congKhai);
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator('body')).not.toContainText('401');
+
+      // Kiểm bằng mã trả về thật, không dò chuỗi "401" trong body: mã hồ sơ và số quyết định
+      // có thể chứa đúng ba chữ số đó (ví dụ "KT-20260817194013").
+      expect(phanHoiLoi).toEqual([]);
     });
 
     test('trang công khai hiển thị ô tìm kiếm', async ({ page }) => {

@@ -36,6 +36,11 @@ secrets.json
 *.p12
 *.key
 
+# --- Kết quả kiểm thử E2E (sinh lại mỗi lần chạy) ------------------------
+tests/BlueIdea.E2eTests/test-results/
+tests/BlueIdea.E2eTests/playwright-report/
+tests/BlueIdea.E2eTests/blob-report/
+
 # --- Hệ điều hành -------------------------------------------------------
 Thumbs.db
 .DS_Store

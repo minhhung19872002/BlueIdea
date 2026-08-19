@@ -127,12 +127,24 @@ test.describe('REQ-23 đến REQ-25: Cổng thông tin công khai & Tra cứu', 
 
   test.describe('Trang công khai — giao diện', () => {
     test('trang tra cứu công khai tải được mà không cần đăng nhập', async ({ page }) => {
+      const phanHoiLoi: number[] = [];
+      page.on('response', (r) => {
+        if (r.url().includes('/api/') && (r.status() === 401 || r.status() === 403)) {
+          phanHoiLoi.push(r.status());
+        }
+      });
+
       await page.goto(ROUTES.congKhai);
       await page.waitForLoadState('networkidle');
-      // Public portal must load without authentication
-      await expect(page.locator('body')).not.toContainText('401');
-      await expect(page.locator('body')).not.toContainText('403');
+
+      /*
+       * Bắt lỗi bằng MÃ TRẢ VỀ THẬT của các lời gọi API, không phải bằng cách dò chuỗi "401"
+       * trong toàn bộ body: mã hồ sơ và số quyết định có thể chứa đúng ba chữ số đó
+       * (ví dụ "KT-20260817194013"), khiến kiểm thử đỏ vì dữ liệu chứ không phải vì lỗi.
+       */
+      expect(phanHoiLoi, 'trang công khai không được gọi API cần đăng nhập').toEqual([]);
       await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+      await expect(page.getByText('Tra cứu sáng kiến đã công nhận')).toBeVisible();
     });
   });
 
