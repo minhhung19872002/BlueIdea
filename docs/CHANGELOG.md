@@ -4,6 +4,75 @@
 
 ---
 
+## [1.5.0] — 2026-08-19
+
+Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện
+nhưng không một dòng logic nào đọc tới**, và **dịch vụ nào có mã nhưng không có endpoint hay lối
+vào**. Cách quét này bắt được nhóm thiếu sót nguy hiểm nhất khi nghiệm thu — quản trị viên bật một
+tuỳ chọn, hệ thống báo lưu thành công, nhưng hành vi không đổi.
+
+### Cấu hình có khai mà không có tác dụng — nay đã có
+
+- **Chức năng 13** — cờ *dùng để kiểm tra trùng lặp* của từng thành phần hồ sơ: pipeline trước đây
+  gom **toàn bộ** nội dung và tệp, bỏ qua cờ này. Nay chỉ thành phần được tick mới đi vào so khớp,
+  nên phụ lục và biểu mẫu hành chính giống nhau giữa mọi hồ sơ không còn đẩy tỷ lệ trùng lên.
+- **Chức năng 14** — cờ *hiển thị cho tác giả* của trạng thái bước: nay tác giả chỉ thấy nhãn
+  trung tính "Đang xử lý" với những trạng thái tắt cờ, và tiến độ ẩn ý kiến nội bộ của bước đó.
+  Máy chủ **không trả dữ liệu đó về**, không phải ẩn ở giao diện.
+- **Chức năng 11** — *cảnh báo trước hạn (giờ)* khai theo từng bước: job nhắc hạn trước đây chỉ
+  dùng cấu hình chung `SO_NGAY_NHAC_TRUOC_HAN`. Nay đọc ngưỡng của chính bước đó từ snapshot quy trình.
+- **Chức năng 5** — bảng `cau_hinh_cap_phe_duyet` trước đây chỉ có CRUD, không logic nào đọc. Nay
+  sinh ra 4 biến ngữ cảnh (`so_cap_phe_duyet`, `cap_phe_duyet_hien_tai`, `con_cap_phe_duyet_cao_hon`,
+  `don_vi_phe_duyet_ke_tiep`) để khai nhánh "Chuyển cấp cao hơn" bằng **điều kiện cấu hình** thay vì sửa mã.
+
+### Chức năng có mã nhưng không có lối vào — nay đã nối
+
+- **Chức năng 26** — *Đánh dấu đã xem xét* kèm ý kiến hội đồng: hàm xử lý đã tồn tại nhưng không có
+  endpoint, không có nút, không có kiểm thử. Nay có `POST /api/v1/sang-kien/{id}/trung-lap/xem-xet`
+  (quyền mới `TRUNG_LAP.XEM_XET`, ghi nhật ký ai/khi nào) và khối ghi ý kiến trên tab Trùng lặp.
+- **Chức năng 29** — *uỷ quyền xử lý bước*: máy chạy quy trình đã kiểm tra cờ `cho_phep_uy_quyen`
+  và API đã nhận `nguoiUyQuyenId`, nhưng không màn hình nào cho chọn. Nay hộp thoại xử lý có ô
+  "Xử lý thay cho" lấy từ `GET /api/v1/xu-ly/tac-nhan-buoc/{id}`, và **máy chủ chặn** uỷ quyền cho
+  người không phải tác nhân của bước.
+- **Chức năng 21** — thêm lối tắt tới trang *Bảo mật tài khoản* (bật MFA, mã khôi phục) ngay trong
+  menu người dùng, cạnh *Đổi mật khẩu*. Mục này vốn đã có ở menu bên trái (nạp từ `cau_hinh_menu`)
+  nên đây là cải thiện thao tác, không phải bù chức năng thiếu.
+
+### Bổ sung còn thiếu so với đặc tả
+
+- **Chức năng 26** — xuất báo cáo trùng lặp ra **PDF**, in cả trích dẫn đoạn trùng để đính kèm hồ sơ
+  hội đồng; một con số phần trăm không tự bảo vệ được trước tác giả bị kết luận.
+- **Chức năng 39, 40** — xuất **PDF** cho báo cáo chưa đạt, theo đơn vị, theo tác giả, thời gian xử
+  lý. Trước đây nút *Xuất PDF* ở mọi tab đều tải nhầm **danh sách sáng kiến đạt**.
+- **Chức năng 35** — xuất phiếu chấm bản **Word (.docx)** để thư ký biên tập trước khi đóng hồ sơ.
+- **Chức năng 49** — ký **XAdES-BES** cho tệp XML; đồng thời sửa lỗi **xác minh bản PAdES luôn báo
+  "không có chữ ký"** (bản PDF đã ký bị đọc nhầm như một khối CMS tách rời).
+- **Chức năng 21, 43** — `PUT /api/v1/xac-thuc/toi` và trang *Thông tin cá nhân*: người dùng tự sửa
+  họ tên, email, điện thoại, chức vụ, ngày sinh. Đơn vị và vai trò vẫn chỉ quản trị viên đổi được —
+  cho tự đổi là mở đường leo thang đặc quyền.
+- **Nhóm X** — `POST /api/v1/bao-cao/{loai}/xuat-nen`: báo cáo lớn chạy ở tiến trình nền rồi gửi
+  thông báo kèm liên kết tải về, thay vì giữ người dùng chờ trên một request dễ time-out.
+
+### Hạ tầng và tài liệu
+
+- **WAL archiving bật sẵn** trong `docker-compose.prod.yml` (đẩy WAL mỗi 5 phút) — trước đây chỉ có
+  bản dump hằng ngày nên điểm khôi phục gần nhất là 1h sáng hôm trước. Kèm quy trình khôi phục theo
+  thời điểm (PITR) trong tài liệu vận hành.
+- **`docs/API.md`** sinh từ mã nguồn (174 endpoint), **`docs/KE-HOACH-CONG-TAC.md`**,
+  **`docs/DEPLOYMENT.md`** — ba tài liệu bàn giao đặc tả yêu cầu nhưng chưa có.
+- **`docs/KICH-BAN-NGHIEM-THU.md`**: bổ sung 35 kịch bản, phủ đủ **51/51** chức năng (trước đây
+  thiếu hẳn dòng cho 13 chức năng: 2, 7, 8, 11, 12, 14, 31, 36, 42, 46, 47, 50, 51).
+- Đính chính ghi chú "dự án dùng antd Form thay vì react-hook-form + zod" — sai: toàn bộ 30 màn hình
+  có biểu mẫu đều đi qua `useBieuMau` (react-hook-form + zodResolver), không tệp nào gọi thẳng `<Form>`.
+
+### Kiểm thử
+
+- Unit: 512 (thêm XAdES ký/xác minh/phát hiện sửa nội dung, xuất Word, xuất PDF trùng lặp).
+- Integration trên PostgreSQL thật: 222 (thêm 17 cho các luồng trên).
+- E2E Playwright: 401 (thêm 21).
+
+---
+
 ## [1.4.0] — 2026-08-18
 
 Quét lại theo một chiều chưa từng kiểm: **bảng cơ sở dữ liệu nào không một dòng code nào chạm

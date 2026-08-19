@@ -187,6 +187,51 @@ tương ứng với mật khẩu `Sk@2026`. Trạng thái triển khai thực t�
 | K16 | — | Ngắt mạng rồi bật lại | Realtime tự kết nối lại; trong lúc mất kết nối, chuông vẫn cập nhật theo nhịp 60 giây | — |
 | K17 | 9 | Trong trình thiết kế bấm **Xuất PNG** | Tải về ảnh sơ đồ, không dính thanh điều khiển của canvas | — |
 
+## L. Danh mục còn lại, cấu hình bước và quản trị (bổ sung cho đủ 51 chức năng)
+
+| # | Chức năng | Các bước kiểm chứng | Kết quả mong đợi | Tự động |
+|---|---|---|---|---|
+| L1 | 2 | Danh mục → **Đối tượng**, thêm mới rồi sửa, xoá | Bản ghi hiện đúng sau mỗi thao tác; mã trùng bị chặn 409; xoá mềm (GET sau xoá trả 404) | IT |
+| L2 | 2 | Bấm **Nhập từ Excel**, tải tệp có mã đã tồn tại | Chạy thử báo rõ dòng nào cập nhật, dòng nào tạo mới; không tạo bản trùng mã | IT |
+| L3 | 7 | Danh mục → **Biểu mẫu thống kê**, tạo mẫu với 3 cột và nhóm theo đơn vị | Mẫu lưu được; mở `/bao-cao/tuy-bien` chạy ra bảng đúng cột đã khai, có dòng tổng | IT |
+| L4 | 7 | Khai một cột trỏ tới nguồn dữ liệu không có trong danh sách trắng | Bị chặn ngay khi lưu, nêu rõ nguồn không hợp lệ | IT |
+| L5 | 8 | Danh mục → **Quyết định**, tạo quyết định rồi gắn sáng kiến đủ điều kiện | Chỉ hiện sáng kiến đã phê duyệt chưa gắn quyết định; gắn trùng bị chặn | IT |
+| L6 | 8 | Sửa quyết định **đã ký số** | Bị chặn: quyết định đã ký số không sửa/xoá được | IT |
+| L7 | 11 | Trình thiết kế quy trình → chọn một node bước → panel phải | Sửa được tên, loại bước, số ngày xử lý, cờ bắt buộc ý kiến / đính kèm / cho phép uỷ quyền; Lưu rồi mở lại giữ nguyên | — |
+| L8 | 11 | Đặt **cảnh báo trước hạn** = 4 giờ cho một bước | Job nhắc hạn dùng đúng ngưỡng của bước đó thay vì cấu hình chung | UT |
+| L9 | 12 | Trình thiết kế → tab **Chức năng bổ sung**, bật `KY_SO` và `GUI_EMAIL` cho một bước | Cấu hình lưu; khi thực thi bước, hệ thống chỉ chạy đúng các chức năng đã bật | IT |
+| L10 | 14 | Khai một trạng thái bước với **Hiển thị cho tác giả = tắt** | Tác giả mở hồ sơ chỉ thấy nhãn trung tính "Đang xử lý"; tiến độ không hiện ý kiến nội bộ của bước đó | IT |
+| L11 | 14 | Cán bộ xử lý mở cùng hồ sơ | Vẫn thấy đầy đủ tên trạng thái và ý kiến nội bộ | IT |
+| L12 | 31, 36 | Hồ sơ đã phê duyệt → tab **Quyết định** → gắn quyết định | `ngay_cong_nhan` của sáng kiến được cập nhật theo quyết định | IT |
+| L13 | 36 | Danh mục → Quyết định → **Xuất PDF** | Tải về PDF theo mẫu văn bản hành chính, có số quyết định và danh sách sáng kiến | IT |
+| L14 | 42 | Mở hệ thống trên trình duyệt điện thoại (hoặc thu cửa sổ còn 320px) | Dùng được đủ luồng tác giả: xem hồ sơ, nộp, theo dõi tiến độ — **phương án web responsive thay cho ứng dụng cài đặt, cần văn bản chấp thuận của Chủ đầu tư** | — |
+| L15 | 46 | Cấu hình hệ thống → đổi **màu chủ đạo** và tải logo | Giao diện đổi màu ngay sau khi lưu; logo hiện trên thanh tiêu đề và trang đăng nhập | IT |
+| L16 | 46 | Khai một **ngày nghỉ lễ** rồi tạo hồ sơ mới | Hạn xử lý bỏ qua ngày lễ vừa khai và hai ngày cuối tuần | UT |
+| L17 | 47 | Mở đơn vị → **Cấu hình đơn vị**, đặt tiêu đề văn bản và người ký mặc định | Văn bản xuất ra của đơn vị đó dùng đúng tiêu đề và người ký đã khai | IT |
+| L18 | 50 | Cấu hình email & SMS → bấm **Gửi thử** | Có bản ghi trong hàng đợi; mật khẩu SMTP **không** bao giờ trả về giao diện | IT |
+| L19 | 50 | Mẫu thông báo → xem trước với biến thiếu dữ liệu | Biến chưa có dữ liệu hiển thị `[tên_biến]` thay vì để trống im lặng | IT |
+| L20 | 51 | Cấu hình thông tin sáng kiến → đổi ngưỡng cảnh báo trùng lặp đỏ | Đọc lại thấy giá trị mới; tab Trùng lặp đổi mức cảnh báo theo ngưỡng mới | IT |
+
+## M. Luồng bổ sung sau rà soát
+
+| # | Chức năng | Các bước kiểm chứng | Kết quả mong đợi | Tự động |
+|---|---|---|---|---|
+| M1 | 26 | Mở hồ sơ → tab **Kiểm tra trùng lặp** → nhập ý kiến → **Đánh dấu đã xem xét** | Thẻ chuyển sang *Đã xem xét*; mở lại thấy nguyên ý kiến; nhật ký hệ thống ghi người và thời điểm | IT, E2E |
+| M2 | 26 | Đăng nhập tác giả rồi gọi API ghi ý kiến xem xét | HTTP 403 — chỉ vai trò có `TRUNG_LAP.XEM_XET` mới kết luận được | IT, E2E |
+| M3 | 26 | Bấm **Xuất báo cáo PDF** ở tab Trùng lặp | Tải về PDF có tỷ lệ tổng hợp, danh sách hồ sơ đối chiếu, **trích dẫn đoạn trùng** và ý kiến hội đồng | IT, E2E |
+| M4 | 13 | Bỏ tick *dùng để kiểm tra trùng lặp* ở thành phần Phụ lục, chạy lại kiểm tra | Nội dung phụ lục **không** còn đi vào so khớp; thành phần được tick vẫn vào bình thường | IT |
+| M5 | 39 | Báo cáo → Sáng kiến chưa đạt → **Xuất PDF** | Tải về PDF đúng danh sách chưa đạt kèm cột Lý do (trước đây nút này tải nhầm danh sách đạt) | IT, E2E |
+| M6 | 40 | Báo cáo → Theo đơn vị → **Xuất PDF** | Tải về PDF có tỷ lệ đạt từng đơn vị | IT, E2E |
+| M7 | — | Báo cáo → **Xuất nền** | Trả về ngay HTTP 202; khi xong có thông báo trong chuông kèm liên kết tải tệp | IT, E2E |
+| M8 | 21, 43 | Menu người dùng → **Thông tin cá nhân**, sửa họ tên / điện thoại / chức vụ rồi Lưu | Lưu thành công, tên trên thanh tiêu đề đổi theo | IT, E2E |
+| M9 | 21, 43 | Gửi kèm `donViId` và `vaiTro` khi cập nhật thông tin cá nhân | Hai trường đó bị bỏ qua — đơn vị và vai trò chỉ quản trị viên đổi được | IT |
+| M10 | 21 | Menu người dùng → **Bảo mật tài khoản** | Vào được trang bật/tắt MFA và xem mã khôi phục — lối tắt mới cạnh *Đổi mật khẩu*, bên cạnh mục sẵn có ở menu trái | E2E |
+| M11 | 15, 29 | Mở hộp thoại xử lý của bước có bật *cho phép uỷ quyền* | Hiện ô **Xử lý thay cho**, danh sách chỉ gồm tác nhân của bước đó | E2E |
+| M12 | 15, 29 | Gọi API thực thi với `nguoiUyQuyenId` là người không phải tác nhân của bước | Bị chặn `KHONG_CO_QUYEN_XU_LY_BUOC` | IT |
+| M13 | 35 | Xuất phiếu chấm → chọn **Word (.docx)** | Tải về tệp .docx mở được bằng Word, có bảng điểm đủ dòng tiêu chí | IT, E2E, UT |
+| M14 | 49 | Ký số một tệp **XML** rồi xác minh | Ký theo chuẩn XAdES-BES (chữ ký nằm trong tệp); sửa một ký tự rồi xác minh lại → báo không hợp lệ | UT |
+| M15 | 49 | Ký số một tệp **PDF** rồi bấm **Xác minh** | Báo chữ ký hợp lệ kèm serial chứng thư (trước đây xác minh bản PAdES luôn báo "không có chữ ký") | UT |
+
 ## H. Phi chức năng
 
 | # | Yêu cầu | Các bước kiểm chứng | Kết quả mong đợi |

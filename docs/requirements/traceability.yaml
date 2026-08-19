@@ -14,7 +14,7 @@
 
 schema_version: "1.0"
 last_updated: "2026-08-19"
-last_updated_by: "autopilot-iteration-36"
+last_updated_by: "ra-soat-luong-con-thieu"
 audit_commit: "ef6cae8"
 
 requirements:
@@ -125,6 +125,7 @@ requirements:
     gaps:
       - "No test for tree-path auto-calculation (materialized path recalc on ChuyenCha)"
     notes:
+      - "Bo sung 19/08/2026: cau hinh cap phe duyet duoc may chay quy trinh doc (bien dieu kien so_cap_phe_duyet, cap_phe_duyet_hien_tai, con_cap_phe_duyet_cao_hon, don_vi_phe_duyet_ke_tiep) — truoc do bang nay chi co CRUD, khong logic nao dung toi."
       - "Run-002-B17: Authorization gap closed — ChuyenCha/Gop now require DonViCauHinh at service + controller level"
       - "Iteration-28: BienBanVaCauHinhTests verifies duplicate thuTuCap within same approval scope returns 409 (uniqueness constraint)."
       - "Iteration-29: Verified — BienBanVaCauHinhTests: cap-phe-duyet CRUD and uniqueness constraint (8/8). ToChucVaMenuTests: cycle prevention (move into own subtree → 422), self-parent guard (→ 422), org merge (source soft-deleted, self-merge blocked) (5/5). All tests run against real PostgreSQL via Testcontainers."
@@ -247,6 +248,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
     gaps: []
     notes:
+      - "Bo sung 19/08/2026: canh_bao_truoc_han_gio theo tung buoc duoc job nhac han doc tu snapshot quy trinh; truoc do chi dung cau hinh chung SO_NGAY_NHAC_TRUOC_HAN."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to QuyTrinhController for controller-layer defense-in-depth"
       - "Iteration-28: Verified — branch availability and execution: BO_SUNG_HO_SO branch returns application to author for edit+resubmit, TRA_LAI branch closes workflow with KHONG_DAT status and blocks resubmission, DAT branch advances to next step (NhanhXuLyPhuTests 6/6). All tests run against real PostgreSQL via Testcontainers."
 
@@ -295,6 +297,7 @@ requirements:
     gaps:
       - "Components are workflow-level, not per-step as detailed in customer spec"
     notes:
+      - "Bo sung 19/08/2026: co dung_de_kiem_tra_trung_lap duoc pipeline trung lap ap dung that (LuongBoSungTests.Chi_Thanh_Phan_Duoc_Tick_Moi_Di_Vao_Kiem_Tra_Trung_Lap)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
       - "Iteration-28: Verified — component CRUD (create, update, list, delete), duplicate ma returns 409, soKyTuToiThieu > soKyTuToiDa returns 422, component removed after deletion (ThanhPhanVaBoNhoDemTests 5/5). LuongNghiepVuTests verifies mandatory component enforcement at submission. All tests run against real PostgreSQL via Testcontainers."
 
@@ -313,6 +316,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/NhanhTheoDuLieuTests.cs"
     gaps: []
     notes:
+      - "Bo sung 19/08/2026: co hien_thi_cho_tac_gia duoc ap dung o timeline va chi tiet ho so cho nguoi CHI la tac gia."
       - "Status labels configurable."
       - "Iteration-27: Verified — trangThaiTong transitions verified at each step throughout full workflow lifecycle. Applications transition through submit/receive/review/score/branch steps with correct status at each stage (NhanhTheoDuLieuTests 3/3). All tests run against real PostgreSQL via Testcontainers."
 
@@ -452,7 +456,9 @@ requirements:
       - "SEC: GoMfaChoNguoiKhacAsync bypasses MediatR pipeline — no HanhViPhanQuyen/HanhViGhiNhatKy (MEDIUM, pre-existing architecture; mitigated by service-level checks)"
       - "SEC: BatBuocNguoiDungTrongPhamViAsync duplicated in DichVuMfa and DichVuQuanTriNguoiDung — divergence risk (LOW)"
       - "SEC: No integration test for admin MFA reset IDOR fix — env lacks Docker for Testcontainers (gap)"
-    notes: "Internal auth verified by 11+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes, MFA oracle). Run-002-B3: Account enumeration fixed (all login errors return SaiTaiKhoanMatKhau). SSO state validated server-side (IMemoryCache, 5-min TTL). Open redirect blocked (scheme+host+port whitelist from Cors:NguonChoPhep + Sso:AllowedRedirectHosts). Run-002-B4: Timing oracle fixed (dummy Argon2id for non-existent accounts). CAPTCHA side-channel fixed (log-based CAPTCHA for null/locked/inactive paths). Audit log persistence fixed (SaveChangesAsync on early-exit paths). Run-002-B9: MFA credential-stuffing oracle fixed — Phase 1 defers password check (Argon2id runs for timing but result discarded), Phase 2 unifies error code for wrong password and wrong TOTP (both SAI_TAI_KHOAN_MAT_KHAU). MA_XAC_THUC_KHONG_DUNG added to HTTP 401 mapping. Frontend dead code removed. Run-002-B11: SSO state validation upgraded from IMemoryCache to IDistributedCache (Redis when ConnectionStrings:Redis configured, in-memory fallback for tests/single-instance). Fixes multi-instance HA concern. Run-002-B14: MFA recovery codes upgraded from SHA-256 to Argon2id via IDichVuMatKhau. Legacy SHA-256 still accepted (backward compat with FixedTimeEquals). Format guard added — DungMaKhoiPhuc short-circuits when input lacks dash (prevents TOTP fallthrough to 10× Argon2id). TatAsync null-MfaSecret bypass fixed — undecryptable secret now throws MaXacThucKhongDung instead of silently disabling MFA. Run-002-B15: GoMfaChoNguoiKhacAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync checks caller's PhamViTruyCap against target's DonViId. Self-reset blocked (must use TatAsync). Refresh tokens revoked on admin MFA strip. Audit log added (GO_MFA_NGUOI_KHAC via IDichVuNhatKy)."
+    notes:
+      - "Internal auth verified by 11+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes, MFA oracle). Run-002-B3: Account enumeration fixed (all login errors return SaiTaiKhoanMatKhau). SSO state validated server-side (IMemoryCache, 5-min TTL). Open redirect blocked (scheme+host+port whitelist from Cors:NguonChoPhep + Sso:AllowedRedirectHosts). Run-002-B4: Timing oracle fixed (dummy Argon2id for non-existent accounts). CAPTCHA side-channel fixed (log-based CAPTCHA for null/locked/inactive paths). Audit log persistence fixed (SaveChangesAsync on early-exit paths). Run-002-B9: MFA credential-stuffing oracle fixed — Phase 1 defers password check (Argon2id runs for timing but result discarded), Phase 2 unifies error code for wrong password and wrong TOTP (both SAI_TAI_KHOAN_MAT_KHAU). MA_XAC_THUC_KHONG_DUNG added to HTTP 401 mapping. Frontend dead code removed. Run-002-B11: SSO state validation upgraded from IMemoryCache to IDistributedCache (Redis when ConnectionStrings:Redis configured, in-memory fallback for tests/single-instance). Fixes multi-instance HA concern. Run-002-B14: MFA recovery codes upgraded from SHA-256 to Argon2id via IDichVuMatKhau. Legacy SHA-256 still accepted (backward compat with FixedTimeEquals). Format guard added — DungMaKhoiPhuc short-circuits when input lacks dash (prevents TOTP fallthrough to 10× Argon2id). TatAsync null-MfaSecret bypass fixed — undecryptable secret now throws MaXacThucKhongDung instead of silently disabling MFA. Run-002-B15: GoMfaChoNguoiKhacAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync checks caller's PhamViTruyCap against target's DonViId. Self-reset blocked (must use TatAsync). Refresh tokens revoked on admin MFA strip. Audit log added (GO_MFA_NGUOI_KHAC via IDichVuNhatKy)."
+      - "Bo sung 19/08/2026: PUT /api/v1/xac-thuc/toi cho nguoi dung tu sua thong tin ca nhan (khong doi duoc don vi/vai tro); menu nguoi dung co loi vao Thong tin ca nhan va Bao mat tai khoan."
 
   - id: REQ-22
     source_number: 22
@@ -551,6 +557,7 @@ requirements:
       - "Brute-force O(n^2) pairwise comparison — no backfill mechanism"
       - "DanhDauDaXemXetAsync uses TrungLapXem (view) for a write op — needs dedicated permission when endpoint is wired (LOW, latent)"
     notes:
+      - "Bo sung 19/08/2026: POST /trung-lap/xem-xet (ghi y kien hoi dong, co nhat ky) + GET /trung-lap/xuat-pdf (bao cao PDF kem trich dan doan trung) + giao dien tren tab Trung lap. Quyen moi TRUNG_LAP.XEM_XET."
       - "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. Run-002-B2: ChayAsync IDOR fixed (conditional org-scope check, safe for Hangfire caller). DanhDauDaXemXetAsync IDOR fixed (resolves parent SangKienId for scope check). AI compliance fully satisfied — zero third-party AI references."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
       - "Iteration-29: Verified — LuongNghiepVuTests: POST chay-lai detects seeded near-duplicate (tyLeCaoNhat > 40, mucCanhBao = NGHIEM_TRONG, soDoanTrung > 0). NhanhTheoDuLieuTests: identical content yields tyLeTrungLap > 40, enables rejection branch in workflow (KHONG_DAT). IdorBaoVeTests: cross-org user blocked from viewing trung-lap results (404). All tests run against real PostgreSQL via Testcontainers."
@@ -606,7 +613,9 @@ requirements:
     gaps:
       - "No test for idempotency key deduplication or batch processing"
       - "SEC: No regression test for batch cross-org MaHoSo leakage (fix in place, needs test)"
-    notes: "Multi-step processing flow verified through full workflow. Run-002-B13: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage fixed — batch MaHoSo query now scoped by LayPhamViTruyCapAsync (ToanHeThong/ChiCaNhan/DonViIds). Cross-org IDs short-circuited before workflow engine call (eliminates existence oracle + timing side-channel). FluentValidation added (max 200 items). Deduplication added (prevents ToDictionary crash + double-transition)."
+    notes:
+      - "Multi-step processing flow verified through full workflow. Run-002-B13: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage fixed — batch MaHoSo query now scoped by LayPhamViTruyCapAsync (ToanHeThong/ChiCaNhan/DonViIds). Cross-org IDs short-circuited before workflow engine call (eliminates existence oracle + timing side-channel). FluentValidation added (max 200 items). Deduplication added (prevents ToDictionary crash + double-transition)."
+      - "Bo sung 19/08/2026: giao dien uy quyen xu ly buoc + GET /api/v1/xu-ly/tac-nhan-buoc/{id}; may chu chan uy quyen cho nguoi khong phai tac nhan cua buoc."
 
   - id: REQ-30
     source_number: 30
@@ -721,6 +730,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/BieuMauVaPhieuTests.cs"
     gaps: []
     notes:
+      - "Bo sung 19/08/2026: xuat phieu cham ban Word (.docx) qua ?dinhDang=DOCX."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
       - "Iteration-27: Verified — evaluation form ZIP export produces unique PDF entries per council member, absent scoring forms return 422 with clear message, phieu-tiep-nhan PDF has %PDF- magic bytes (BieuMauVaPhieuTests 5/5). All tests run against real PostgreSQL via Testcontainers."
 
@@ -796,6 +806,7 @@ requirements:
     gaps:
       - "No PDF export for this report (only Excel) — feature limitation"
     notes:
+      - "Bo sung 19/08/2026: xuat PDF danh sach chua dat (truoc do nut Xuat PDF tai nham danh sach dat)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
       - "Iteration-28: Verified — BaoCaoBoSungTests: yearly summary includes both passed and not-passed innovation counts with verified totals, year filter changes results. Report data is functionally complete; PDF export gap is a feature limitation not a test gap. All tests run against real PostgreSQL via Testcontainers."
 
@@ -815,6 +826,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/ThanhPhanVaBoNhoDemTests.cs"
     gaps: []
     notes:
+      - "Bo sung 19/08/2026: xuat PDF thong ke theo don vi / tac gia / thoi gian xu ly; them dat lenh xuat bao cao chay nen (POST /bao-cao/{loai}/xuat-nen)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
       - "Iteration-28: Verified — BaoCaoBoSungTests: processing time stats (non-zero soLuot, average <= max), yearly summary by-unit with verified totals matching sum-by-round, PDF export (4/4). ThanhPhanVaBoNhoDemTests: per-account cache isolation for report data (2/5). All tests run against real PostgreSQL via Testcontainers."
 
@@ -871,7 +883,9 @@ requirements:
     gaps:
       - "No test for role assignment during user creation/update"
       - "SEC: No integration test for DatLaiMatKhauAsync cross-org IDOR fix — env lacks Docker for Testcontainers (gap)"
-    notes: "Excel import with dry-run mode and row-level error reporting verified by tests. Run-002-B15: DatLaiMatKhauAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync added after user lookup to enforce org-scope. Same pattern as GoMfaChoNguoiKhacAsync fix."
+    notes:
+      - "Excel import with dry-run mode and row-level error reporting verified by tests. Run-002-B15: DatLaiMatKhauAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync added after user lookup to enforce org-scope. Same pattern as GoMfaChoNguoiKhacAsync fix."
+      - "Bo sung 19/08/2026: nguoi dung tu cap nhat ho so ca nhan (khong thay the quan ly nguoi dung cua quan tri vien)."
 
   - id: REQ-44
     source_number: 44
@@ -984,7 +998,9 @@ requirements:
     gaps:
       - "Needs real CA certificate for legally valid signatures"
     dependencies: ["external-ca-certificate"]
-    notes: "PKCS#7 detached signing and verification work with self-signed certificate. Secret masking and single-default constraint tested."
+    notes:
+      - "PKCS#7 detached signing and verification work with self-signed certificate. Secret masking and single-default constraint tested."
+      - 'Bo sung 19/08/2026: ky XML theo chuan XAdES-BES; sua loi xac minh ban PAdES luon bao "khong co chu ky".'
 
   - id: REQ-50
     source_number: 50

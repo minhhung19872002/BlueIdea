@@ -191,22 +191,71 @@ echo "Sao lưu $NGAY hoàn tất"
 0 1 * * * /opt/blueidea/sao-luu.sh >> /var/log/blueidea-sao-luu.log 2>&1
 ```
 
-### Bật WAL archiving (khôi phục về thời điểm bất kỳ)
+### WAL archiving — khôi phục về thời điểm bất kỳ (PITR)
 
-Thêm vào `command` của dịch vụ `postgres` trong compose:
+**Đã bật sẵn** trong `deploy/docker-compose.prod.yml`:
 
 ```yaml
-command: >
-  postgres
-  -c wal_level=replica
-  -c archive_mode=on
-  -c archive_command='test ! -f /wal-archive/%f && cp %p /wal-archive/%f'
-  -c max_wal_senders=3
+-c wal_level=replica
+-c archive_mode=on
+-c archive_timeout=300
+-c archive_command='test ! -f /wal-archive/%f && cp %p /wal-archive/%f'
 ```
 
-và gắn thêm volume `- wal-archive:/wal-archive`.
+WAL được đẩy sang thư mục `${THU_MUC_WAL:-/var/backups/blueidea/wal}` trên máy chủ, chậm nhất
+5 phút một lần. Chỉ có bản dump hằng ngày thì điểm khôi phục gần nhất là 1h sáng hôm trước —
+mọi hồ sơ nộp trong ngày đều mất; có WAL thì mất mát tối đa tính bằng phút.
+
+Ba việc bắt buộc:
+
+1. **Đưa thư mục WAL vào lịch sao chép ra ngoài máy chủ** cùng với bản dump. WAL nằm cùng máy với
+   CSDL thì hỏng ổ đĩa là mất cả hai.
+2. **Dọn WAL cũ** sau mỗi lần sao lưu đầy đủ, nếu không thư mục phình vô hạn:
+   ```bash
+   find /var/backups/blueidea/wal -type f -mtime +30 -delete
+   ```
+3. **Theo dõi archive_command**: lệnh này thất bại liên tục thì Postgres giữ WAL lại trong
+   `pg_wal` cho tới khi đầy ổ đĩa và dừng ghi.
+   ```bash
+   docker exec blueidea-postgres psql -U blueidea -c      "SELECT archived_count, failed_count, last_failed_time FROM pg_stat_archiver;"
+   ```
 
 Với cấu hình này: **RPO ≤ 1 giờ, RTO ≤ 4 giờ** như cam kết trong đặc tả.
+
+### Khôi phục về một thời điểm (dùng WAL)
+
+Dùng khi cần quay lại **ngay trước** một sự cố (xoá nhầm dữ liệu, nâng cấp hỏng) chứ không phải
+về mốc 1h sáng.
+
+```bash
+# 1. Dừng toàn bộ dịch vụ
+docker compose -f deploy/docker-compose.yml down
+
+# 2. Phục hồi bản base backup gần nhất vào thư mục dữ liệu rỗng
+#    (bản dump logic pg_dump KHÔNG dùng được cho PITR — phải là base backup vật lý)
+docker run --rm -v blueidea_postgres-data:/du-lieu -v /var/backups/blueidea:/backup alpine   sh -c "rm -rf /du-lieu/* && tar xzf /backup/base-<ngày>.tar.gz -C /du-lieu"
+
+# 3. Khai điểm dừng mong muốn
+docker run --rm -v blueidea_postgres-data:/du-lieu alpine sh -c "cat >> /du-lieu/postgresql.auto.conf <<'EOF'
+restore_command = 'cp /wal-archive/%f %p'
+recovery_target_time = '2026-08-19 14:30:00+07'
+recovery_target_action = 'promote'
+EOF
+touch /du-lieu/recovery.signal"
+
+# 4. Khởi động lại và theo dõi log tới khi thấy 'database system is ready to accept connections'
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d postgres
+docker logs -f blueidea-postgres
+
+# 5. Kiểm tra dữ liệu rồi mới bật API
+docker compose -f deploy/docker-compose.yml start api
+```
+
+Base backup vật lý tạo bằng:
+
+```bash
+docker exec blueidea-postgres pg_basebackup -U blueidea -D /tmp/base -Ft -z -Xs -P
+```
 
 ### Khôi phục
 
