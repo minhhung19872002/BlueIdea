@@ -129,11 +129,13 @@ export default function TrangTieuChi() {
         size="middle"
         loading={isLoading}
         dataSource={data?.duLieu ?? []}
+        scroll={{ x: 860 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 200 },
           {
             title: 'Tên bộ tiêu chí',
             dataIndex: 'ten',
+            width: 300,
             render: (v: string, dong) => <Link to={`/quan-tri/tieu-chi/${dong.id}`}>{v}</Link>,
           },
           {

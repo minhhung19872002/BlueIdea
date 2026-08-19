@@ -155,7 +155,7 @@ export default function TrangKhoaApiNgoai() {
         scroll={{ x: 900 }}
         pagination={false}
         columns={[
-          { title: 'Tên hệ thống', dataIndex: 'ten' },
+          { title: 'Tên hệ thống', dataIndex: 'ten', width: 200 },
           {
             title: 'Khoá',
             dataIndex: 'tienTo',

@@ -644,10 +644,12 @@ function TabNoiDung({ hs }: { hs: SangKienChiTiet }) {
           size="small"
           pagination={false}
           dataSource={hs.danhSachTacGia}
+          scroll={{ x: 760 }}
           columns={[
             {
               title: 'Họ và tên',
               dataIndex: 'hoTen',
+              width: 220,
               render: (giaTri: string, dong) => (
                 <Space>
                   {giaTri}
@@ -655,8 +657,8 @@ function TabNoiDung({ hs }: { hs: SangKienChiTiet }) {
                 </Space>
               ),
             },
-            { title: 'Chức vụ', dataIndex: 'chucVu' },
-            { title: 'Đơn vị công tác', dataIndex: 'donViCongTac' },
+            { title: 'Chức vụ', dataIndex: 'chucVu', width: 180 },
+            { title: 'Đơn vị công tác', dataIndex: 'donViCongTac', width: 220 },
             {
               title: 'Tỷ lệ đóng góp',
               dataIndex: 'tyLeDongGop',
@@ -685,8 +687,9 @@ function TabTepDinhKem({ hs }: { hs: SangKienChiTiet }) {
       rowKey="id"
       size="small"
       dataSource={hs.tepDinhKem}
+      scroll={{ x: 800 }}
       columns={[
-        { title: 'Tên tệp', dataIndex: 'tenGoc' },
+        { title: 'Tên tệp', dataIndex: 'tenGoc', width: 250 },
         { title: 'Thành phần', dataIndex: 'thanhPhanHoSoMa', width: 200 },
         {
           title: 'Dung lượng',
@@ -769,6 +772,7 @@ function TabLichSu({
       rowKey="id"
       size="small"
       dataSource={duLieu}
+      scroll={{ x: 700 }}
       expandable={{
         rowExpandable: (dong) => dong.truongThayDoi.length > 0,
         expandedRowRender: (dong) => (
@@ -910,11 +914,13 @@ function TabTrungLap({
         rowKey="sangKienDoiChieuId"
         size="small"
         dataSource={duLieu.chiTiet}
+        scroll={{ x: 700 }}
         onRow={(_dong, chiSo) => ({ onClick: () => setCapDangXem(chiSo ?? null) })}
         columns={[
           {
             title: 'Hồ sơ đối chiếu',
             dataIndex: 'sangKienDoiChieuId',
+            width: 200,
             render: (giaTri: string) => <Link to={`/sang-kien/${giaTri}`}>Xem hồ sơ</Link>,
           },
           {

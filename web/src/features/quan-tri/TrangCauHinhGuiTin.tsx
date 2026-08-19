@@ -185,6 +185,8 @@ export default function TrangCauHinhGuiTin() {
             {
               title: 'Máy chủ / Endpoint',
               key: 'may',
+              width: 220,
+              ellipsis: true,
               render: (_v, dong) =>
                 dong.loai === 'EMAIL'
                   ? `${dong.host ?? '—'}:${dong.port ?? '—'}${dong.suDungSsl ? ' (TLS)' : ''}`

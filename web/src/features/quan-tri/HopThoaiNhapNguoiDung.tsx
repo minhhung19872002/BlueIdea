@@ -175,7 +175,7 @@ export default function HopThoaiNhapNguoiDung({
             size="small"
             dataSource={ketQua.chiTiet}
             pagination={{ pageSize: 10, showSizeChanger: false }}
-            scroll={{ y: 300 }}
+            scroll={{ x: 780, y: 300 }}
             columns={[
               { title: 'Dòng', dataIndex: 'soDong', width: 70 },
               { title: 'Tên đăng nhập', dataIndex: 'tenDangNhap', width: 160 },

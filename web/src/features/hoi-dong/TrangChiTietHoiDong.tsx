@@ -949,10 +949,12 @@ function ModalDieuHanhPhien({
                   size="small"
                   pagination={false}
                   dataSource={phien.diemDanh}
+                  scroll={{ x: 600 }}
                   columns={[
                     {
                       title: 'Thành viên',
                       dataIndex: 'thanhVienId',
+                      width: 260,
                       render: (v: string) => tenThanhVien.get(v) ?? v,
                     },
                     {

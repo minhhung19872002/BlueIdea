@@ -180,17 +180,18 @@ export default function TrangQuyTrinh() {
         size="middle"
         loading={isLoading}
         dataSource={data?.duLieu ?? []}
-        scroll={{ x: 900 }}
+        scroll={{ x: 1130 }}
         columns={[
           { title: 'Mã', dataIndex: 'ma', width: 180 },
           {
             title: 'Tên quy trình',
             dataIndex: 'ten',
+            width: 260,
             render: (v: string, dong) => (
               <Link to={`/quan-tri/quy-trinh/${dong.id}/thiet-ke`}>{v}</Link>
             ),
           },
-          { title: 'Mô tả', dataIndex: 'moTa', responsive: ['lg'] },
+          { title: 'Mô tả', dataIndex: 'moTa', width: 200, ellipsis: true, responsive: ['lg'] },
           {
             title: 'Trạng thái',
             dataIndex: 'trangThai',

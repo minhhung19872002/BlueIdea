@@ -170,11 +170,11 @@ export default function TrangNguoiDung() {
           size="middle"
           loading={isLoading}
           dataSource={duLieu}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1260 }}
           columns={[
             { title: 'Tài khoản', dataIndex: 'tenDangNhap', width: 150 },
             { title: 'Họ và tên', dataIndex: 'hoTen', width: 210 },
-            { title: 'Chức vụ', dataIndex: 'chucVu', responsive: ['lg'] },
+            { title: 'Chức vụ', dataIndex: 'chucVu', width: 160, responsive: ['lg'] },
             { title: 'Email', dataIndex: 'email', width: 220, responsive: ['xl'] },
             {
               title: 'Trạng thái',

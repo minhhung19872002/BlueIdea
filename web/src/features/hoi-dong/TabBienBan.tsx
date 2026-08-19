@@ -257,9 +257,10 @@ export function TabBienBan({
         size="small"
         pagination={false}
         dataSource={bienBan.chuKy}
+        scroll={{ x: 600 }}
         locale={{ emptyText: 'Hội đồng chưa có thành viên nào được cấp quyền ký biên bản.' }}
         columns={[
-          { title: 'Họ tên', dataIndex: 'hoTen' },
+          { title: 'Họ tên', dataIndex: 'hoTen', width: 200 },
           {
             title: 'Chức danh',
             dataIndex: 'chucDanh',

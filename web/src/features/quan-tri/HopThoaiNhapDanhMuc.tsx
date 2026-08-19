@@ -133,10 +133,11 @@ export function HopThoaiNhapDanhMuc({
               size="small"
               dataSource={ketQua.chiTiet}
               pagination={{ pageSize: 8, showSizeChanger: false }}
+              scroll={{ x: 700 }}
               columns={[
                 { title: 'Dòng', dataIndex: 'soDong', width: 70 },
                 { title: 'Mã', dataIndex: 'ma', width: 150 },
-                { title: 'Tên', dataIndex: 'ten', ellipsis: true },
+                { title: 'Tên', dataIndex: 'ten', width: 200, ellipsis: true },
                 {
                   title: 'Kết quả',
                   dataIndex: 'hopLe',
