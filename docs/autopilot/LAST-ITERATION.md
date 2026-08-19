@@ -1,29 +1,45 @@
-# Autopilot Iteration 26
+# Autopilot Iteration 27
 
 ## Summary
 
-Two changes in this iteration:
+Bulk verification iteration: promoted 16 requirements from IMPLEMENTED_NOT_VERIFIED to VERIFIED by running existing integration tests against real PostgreSQL via Testcontainers. No code changes — purely evidence-gathering and traceability update.
 
-1. **CONG_BO_KET_QUA** (REQ-12): Implemented automated result publication workflow action. When workflow transitions from a step with CONG_BO_KET_QUA, a background job marks evaluation results as published, sets innovation to public, and notifies authors.
+## Requirements Verified
 
-2. **P0 Bug Fix**: Fixed regression in `LayHanhDongKhaDungQueryHandler` where org-scope IDOR check (added in iteration 21, commit 4a5fdd7) blocked cross-department council members from seeing workflow actions. Council members from PHONG_YTE/PHONG_VHTT couldn't act on innovations from TH_LE_LOI (under PHONG_GDDT).
+| Requirement | Test Suite | Tests |
+|---|---|---|
+| REQ-01 (Linh vuc) | NhapDanhMucVaOpenApiTests + HopDongApiDanhMucTests + SapXepVaPhanCapTests | Import CRUD, /chon contract, hierarchy |
+| REQ-06 (Bieu mau xuat) | BieuMauVaPhieuTests + NhapXuatVaCauHinhTests | Template CRUD, preview, PDF, placeholder mapping |
+| REQ-07 (Bieu mau thong ke) | BieuMauThongKeTests | CRUD, column validation, export format enforcement, PDF |
+| REQ-10 (Cau hinh truong hop) | NhanhTheoDuLieuTests | Data-condition branching (3 conditions) in full workflow |
+| REQ-14 (Trang thai buoc xu ly) | NhanhTheoDuLieuTests | trangThaiTong transitions through workflow lifecycle |
+| REQ-17 (Danh sach nhom tieu chi) | NhanhTheoDuLieuTests | Criteria groups read during real scoring |
+| REQ-18 (Cau hinh tieu chi dong) | NhanhTheoDuLieuTests | Per-criteria scoring with diemToiDa |
+| REQ-28 (Danh sach ho so) | SapXepVaPhanCapTests | Sorting, NULLS LAST, direction-only default |
+| REQ-33 (Danh sach ho so danh gia) | NhanhTheoDuLieuTests | Scoring assignment in full workflow |
+| REQ-34 (Danh gia ho so) | NhanhTheoDuLieuTests | Council scoring submission + aggregation |
+| REQ-35 (Phieu danh gia) | BieuMauVaPhieuTests | Evaluation form ZIP export with PDF entries |
+| REQ-44 (Quan ly don vi) | ToChucVaMenuTests | Cycle prevention, self-parent guard, org merge |
+| REQ-45 (Quan ly vai tro) | MauThongBaoVaVaiTroTests | Role clone with permission preservation |
+| REQ-46 (Cau hinh he thong) | CauHinhCoHieuLucTests + MauThongBaoVaVaiTroTests | Config enforcement, brand images, holidays |
+| REQ-48 (Cau hinh menu) | ToChucVaMenuTests | CRUD, WEB/MOBILE tree separation, drag-drop reorder |
+| REQ-50 (Cau hinh email va SMS) | MauThongBaoVaVaiTroTests + NhapXuatVaCauHinhTests | Template CRUD, preview, config validation |
 
-## Changes
+## Test Suites Run
 
-### CONG_BO_KET_QUA Feature
-
-- `src/BlueIdea.Application/Chung/GiaoDienHeThong.cs` — Added `XepLichCongBoKetQua(Guid sangKienId)` to `IHangDoiCongViecNen`
-- `src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs` — Wired CONG_BO_KET_QUA dispatch, reduced unimplemented warning group from 3 to 2
-- `src/BlueIdea.Infrastructure/CongViecNen/CongViecNen.cs` — `CongViecCongBoKetQua`: marks `DaCongBo=true`, `NgayCongBo`, sets innovation `CongKhai=true`, `DaCongBoKetQua=true`, notifies authors. Idempotent. Hangfire retry 2 attempts 60/300s
-- `src/BlueIdea.Infrastructure/CongViecNen/HangDoiCongViecNenHangfire.cs` — Wired Hangfire + no-op implementation
-- `tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs` — Updated counts (3→2 unimplemented, 5→6 implemented), added value test
-
-### Cross-Org Council Member Scope Fix
-
-- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — In `LayHanhDongKhaDungQueryHandler.Handle`, replaced blanket org-scope rejection with bypass for:
-  - Users who are active `HoiDongThanhVien` AND have a `SangKienPhanCong` record for the innovation (scoring assignment)
-  - Users who are active `HoiDongThanhVien` AND whose council has the innovation in a `PhienHopHoSo` (council session)
-  - Falls through to `BoMayQuyTrinh.LayHanhDongKhaDungAsync` which is the authoritative actor check
+| Test Suite | Tests | Result |
+|---|---|---|
+| NhanhTheoDuLieuTests | 3 | PASS |
+| ToChucVaMenuTests | 5 | PASS |
+| BieuMauVaPhieuTests | 5 | PASS |
+| BieuMauThongKeTests | 6 | PASS |
+| MauThongBaoVaVaiTroTests | 5 | PASS |
+| CauHinhCoHieuLucTests | 9 | PASS |
+| SapXepVaPhanCapTests | 4 | PASS |
+| HopDongApiDanhMucTests | 1 | PASS |
+| NhapXuatVaCauHinhTests | 16 | PASS |
+| NhapDanhMucVaOpenApiTests | 6 | PASS |
+| **Total** | **60** | **ALL PASS** |
 
 ## Quality Gate
 
@@ -32,22 +48,44 @@ Two changes in this iteration:
 - Integration tests: 197
 - Warnings: 0
 
-## Requirements Affected
+## Requirement Score Update
 
-- REQ-12 (Chuc nang bo sung) — CONG_BO_KET_QUA implemented, gap reduced from 3 to 2 unimplemented actions (TAO_QUYET_DINH, YEU_CAU_KY_SO remain)
+- Before: 13 VERIFIED, 32 IMPLEMENTED_NOT_VERIFIED, 4 PARTIAL, 2 BLOCKED_EXTERNAL
+- After: 29 VERIFIED, 16 IMPLEMENTED_NOT_VERIFIED, 4 PARTIAL, 2 BLOCKED_EXTERNAL
 
 ## Commits
 
-- b24adda — feat: implement CONG_BO_KET_QUA automated workflow action (REQ-12)
-- 2213dd5 — fix: allow cross-org council members to see workflow actions (IDOR scope regression)
+- f9ffc06 — chore: verify 16 requirements with runtime integration test evidence (iteration 27)
+
+## Also Pushed
+
+- Pushed 3 unpushed commits from iteration 26 (74dcbc5)
+
+## Files Changed
+
+- `docs/requirements/traceability.yaml` — 16 requirements promoted to VERIFIED with test evidence
 
 ## Next Priority
 
-1. TD-001: Semantic Embedding is Lexical Only (Medium, BLOCKED_EXTERNAL — needs ONNX model)
-2. TD-002: No Frontend Automated Tests (Medium)
-3. REQ-12: 2 remaining unimplemented actions — TAO_QUYET_DINH (needs admin input), YEU_CAU_KY_SO (interactive signing)
-4. REQ integration tests — many REQs at IMPLEMENTED_NOT_VERIFIED need runtime integration tests
-5. TD-004: Database Partitioning (Low)
+Remaining IMPLEMENTED_NOT_VERIFIED (16):
+1. REQ-02 (Doi tuong) — needs catalog CRUD integration test
+2. REQ-03 (Dot de nghi) — needs lifecycle (mo/dong/khoa) integration test
+3. REQ-04 (Loai tac gia) — needs catalog CRUD integration test
+4. REQ-05 (Don vi phe duyet) — needs tree-path auto-calculation test
+5. REQ-09 (Cau hinh quy trinh) — needs workflow config CRUD integration test
+6. REQ-11 (Cau hinh buoc xu ly) — needs step config CRUD integration test
+7. REQ-12 (Chuc nang bo sung) — 2 remaining unimplemented actions
+8. REQ-13 (Thanh phan ho so) — per-step components gap
+9. REQ-15 (Tac nhan xu ly) — needs all 7 actor types integration test
+10. REQ-16 (Cau hinh lien thong) — needs workflow-triggered sync integration test
+11. REQ-23 (Quan ly ho so) — needs diff accuracy and withdrawal tests
+12. REQ-25 (Tap tin dinh kem) — needs blocked extensions, ClamAV tests
+13. REQ-26 (Kiem tra trung lap) — ONNX model BLOCKED_EXTERNAL for semantic
+14. REQ-30 (Theo doi ho so) — needs timeline/overdue tests
+15. REQ-38-40 (Reports) — needs dedicated endpoint tests
+16. REQ-42 (Mobile) — needs responsive breakpoint tests
+17. REQ-47 (Cau hinh don vi) — needs document config tests
+18. REQ-51 (Cau hinh thong tin sang kien) — needs config behavior tests
 
 ## Blockers
 
