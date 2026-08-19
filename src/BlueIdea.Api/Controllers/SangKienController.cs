@@ -28,16 +28,18 @@ public sealed class SangKienController : ControllerBase
     private readonly DichVuKiemTraTrungLap _trungLap;
     private readonly DichVuTimNguNghia _timNguNghia;
     private readonly DichVuSinhBieuMau _sinhBieuMau;
+    private readonly IDichVuCauHinh _cauHinh;
 
     public SangKienController(
         IMediator mediator, DichVuTruyVanSangKien truyVan, DichVuKiemTraTrungLap trungLap,
-        DichVuTimNguNghia timNguNghia, DichVuSinhBieuMau sinhBieuMau)
+        DichVuTimNguNghia timNguNghia, DichVuSinhBieuMau sinhBieuMau, IDichVuCauHinh cauHinh)
     {
         _mediator = mediator;
         _truyVan = truyVan;
         _trungLap = trungLap;
         _timNguNghia = timNguNghia;
         _sinhBieuMau = sinhBieuMau;
+        _cauHinh = cauHinh;
     }
 
     /// <summary>Chức năng 28 — Danh sách hồ sơ với bộ lọc đa tiêu chí.</summary>
@@ -120,6 +122,54 @@ public sealed class SangKienController : ControllerBase
     {
         var ketQua = await _trungLap.LayKetQuaGanNhatAsync(id, ct);
         return Ok(PhanHoiApi<Domain.Ai.KiemTraTrungLap?>.Ok(ketQua));
+    }
+
+    /// <summary>
+    /// Chức năng 26 — Đánh dấu "Đã xem xét" kết quả trùng lặp và ghi ý kiến hội đồng.
+    ///
+    /// Kết quả AI chỉ là cảnh báo; kết luận cuối cùng thuộc hội đồng và phải được ghi lại tại đây
+    /// để hồ sơ nghiệm thu chứng minh được cảnh báo đã có người xử lý, không bị bỏ qua im lặng.
+    /// </summary>
+    [HttpPost("{id:guid}/trung-lap/xem-xet")]
+    [Authorize(Policy = MaQuyen.TrungLapXemXet)]
+    public async Task<IActionResult> XemXetTrungLapAsync(
+        Guid id, [FromBody] GhiYKienTrungLapDto yeuCau, CancellationToken ct)
+    {
+        var ketQua = await _trungLap.DanhDauDaXemXetTheoSangKienAsync(id, yeuCau?.YKienHoiDong, ct);
+        return Ok(PhanHoiApi<Domain.Ai.KiemTraTrungLap>.Ok(ketQua, "Đã ghi nhận ý kiến xem xét"));
+    }
+
+    /// <summary>Chức năng 26 — Xuất báo cáo kiểm tra trùng lặp ra PDF.</summary>
+    [HttpGet("{id:guid}/trung-lap/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.TrungLapXem)]
+    public async Task<IActionResult> XuatBaoCaoTrungLapAsync(Guid id, CancellationToken ct)
+    {
+        var duLieu = await _trungLap.LayDuLieuBaoCaoAsync(id, ct);
+
+        if (duLieu is null)
+        {
+            return NotFound(PhanHoiApi.Loi(
+                "CHUA_KIEM_TRA_TRUNG_LAP", "Hồ sơ chưa có kết quả kiểm tra trùng lặp."));
+        }
+
+        var tenCoQuan = await _cauHinh.LayAsync(KhoaCauHinh.TenDonVi, string.Empty, ct);
+        var tenHeThong = await _cauHinh.LayAsync(KhoaCauHinh.TenHeThong, string.Empty, ct);
+
+        var noiDung = BoXuatBaoCaoTrungLapPdf.Xuat(tenCoQuan, tenHeThong, new BaoCaoTrungLapPdf(
+            duLieu.MaHoSo, duLieu.TenSangKien, duLieu.TenTacGiaChinh, duLieu.TenDonVi,
+            duLieu.NgayChay, duLieu.PhienBanThuatToan, duLieu.TenMoHinhNhung,
+            duLieu.TongSoDoiChieu, duLieu.TyLeCaoNhat, duLieu.MucCanhBao,
+            duLieu.DaXemXet, duLieu.YKienHoiDong,
+            duLieu.ChiTiet
+                .Select(c => new DongDoiChieuTrungLapPdf(
+                    c.MaHoSo, c.TenSangKien, c.TenDonVi,
+                    c.TyLeTuongDong, c.TyLeTuVung, c.TyLeNguNghia, c.SoDoanTrung,
+                    c.CacDoanTrung
+                        .Select(d => new CapDoanTrungPdf(d.DoanNguon, d.DoanDich, d.TyLe))
+                        .ToList()))
+                .ToList()));
+
+        return File(noiDung, "application/pdf", $"bao-cao-trung-lap-{duLieu.MaHoSo}.pdf");
     }
 
     /// <summary>Chạy lại kiểm tra trùng lặp thủ công.</summary>
@@ -252,6 +302,9 @@ public sealed class SangKienController : ControllerBase
 
 public sealed record RutHoSoDto(string LyDo);
 
+/// <summary>Chức năng 26 — Ý kiến hội đồng khi xem xét cảnh báo trùng lặp.</summary>
+public sealed record GhiYKienTrungLapDto(string? YKienHoiDong);
+
 /// <summary>Chức năng 27–29 — Tiếp nhận và xử lý hồ sơ theo quy trình động.</summary>
 [ApiController]
 [Route("api/v1/xu-ly")]
@@ -260,8 +313,24 @@ public sealed record RutHoSoDto(string LyDo);
 public sealed class XuLyController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly DichVuWorkflow _workflow;
 
-    public XuLyController(IMediator mediator) => _mediator = mediator;
+    public XuLyController(IMediator mediator, DichVuWorkflow workflow)
+    {
+        _mediator = mediator;
+        _workflow = workflow;
+    }
+
+    /// <summary>
+    /// Chức năng 15, 29 — Danh sách người có thể xử lý bước hiện tại của hồ sơ.
+    ///
+    /// Dùng cho ô chọn "xử lý thay cho ai" khi bước cho phép uỷ quyền.
+    /// </summary>
+    [HttpGet("tac-nhan-buoc/{sangKienId:guid}")]
+    [Authorize(Policy = MaQuyen.XuLyThucThi)]
+    public async Task<IActionResult> LayTacNhanBuocAsync(Guid sangKienId, CancellationToken ct)
+        => Ok(PhanHoiApi<IReadOnlyList<TacNhanBuocDto>>.Ok(
+            await _workflow.LayTacNhanBuocHienTaiAsync(sangKienId, ct)));
 
     /// <summary>Thực thi một bước xử lý trên hồ sơ.</summary>
     [HttpPost("thuc-thi")]

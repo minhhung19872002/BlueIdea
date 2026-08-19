@@ -85,6 +85,7 @@ public static class MaQuyen
     // Kiem tra trung lap
     public const string TrungLapXem = "TRUNG_LAP.XEM";
     public const string TrungLapChayLai = "TRUNG_LAP.CHAY_LAI";
+    public const string TrungLapXemXet = "TRUNG_LAP.XEM_XET";
 
     // Quan tri
     public const string NguoiDungXem = "NGUOI_DUNG.XEM";

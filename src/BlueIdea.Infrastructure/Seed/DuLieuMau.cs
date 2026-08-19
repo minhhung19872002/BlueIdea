@@ -240,6 +240,7 @@ public sealed partial class DuLieuMau
 
         (MaQuyen.TrungLapXem, "Xem báo cáo trùng lặp", "Trùng lặp"),
         (MaQuyen.TrungLapChayLai, "Chạy lại kiểm tra trùng lặp", "Trùng lặp"),
+        (MaQuyen.TrungLapXemXet, "Ghi ý kiến xem xét trùng lặp", "Trùng lặp"),
 
         (MaQuyen.NguoiDungXem, "Xem người dùng", "Quản trị"),
         (MaQuyen.NguoiDungThem, "Thêm người dùng", "Quản trị"),
@@ -275,7 +276,8 @@ public sealed partial class DuLieuMau
                 MaQuyen.SangKienXem, MaQuyen.SangKienXemTatCa, MaQuyen.SangKienXuat,
                 MaQuyen.TiepNhanXem, MaQuyen.TiepNhanXuLy,
                 MaQuyen.XuLyXem, MaQuyen.XuLyThucThi, MaQuyen.XuLyThuHoi,
-                MaQuyen.TrungLapXem, MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem
+                MaQuyen.TrungLapXem, MaQuyen.TrungLapXemXet,
+                MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem
             },
             LoaiPhamViDuLieu.DonViVaCapDuoi),
 
@@ -287,7 +289,7 @@ public sealed partial class DuLieuMau
                 MaQuyen.DanhGiaXem, MaQuyen.DanhGiaPhanCong, MaQuyen.DanhGiaTongHop,
                 MaQuyen.DanhGiaMoLaiPhieu,
                 MaQuyen.HoiDongXem, MaQuyen.HoiDongHopPhien,
-                MaQuyen.TrungLapXem, MaQuyen.TrungLapChayLai,
+                MaQuyen.TrungLapXem, MaQuyen.TrungLapChayLai, MaQuyen.TrungLapXemXet,
                 MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem, MaQuyen.BaoCaoXuat
             },
             LoaiPhamViDuLieu.DonViVaCapDuoi),
@@ -310,7 +312,8 @@ public sealed partial class DuLieuMau
                 MaQuyen.HoiDongXem, MaQuyen.HoiDongBoPhieu, MaQuyen.HoiDongKetLuan,
                 MaQuyen.HoiDongHopPhien,
                 MaQuyen.XuLyXem, MaQuyen.XuLyThucThi,
-                MaQuyen.TrungLapXem, MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem
+                MaQuyen.TrungLapXem, MaQuyen.TrungLapXemXet,
+                MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem
             },
             LoaiPhamViDuLieu.DonViVaCapDuoi),
 
