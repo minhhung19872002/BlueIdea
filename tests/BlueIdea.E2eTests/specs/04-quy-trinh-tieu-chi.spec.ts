@@ -508,4 +508,165 @@ test.describe('REQ-10 & REQ-14: Quy trình và Tiêu chí chấm điểm', () =>
       expect(res!.status()).toBe(403);
     });
   });
+
+  // ─── Sắp xếp và phân trang nâng cao ────────────────────────────────
+
+  test.describe('Sắp xếp và phân trang nâng cao', () => {
+    test('GET /quy-trinh sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10&sapXep=ten&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /quy-trinh sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /quy-trinh trang=9999 trả về mảng rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=9999&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBe(0);
+    });
+
+    test('GET /tieu-chi sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=10&sapXep=ten&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /tieu-chi sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+  });
+
+  // ─── Validation nâng cao ──────────────────────────────────────────────
+
+  test.describe('Validation nâng cao', () => {
+    test('POST /tieu-chi với ten rỗng → 200 tạo thành công hoặc 400/422 validation', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.tieuChi, {
+        ma: `E2E_VAL_${Date.now()}`,
+        ten: '',
+        thangDiemToiDa: 10,
+        diemDatToiThieu: 5,
+        cachTinh: 'TRUNG_BINH_CONG',
+        lamTron: 2,
+        danhSachNhom: [],
+      });
+      expect([200, 400, 422]).toContain(res!.status());
+    });
+
+    test('POST /tieu-chi với ma rỗng → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.tieuChi, {
+        ma: '',
+        ten: 'Test validation mã',
+        thangDiemToiDa: 10,
+        diemDatToiThieu: 5,
+        cachTinh: 'TRUNG_BINH_CONG',
+        lamTron: 2,
+        danhSachNhom: [],
+      });
+      expect([400, 422]).toContain(res!.status());
+    });
+
+    test('POST /tieu-chi không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.post(API.tieuChi, {
+        data: { ma: 'TEST', ten: 'Test' },
+      });
+      expect(res.status()).toBe(401);
+    });
+
+    test('DELETE /tieu-chi không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.delete(`${API.tieuChi}/${fakeId}`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('tác giả POST /tieu-chi → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', API.tieuChi, {
+        ma: 'TACGIA_TEST',
+        ten: 'Tác giả tạo tiêu chí',
+        thangDiemToiDa: 10,
+        diemDatToiThieu: 5,
+        cachTinh: 'TRUNG_BINH_CONG',
+        lamTron: 2,
+        danhSachNhom: [],
+      });
+      expect(res!.status()).toBe(403);
+    });
+
+    test('POST /quy-trinh/{id}/kiem-tra không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.post(`${API.quyTrinh}/${fakeId}/kiem-tra`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('tác giả POST /quy-trinh/{id}/sao-chep → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await apiRequest(page, 'POST', `${API.quyTrinh}/${fakeId}/sao-chep`, {
+        ma: 'TACGIA_CLONE',
+        ten: 'Clone unauthorized',
+      });
+      expect([403, 404]).toContain(res!.status());
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('Responsive viewport', () => {
+    test('trang quy trình hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.quyTrinh);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang tiêu chí hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.tieuChi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
+  });
 });

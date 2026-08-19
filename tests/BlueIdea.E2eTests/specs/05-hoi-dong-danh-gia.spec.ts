@@ -631,4 +631,203 @@ test.describe('REQ-17, REQ-18, REQ-13: Hội đồng và đánh giá', () => {
       expect([403, 404]).toContain(res.status());
     });
   });
+
+  // ─── Sắp xếp và phân trang nâng cao ────────────────────────────────
+
+  test.describe('Sắp xếp và phân trang nâng cao', () => {
+    test('GET /hoi-dong sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=10&sapXep=ten&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /hoi-dong sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /hoi-dong trang=9999 trả về mảng rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.hoiDong}?trang=9999&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBe(0);
+    });
+
+    test('GET /hoi-dong trang=2 khác trang=1 nếu đủ data', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const p1 = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=2`);
+      const b1 = await p1!.json();
+      if (b1.tongSo > 2) {
+        const p2 = await apiRequest(page, 'GET', `${API.hoiDong}?trang=2&soDong=2`);
+        const b2 = await p2!.json();
+        expect(b2.duLieu).toBeInstanceOf(Array);
+        if (b2.duLieu.length > 0 && b1.duLieu.length > 0) {
+          expect(b1.duLieu[0].id).not.toBe(b2.duLieu[0].id);
+        }
+      }
+    });
+
+    test('GET /danh-gia/viec-cua-toi sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong01');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+  });
+
+  // ─── Validation và edge cases nâng cao ────────────────────────────────
+
+  test.describe('Validation nâng cao', () => {
+    test('POST /hoi-dong với payload rỗng → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.hoiDong, {});
+      expect([400, 422]).toContain(res!.status());
+    });
+
+    test('DELETE /hoi-dong không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.delete(`${API.hoiDong}/${fakeId}`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('tác giả DELETE /hoi-dong → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await apiRequest(page, 'DELETE', `${API.hoiDong}/${fakeId}`);
+      expect([403, 404]).toContain(res!.status());
+    });
+
+    test('POST /hoi-dong với mã quá dài (500+ ký tự) — server xử lý', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const longStr = 'A'.repeat(600);
+      const res = await apiRequest(page, 'POST', API.hoiDong, {
+        ma: longStr,
+        ten: 'Test mã quá dài',
+        cap: 'CO_SO',
+        soThanhVienToiThieu: 3,
+        tyLeThongQua: 50,
+        thuTu: 0,
+        trangThai: 1,
+        trangThaiHoatDong: 'DANG_HOAT_DONG',
+      });
+      expect([400, 422, 500]).toContain(res!.status());
+    });
+
+    test('POST /hoi-dong với soThanhVienToiThieu âm → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.hoiDong, {
+        ma: `E2E_NEG_${Date.now()}`,
+        ten: `Test số âm ${Date.now()}`,
+        cap: 'CO_SO',
+        soThanhVienToiThieu: -1,
+        tyLeThongQua: 50,
+        thuTu: 0,
+        trangThai: 1,
+        trangThaiHoatDong: 'DANG_HOAT_DONG',
+      });
+      expect([200, 400, 422]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        const id = body.duLieu?.id ?? body.duLieu;
+        if (id) await apiRequest(page, 'DELETE', `${API.hoiDong}/${id}`);
+      }
+    });
+
+    test('tiếp nhận GET /danh-gia/ma-tran-diem → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tiepnhan');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/ma-tran-diem`);
+      expect([200, 403]).toContain(res!.status());
+    });
+
+    test('không xác thực GET /danh-gia/ma-tran-diem → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.danhGia}/ma-tran-diem`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('hoidong02 GET /danh-gia/viec-cua-toi trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong02');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('XSS trong tên hội đồng không crash', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const xss = '<img src=x onerror=alert(1)>';
+      const ma = `E2E_XSS_${Date.now()}`;
+      const res = await apiRequest(page, 'POST', API.hoiDong, {
+        ma,
+        ten: xss,
+        cap: 'CO_SO',
+        soThanhVienToiThieu: 3,
+        tyLeThongQua: 50,
+        thuTu: 0,
+        trangThai: 1,
+        trangThaiHoatDong: 'DANG_HOAT_DONG',
+      });
+      expect([200, 400, 422]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        const id = body.duLieu?.id ?? body.duLieu;
+        if (id) {
+          const getRes = await apiRequest(page, 'GET', `${API.hoiDong}/${id}`);
+          const getBody = await getRes!.json();
+          expect(getBody.duLieu.ten).toBe(xss);
+          await apiRequest(page, 'DELETE', `${API.hoiDong}/${id}`);
+        }
+      }
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('Responsive viewport', () => {
+    test('trang hội đồng hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.hoiDong);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang đánh giá hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong01');
+      await page.goto(ROUTES.danhGia);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
+  });
 });

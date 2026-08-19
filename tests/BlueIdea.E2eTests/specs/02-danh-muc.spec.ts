@@ -1086,4 +1086,155 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       expect(res.status()).toBe(401);
     });
   });
+
+  // ─── Sắp xếp và phân trang nâng cao ────────────────────────────────
+
+  test.describe('Sắp xếp và phân trang nâng cao', () => {
+    test('GET /danh-muc/linh-vuc sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=1&soDong=10&sapXep=ten&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /danh-muc/linh-vuc sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /danh-muc/linh-vuc trang=9999 trả về mảng rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=9999&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBe(0);
+    });
+
+    test('GET /don-vi sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=10&sapXep=ten&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /don-vi trang=2 khác trang=1 nếu đủ data', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const p1 = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=2`);
+      const b1 = await p1!.json();
+      if (b1.tongSo > 2) {
+        const p2 = await apiRequest(page, 'GET', `${API.donVi}?trang=2&soDong=2`);
+        const b2 = await p2!.json();
+        expect(b2.duLieu).toBeInstanceOf(Array);
+        if (b2.duLieu.length > 0 && b1.duLieu.length > 0) {
+          expect(b1.duLieu[0].id).not.toBe(b2.duLieu[0].id);
+        }
+      }
+    });
+
+    test('GET /danh-muc/dot-de-nghi sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /bieu-mau-xuat sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.bieuMau}?trang=1&soDong=10&sapXep=ten&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+  });
+
+  // ─── Validation nâng cao ──────────────────────────────────────────────
+
+  test.describe('Validation nâng cao', () => {
+    test('POST /danh-muc/linh-vuc với payload rỗng → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', `${API.danhMuc}/linh-vuc`, {});
+      expect([400, 422]).toContain(res!.status());
+    });
+
+    test('POST /don-vi với payload rỗng → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.donVi, {});
+      expect([400, 422]).toContain(res!.status());
+    });
+
+    test('DELETE /danh-muc/linh-vuc không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.delete(`${API.danhMuc}/linh-vuc/${fakeId}`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('DELETE /don-vi không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.delete(`${API.donVi}/${fakeId}`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('GET /danh-muc/linh-vuc/{id-sai} trả về 400 hoặc 404', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc/khong-phai-uuid`);
+      expect([400, 404]).toContain(res!.status());
+    });
+
+    test('PUT /don-vi không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.put(`${API.donVi}/${fakeId}`, {
+        data: { ma: 'TEST', ten: 'Test' },
+      });
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('Responsive viewport', () => {
+    test('trang danh mục hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(`${ROUTES.danhMuc}/linh-vuc`);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang đơn vị hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.donVi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
+  });
 });

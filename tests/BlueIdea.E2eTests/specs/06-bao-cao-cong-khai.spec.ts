@@ -882,3 +882,122 @@ test.describe('REQ-25: Lĩnh vực công khai — chips lọc theo lĩnh vực',
     expect(res.status()).toBe(200);
   });
 });
+
+// ─── Sắp xếp và phân trang nâng cao ────────────────────────────────────
+
+test.describe('Sắp xếp và phân trang công khai', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('API GET /cong-khai/sang-kien sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: unknown[] };
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API GET /cong-khai/sang-kien sapXep=tenSangKien&huong=asc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=1&soDong=10&sapXep=tenSangKien&huong=asc`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: unknown[] };
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API GET /cong-khai/sang-kien trang=9999 trả về mảng rỗng', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=9999&soDong=10`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: unknown[] };
+    expect(body.duLieu.length).toBe(0);
+  });
+
+  test('API GET /cong-khai/sang-kien soDong=-1 xử lý an toàn', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=1&soDong=-1`);
+    expect([200, 400, 422]).toContain(res.status());
+  });
+
+  test('API GET /cong-khai/sang-kien tuKhoa rỗng trả về tất cả', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=1&soDong=10&tuKhoa=`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: unknown[] };
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+});
+
+// ─── Edge cases nâng cao ────────────────────────────────────────────────
+
+test.describe('Edge cases nâng cao', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('SQL injection trong tuKhoa công khai không crash', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=1&soDong=5&tuKhoa=${encodeURIComponent("1' OR '1'='1")}`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: unknown[] };
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('ký tự Unicode trong tuKhoa công khai không crash', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/sang-kien?trang=1&soDong=5&tuKhoa=${encodeURIComponent('Giáo dục và đào tạo')}`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: unknown[] };
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API GET /cong-khai/sang-kien/{id} với id không tồn tại → 404', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await page.request.get(`${API.congKhai}/sang-kien/${fakeId}`);
+    expect([400, 404]).toContain(res.status());
+  });
+
+  test('API GET /cong-khai/thong-ke response có đúng cấu trúc JSON', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/thong-ke`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body).toHaveProperty('thanhCong');
+    expect(body).toHaveProperty('duLieu');
+  });
+
+  test('API GET /cong-khai/linh-vuc response items có id', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.congKhai}/linh-vuc`);
+    expect(res.status()).toBe(200);
+    const body = await res.json() as { duLieu: Record<string, unknown>[] };
+    if (body.duLieu.length > 0) {
+      expect(body.duLieu[0]).toHaveProperty('id');
+    }
+  });
+});
+
+// ─── Responsive viewport ────────────────────────────────────────────────
+
+test.describe('Responsive viewport công khai', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang công khai hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto(ROUTES.congKhai);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+
+  test('trang công khai hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+    const page = await context.newPage();
+    await page.goto(ROUTES.congKhai);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await context.close();
+  });
+});

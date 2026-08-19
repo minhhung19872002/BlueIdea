@@ -566,4 +566,155 @@ test.describe('REQ-09/11/12: Sáng kiến', () => {
       expect([403, 404]).toContain(res!.status());
     });
   });
+
+  // ─── Sắp xếp và phân trang nâng cao ────────────────────────────────
+
+  test.describe('Sắp xếp và phân trang nâng cao', () => {
+    test('GET /sang-kien sapXep=tenSangKien&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=tenSangKien&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /sang-kien trang=2 khác trang=1 nếu đủ data', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const p1 = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=2`);
+      const b1 = await p1!.json();
+      if (b1.tongSo > 2) {
+        const p2 = await apiRequest(page, 'GET', `${API.sangKien}?trang=2&soDong=2`);
+        const b2 = await p2!.json();
+        expect(b2.duLieu).toBeInstanceOf(Array);
+        if (b2.duLieu.length > 0 && b1.duLieu.length > 0) {
+          expect(b1.duLieu[0].id).not.toBe(b2.duLieu[0].id);
+        }
+      }
+    });
+
+    test('GET /sang-kien/cua-toi sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=5&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /sang-kien với trang=-1 xử lý an toàn', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=-1&soDong=10`);
+      expect([200, 400, 422]).toContain(res!.status());
+    });
+
+    test('GET /sang-kien SQL injection trong tuKhoa không crash', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5&tuKhoa=${encodeURIComponent("1' OR '1'='1")}`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+  });
+
+  // ─── DELETE sáng kiến ──────────────────────────────────────────────
+
+  test.describe('DELETE sáng kiến', () => {
+    test('DELETE /sang-kien/{id} không xác thực → 401/405', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.delete(`${API.sangKien}/${fakeId}`);
+      expect([401, 405]).toContain(res.status());
+    });
+
+    test('tiếp nhận DELETE /sang-kien → 403/405', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tiepnhan');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await apiRequest(page, 'DELETE', `${API.sangKien}/${fakeId}`);
+      expect([403, 404, 405]).toContain(res!.status());
+    });
+
+    test('admin DELETE /sang-kien/{id} không tồn tại → 400/404/405', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await apiRequest(page, 'DELETE', `${API.sangKien}/${fakeId}`);
+      expect([400, 404, 405]).toContain(res!.status());
+    });
+  });
+
+  // ─── Validation nâng cao ──────────────────────────────────────────────
+
+  test.describe('Validation nâng cao', () => {
+    test('POST /sang-kien với tenSangKien quá dài (1000+ ký tự) → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const longStr = 'A'.repeat(1200);
+      const res = await apiRequest(page, 'POST', API.sangKien, {
+        tenSangKien: longStr,
+        moTaSangKien: 'Test quá dài',
+      });
+      expect([400, 422]).toContain(res!.status());
+    });
+
+    test('PUT /sang-kien/{id} không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.put(`${API.sangKien}/${fakeId}`, {
+        data: { tenSangKien: 'Test', moTaSangKien: 'Test' },
+      });
+      expect(res.status()).toBe(401);
+    });
+
+    test('PUT /sang-kien/{id} với id không tồn tại → 400/404', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await apiRequest(page, 'PUT', `${API.sangKien}/${fakeId}`, {
+        tenSangKien: 'Test not found',
+        moTaSangKien: 'Test',
+      });
+      expect([400, 403, 404]).toContain(res!.status());
+    });
+
+    test('POST /sang-kien/{id}/nop không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.post(`${API.sangKien}/${fakeId}/nop`);
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('Responsive viewport', () => {
+    test('trang hồ sơ của tôi hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      await page.goto(ROUTES.hoSoCuaToi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang nộp mới hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      await page.goto(ROUTES.nopMoi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
+  });
 });

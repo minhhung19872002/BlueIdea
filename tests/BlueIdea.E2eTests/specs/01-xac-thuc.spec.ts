@@ -216,3 +216,163 @@ test.describe('REQ-21: Xác thực đăng nhập', () => {
   // Wrong-password behavior verified at API level (POST sai mật khẩu → maLoi SAI_TAI_KHOAN_MAT_KHAU).
   // UI negative tests removed: CAPTCHA triggers from cumulative per-IP login history make them flaky.
 });
+
+// ─── REQ-21: API phân quyền nâng cao ────────────────────────────────────────
+
+test.describe('REQ-21: API phân quyền nâng cao', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /me không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.me);
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /me với token hợp lệ trả về thông tin user', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.me);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeDefined();
+    expect(body.duLieu.tenDangNhap).toBeTruthy();
+  });
+
+  test('POST login với username rỗng → 400/422', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.login, {
+      data: { tenDangNhap: '', matKhau: 'Sk@2026' },
+    });
+    expect([400, 401, 422]).toContain(res.status());
+  });
+
+  test('POST login với mật khẩu rỗng → 400/422', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.login, {
+      data: { tenDangNhap: 'admin', matKhau: '' },
+    });
+    expect([400, 401, 422]).toContain(res.status());
+  });
+
+  test('POST login với payload rỗng → 400/422', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.login, { data: {} });
+    expect([400, 401, 422]).toContain(res.status());
+  });
+
+  test('GET /nguoi-dung không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.nguoiDung}?trang=1&soDong=5`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /vai-tro không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.vaiTro}?trang=1&soDong=5`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /cau-hinh không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.cauHinh);
+    expect(res.status()).toBe(401);
+  });
+
+  test('SQL injection trong login username không crash', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.login, {
+      data: { tenDangNhap: "admin' OR '1'='1", matKhau: 'Sk@2026' },
+    });
+    expect([400, 401, 422]).toContain(res.status());
+  });
+
+  test('token giả gửi API → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.me, {
+      headers: { Authorization: 'Bearer fake.token.invalid' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /nhat-ky/dang-nhap không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.nhatKy}/dang-nhap?trang=1&soDong=5`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('tacgia1 GET /nguoi-dung → 403/404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.nguoiDung}?trang=1&soDong=5`);
+    expect([403, 404]).toContain(res!.status());
+  });
+
+  test('tacgia1 GET /vai-tro → 403/404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.vaiTro}?trang=1&soDong=5`);
+    expect([403, 404]).toContain(res!.status());
+  });
+
+  test('admin GET /me trả về tenDangNhap=admin', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.me);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu.tenDangNhap).toBe('admin');
+  });
+
+  test('lanhdao GET /me trả về đúng user', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'lanhdao');
+    const res = await apiRequest(page, 'GET', API.me);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu.tenDangNhap).toBeTruthy();
+  });
+
+  test('tiepnhan GET /me trả về đúng user', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tiepnhan');
+    const res = await apiRequest(page, 'GET', API.me);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu.tenDangNhap).toBeTruthy();
+  });
+
+  test('DELETE /nguoi-dung không xác thực → 401/405', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await page.request.delete(`${API.nguoiDung}/${fakeId}`);
+    expect([401, 405]).toContain(res.status());
+  });
+});
+
+// ─── REQ-21: Responsive trang đăng nhập ─────────────────────────────────────
+
+test.describe('REQ-21: Responsive trang đăng nhập', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang đăng nhập hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto(ROUTES.login);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.trang-dang-nhap')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /đăng nhập/i })).toBeVisible();
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+
+  test('trang đăng nhập hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+    const page = await context.newPage();
+    await page.goto(ROUTES.login);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.trang-dang-nhap')).toBeVisible({ timeout: 10_000 });
+    await context.close();
+  });
+});

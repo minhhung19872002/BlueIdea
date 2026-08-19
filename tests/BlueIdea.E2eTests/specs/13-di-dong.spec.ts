@@ -271,3 +271,171 @@ test.describe('REQ-42: Responsive — Desktop viewport (1280px)', () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 });
+
+// ─── Responsive nâng cao — nhiều trang ──────────────────────────────────────
+
+test.describe('REQ-42: Responsive — Mobile nhiều trang', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('mobile — trang hồ sơ của tôi tải đúng (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    await page.goto(ROUTES.hoSoCuaToi);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+
+  test('mobile — trang tra cứu tải đúng (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.traCuu);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+
+  test('mobile — trang báo cáo tải đúng (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoCao);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('mobile — trang quy trình tải đúng (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.quyTrinh);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('mobile — trang tiêu chí tải đúng (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.tieuChi);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('minimum viewport (320px) — trang đăng nhập tải đúng', async ({ page }) => {
+    await page.setViewportSize(MIN_VIEWPORT);
+    await page.goto(ROUTES.login);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.trang-dang-nhap')).toBeVisible({ timeout: 10_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+  });
+
+  test('minimum viewport (320px) — dashboard tải đúng', async ({ page }) => {
+    await page.setViewportSize(MIN_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.dashboard);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('tablet — trang hội đồng tải đúng (768px)', async ({ page }) => {
+    await page.setViewportSize(TABLET_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.hoiDong);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+
+  test('tablet — trang quyết định tải đúng (768px)', async ({ page }) => {
+    await page.setViewportSize(TABLET_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.quyetDinh);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('tablet — trang cấu hình tải đúng (768px)', async ({ page }) => {
+    await page.setViewportSize(TABLET_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.cauHinh);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+});
+
+// ─── Responsive — Role khác nhau ────────────────────────────────────────────
+
+test.describe('REQ-42: Responsive — Roles khác nhau trên mobile', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('mobile — tacgia1 xem hồ sơ của tôi (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    await page.goto(ROUTES.hoSoCuaToi);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('mobile — lanhdao xem dashboard (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'lanhdao');
+    await page.goto(ROUTES.dashboard);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('mobile — tiepnhan xem tiếp nhận (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'tiepnhan');
+    await page.goto(ROUTES.tiepNhan);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('mobile — thuky xem xử lý (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'thuky');
+    await page.goto(ROUTES.xuLy);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('mobile — trang công khai không cần đăng nhập (375px)', async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await page.goto(ROUTES.congKhai);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('401');
+  });
+
+  test('tablet — lanhdao xem báo cáo (768px)', async ({ page }) => {
+    await page.setViewportSize(TABLET_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'lanhdao');
+    await page.goto(ROUTES.baoCao);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('tablet — thuky xem đánh giá (768px)', async ({ page }) => {
+    await page.setViewportSize(TABLET_VIEWPORT);
+    await page.goto('/');
+    await loginViaAPI(page, 'thuky');
+    await page.goto(ROUTES.danhGia);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+});

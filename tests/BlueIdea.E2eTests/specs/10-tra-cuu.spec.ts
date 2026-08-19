@@ -368,3 +368,143 @@ test.describe('REQ-37: Tra cứu và tìm kiếm sáng kiến', () => {
     });
   });
 });
+
+// ─── Sắp xếp và phân trang nâng cao ────────────────────────────────────────
+
+test.describe('Sắp xếp và phân trang tra cứu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /sang-kien sapXep=tenSangKien&huong=asc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=tenSangKien&huong=asc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('GET /sang-kien sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('GET /sang-kien trang=9999 trả về mảng rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=9999&soDong=10`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(body.duLieu.length).toBe(0);
+  });
+
+  test('GET /sang-kien trang=2 vs trang=1 items khác nhau', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res1 = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5`);
+    const res2 = await apiRequest(page, 'GET', `${API.sangKien}?trang=2&soDong=5`);
+    expect(res1!.status()).toBe(200);
+    expect(res2!.status()).toBe(200);
+    const body1 = await res1!.json();
+    const body2 = await res2!.json();
+    if (body1.duLieu.length > 0 && body2.duLieu.length > 0) {
+      expect(body1.duLieu[0].id).not.toBe(body2.duLieu[0].id);
+    }
+  });
+});
+
+// ─── Auth nâng cao tra cứu ──────────────────────────────────────────────────
+
+test.describe('Auth nâng cao tra cứu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('lanhdao GET /sang-kien trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'lanhdao');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5`);
+    expect(res!.status()).toBe(200);
+  });
+
+  test('tiepnhan GET /sang-kien trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tiepnhan');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5`);
+    expect(res!.status()).toBe(200);
+  });
+
+  test('tacgia1 GET /sang-kien/cua-toi trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=5`);
+    expect(res!.status()).toBe(200);
+  });
+});
+
+// ─── Responsive viewport tra cứu ───────────────────────────────────────────
+
+test.describe('Responsive viewport tra cứu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang tra cứu hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.traCuu);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+
+  test('trang tra cứu hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.traCuu);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await context.close();
+  });
+});
+
+// ─── Validation nâng cao tra cứu ────────────────────────────────────────────
+
+test.describe('Validation nâng cao tra cứu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /sang-kien/goi-y với tuKhoa rỗng trả về 200 hoặc 400', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/goi-y?tuKhoa=&soLuong=5`);
+    expect([200, 400]).toContain(res!.status());
+  });
+
+  test('GET /sang-kien sapXep=fieldKhongTonTai xử lý an toàn', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5&sapXep=fieldKhongTonTai&huong=asc`);
+    expect([200, 400, 422]).toContain(res!.status());
+  });
+
+  test('GET /sang-kien soDong=0 xử lý an toàn', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=0`);
+    expect([200, 400]).toContain(res!.status());
+  });
+
+  test('GET /sang-kien soDong=1000 bị giới hạn hoặc trả về an toàn', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1000`);
+    expect([200, 400]).toContain(res!.status());
+  });
+});

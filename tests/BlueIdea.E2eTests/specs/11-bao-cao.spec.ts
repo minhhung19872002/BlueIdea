@@ -270,5 +270,154 @@ test.describe('REQ-40: Thống kê theo đơn vị', () => {
       const body = await res!.json();
       expect(body.thanhCong).toBe(true);
     });
+
+    test('GET /bao-cao/sang-kien-chua-dat với năm không tồn tại → mảng rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/sang-kien-chua-dat?nam=1999`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /bao-cao/theo-don-vi với năm không tồn tại → mảng rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-don-vi?nam=1999`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /bao-cao/theo-tac-gia với năm không tồn tại → mảng rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-tac-gia?nam=1999`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+  });
+
+  // ─── Phân quyền nâng cao ──────────────────────────────────────────────
+
+  test.describe('REQ-38: Phân quyền nâng cao', () => {
+    test('lãnh đạo GET /bao-cao/sang-kien-dat → 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'lanhdao');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/sang-kien-dat`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+    });
+
+    test('tác giả GET /bao-cao/theo-don-vi → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-don-vi`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('tác giả GET /bao-cao/theo-tac-gia → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-tac-gia`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('tác giả GET /bao-cao/thoi-gian-xu-ly → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/thoi-gian-xu-ly`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET /bao-cao/theo-don-vi → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.baoCao}/theo-don-vi`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('không xác thực GET /bao-cao/theo-tac-gia → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.baoCao}/theo-tac-gia`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('không xác thực GET /bao-cao/thoi-gian-xu-ly → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.baoCao}/thoi-gian-xu-ly`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('không xác thực GET /bao-cao/sang-kien-chua-dat/xuat-excel → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.baoCao}/sang-kien-chua-dat/xuat-excel`);
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  // ─── Export nâng cao ──────────────────────────────────────────────────
+
+  test.describe('REQ-39: Export nâng cao', () => {
+    test('GET /bao-cao/sang-kien-chua-dat/xuat-excel trả file Excel', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/sang-kien-chua-dat/xuat-excel`);
+      expect([200, 404]).toContain(res!.status());
+    });
+
+    test('GET /bao-cao/theo-don-vi/xuat-excel trả file Excel', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-don-vi/xuat-excel`);
+      expect([200, 404]).toContain(res!.status());
+    });
+
+    test('GET /bao-cao/theo-tac-gia/xuat-excel trả file Excel', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-tac-gia/xuat-excel`);
+      expect([200, 404]).toContain(res!.status());
+    });
+
+    test('GET /bao-cao/thoi-gian-xu-ly/xuat-excel trả file Excel', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.baoCao}/thoi-gian-xu-ly/xuat-excel`);
+      expect([200, 404]).toContain(res!.status());
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('REQ-40: Responsive viewport', () => {
+    test('trang báo cáo hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.baoCao);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang báo cáo hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.baoCao);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
   });
 });

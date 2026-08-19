@@ -403,4 +403,137 @@ test.describe('REQ-30: Theo dõi hồ sơ', () => {
       expect(res.status()).toBe(401);
     });
   });
+
+  // ─── Sắp xếp nâng cao ──────────────────────────────────────────────
+
+  test.describe('Sắp xếp nâng cao', () => {
+    test('GET /sang-kien sapXep=tenSangKien&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=tenSangKien&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /sang-kien sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+  });
+
+  // ─── Phân quyền nâng cao ──────────────────────────────────────────────
+
+  test.describe('Phân quyền nâng cao', () => {
+    test('lãnh đạo GET /sang-kien danh sách — 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'lanhdao');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('chủ tịch GET /sang-kien danh sách — 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'chutich');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('POST /xu-ly/thu-hoi với tác giả → không phải 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', `${API.xuLy}/thu-hoi`, {
+        sangKienId: '00000000-0000-0000-0000-000000000000',
+      });
+      expect([400, 403, 404, 422]).toContain(res!.status());
+    });
+
+    test('POST /xu-ly/thuc-thi-hang-loat với tacgia → không phải 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', `${API.xuLy}/thuc-thi-hang-loat`, {
+        danhSach: [],
+      });
+      expect([400, 403, 404, 422]).toContain(res!.status());
+    });
+
+    test('hội đồng GET /xu-ly danh sách — 200 hoặc 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong01');
+      const res = await apiRequest(page, 'GET', `${API.xuLy}?trang=1&soDong=5`);
+      expect([200, 403, 404]).toContain(res!.status());
+    });
+  });
+
+  // ─── Validation nâng cao ──────────────────────────────────────────────
+
+  test.describe('Validation nâng cao', () => {
+    test('POST /xu-ly/thuc-thi với sangKienId rỗng → 400/422', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const res = await apiRequest(page, 'POST', `${API.xuLy}/thuc-thi`, {
+        sangKienId: '',
+        truongHopId: '00000000-0000-0000-0000-000000000000',
+      });
+      expect([400, 404, 422]).toContain(res!.status());
+    });
+
+    test('POST /xu-ly/thu-hoi không xác thực → 401 (confirm)', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.post(`${API.xuLy}/thu-hoi`, {
+        data: { sangKienId: '00000000-0000-0000-0000-000000000000' },
+      });
+      expect(res.status()).toBe(401);
+    });
+
+    test('GET /xu-ly không xác thực → 401/404', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.xuLy}?trang=1&soDong=5`);
+      expect([401, 404]).toContain(res.status());
+    });
+
+    test('GET /sang-kien với trangThaiTong không hợp lệ — xử lý an toàn', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5&trangThaiTong=INVALID`);
+      expect([200, 400, 422]).toContain(res!.status());
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('Responsive viewport', () => {
+    test('trang tiếp nhận hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'tiepnhan');
+      await page.goto(ROUTES.tiepNhan);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang xử lý hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      await page.goto(ROUTES.xuLy);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
+  });
 });

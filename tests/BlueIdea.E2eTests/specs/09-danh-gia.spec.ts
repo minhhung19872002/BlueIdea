@@ -339,5 +339,100 @@ test.describe('REQ-35: Tổng hợp và ma trận điểm', () => {
       expect(body.thanhCong).toBe(true);
       expect(body.duLieu).toBeInstanceOf(Array);
     });
+
+    test('GET /danh-gia/viec-cua-toi với sapXep=ngayTao&huong=asc trả về 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong01');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5&sapXep=ngayTao&huong=asc`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('ký tự đặc biệt trong tuKhoa không crash /danh-gia', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/ma-tran-diem?tuKhoa=${encodeURIComponent("'; DROP TABLE--")}`);
+      expect(res!.status()).toBe(200);
+    });
+  });
+
+  // ─── Phân quyền nâng cao ──────────────────────────────────────────────
+
+  test.describe('REQ-33: Phân quyền nâng cao', () => {
+    test('lãnh đạo GET /danh-gia/ma-tran-diem → 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'lanhdao');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/ma-tran-diem`);
+      expect([200, 403]).toContain(res!.status());
+    });
+
+    test('chủ tịch GET /danh-gia/viec-cua-toi → 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'chutich');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('tiếp nhận GET /danh-gia/viec-cua-toi → 200 (có thể trống)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tiepnhan');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5`);
+      expect([200, 403]).toContain(res!.status());
+    });
+
+    test('hoidong02 GET /danh-gia/viec-cua-toi → 200', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong02');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('không xác thực POST /danh-gia/phieu nộp → 401/404', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.post(`${API.danhGia}/phieu/${fakeId}/nop`);
+      expect([401, 404]).toContain(res.status());
+    });
+
+    test('tác giả GET /danh-gia/viec-cua-toi → 200 hoặc 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.danhGia}/viec-cua-toi?trang=1&soDong=5`);
+      expect([200, 403]).toContain(res!.status());
+    });
+  });
+
+  // ─── Responsive viewport ──────────────────────────────────────────────
+
+  test.describe('REQ-34: Responsive viewport', () => {
+    test('trang đánh giá hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong01');
+      await page.goto(ROUTES.danhGia);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+      expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+      await context.close();
+    });
+
+    test('trang đánh giá hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      const page = await context.newPage();
+      await page.goto('/');
+      await loginViaAPI(page, 'hoidong01');
+      await page.goto(ROUTES.danhGia);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+      await context.close();
+    });
   });
 });

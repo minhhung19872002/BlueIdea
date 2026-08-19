@@ -1002,3 +1002,131 @@ test.describe('Bảo vệ IDOR xuyên đơn vị', () => {
     expect([200, 403]).toContain(res!.status());
   });
 });
+
+// ─── Sắp xếp và phân trang nâng cao ────────────────────────────────────
+
+test.describe('Sắp xếp và phân trang nâng cao', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /nguoi-dung sapXep=hoTen&huong=asc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nguoiDung}?trang=1&soDong=10&sapXep=hoTen&huong=asc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('GET /nguoi-dung sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nguoiDung}?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('GET /nguoi-dung trang=9999 trả về mảng rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nguoiDung}?trang=9999&soDong=10`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(body.duLieu.length).toBe(0);
+  });
+
+  test('GET /vai-tro sapXep=ten&huong=asc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.vaiTro}?trang=1&soDong=10&sapXep=ten&huong=asc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeDefined();
+  });
+
+  test('GET /nhat-ky/he-thong sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nhatKy}/he-thong?trang=1&soDong=10&sapXep=ngayTao&huong=desc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+});
+
+// ─── Validation nâng cao ────────────────────────────────────────────────
+
+test.describe('Validation nâng cao', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST /nguoi-dung với payload rỗng → 400/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.nguoiDung, {});
+    expect([400, 422]).toContain(res!.status());
+  });
+
+  test('POST /vai-tro với payload rỗng → 400/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.vaiTro, {});
+    expect([400, 422]).toContain(res!.status());
+  });
+
+  test('DELETE /nguoi-dung không xác thực → 401/405', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await page.request.delete(`${API.nguoiDung}/${fakeId}`);
+    expect([401, 405]).toContain(res.status());
+  });
+
+  test('PUT /cau-hinh không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.put(API.cauHinh, {
+      data: { khoa: 'TEST', giaTri: 'TEST' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('tác giả PUT /cau-hinh → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'PUT', API.cauHinh, {
+      khoa: 'TEST',
+      giaTri: 'TEST',
+    });
+    expect(res!.status()).toBe(403);
+  });
+});
+
+// ─── Responsive viewport ────────────────────────────────────────────────
+
+test.describe('Responsive viewport', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang người dùng hiển thị đúng trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.nguoiDung);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+
+  test('trang vai trò hiển thị đúng trên tablet (768px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.vaiTro);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await context.close();
+  });
+});

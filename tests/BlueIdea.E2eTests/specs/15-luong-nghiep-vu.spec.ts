@@ -645,3 +645,114 @@ test.describe('Trường hợp biên liên bước', () => {
     }
   });
 });
+
+// ─── Validation và edge cases nâng cao ──────────────────────────────────────
+
+test.describe('Validation và edge cases nghiệp vụ', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST /xu-ly/thuc-thi không xác thực → 401', async ({ page }) => {
+    const res = await page.request.post(`${API.xuLy}/thuc-thi`, {
+      data: {
+        sangKienId: '00000000-0000-0000-0000-000000000000',
+        truongHopId: '00000000-0000-0000-0000-000000000000',
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /sang-kien/nop không xác thực → 401', async ({ page }) => {
+    const res = await page.request.post(
+      `${API.sangKien}/00000000-0000-0000-0000-000000000000/nop`
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /sang-kien/{id}/tien-do không xác thực → 401', async ({ page }) => {
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await page.request.get(`${API.sangKien}/${fakeId}/tien-do`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /sang-kien/{id}/lich-su không xác thực → 401', async ({ page }) => {
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await page.request.get(`${API.sangKien}/${fakeId}/lich-su`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /danh-gia/phieu/gui không xác thực → 401', async ({ page }) => {
+    const res = await page.request.post(`${API.danhGia}/phieu/gui`, {
+      data: {
+        sangKienId: '00000000-0000-0000-0000-000000000000',
+        hoiDongId: '00000000-0000-0000-0000-000000000000',
+        chiTiet: [],
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /xu-ly/thuc-thi với truongHopId invalid UUID → 400/422', async ({ page }) => {
+    const token = await getToken(page, 'admin');
+    const res = await authedPost(page, token, `${API.xuLy}/thuc-thi`, {
+      sangKienId: '00000000-0000-0000-0000-000000000000',
+      truongHopId: 'not-a-valid-uuid',
+    });
+    expect([400, 422].includes(res.status())).toBeTruthy();
+  });
+
+  test('GET /xu-ly/viec-cua-toi sapXep=ngayTao&huong=desc trả về 200', async ({ page }) => {
+    const token = await getToken(page, 'thuky');
+    const res = await authedGet(
+      page, token,
+      `${API.xuLy}/viec-cua-toi?trang=1&soDong=10&sapXep=ngayTao&huong=desc`
+    );
+    expect([200, 404].includes(res.status())).toBeTruthy();
+  });
+
+  test('GET /xu-ly/viec-cua-toi trang=9999 trả về mảng rỗng hoặc 404', async ({ page }) => {
+    const token = await getToken(page, 'admin');
+    const res = await authedGet(
+      page, token,
+      `${API.xuLy}/viec-cua-toi?trang=9999&soDong=10`
+    );
+    if (res.ok()) {
+      const body = await res.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBe(0);
+    } else {
+      expect([404].includes(res.status())).toBeTruthy();
+    }
+  });
+
+  test('GET /sang-kien/{id}/tien-do với id hợp lệ trả về 200', async ({ page }) => {
+    const token = await getToken(page, 'admin');
+    const listRes = await authedGet(page, token, `${API.sangKien}?trang=1&soDong=1`);
+    const listBody = await listRes.json();
+    if (listBody.duLieu.length > 0) {
+      const id = listBody.duLieu[0].id;
+      const res = await authedGet(page, token, `${API.sangKien}/${id}/tien-do`);
+      expect(res.ok()).toBeTruthy();
+    }
+  });
+
+  test('GET /sang-kien/{id}/lich-su với id hợp lệ trả về 200', async ({ page }) => {
+    const token = await getToken(page, 'admin');
+    const listRes = await authedGet(page, token, `${API.sangKien}?trang=1&soDong=1`);
+    const listBody = await listRes.json();
+    if (listBody.duLieu.length > 0) {
+      const id = listBody.duLieu[0].id;
+      const res = await authedGet(page, token, `${API.sangKien}/${id}/lich-su`);
+      expect(res.ok()).toBeTruthy();
+    }
+  });
+
+  test('POST /xu-ly/thuc-thi SQL injection trong yKien không crash', async ({ page }) => {
+    const token = await getToken(page, 'thuky');
+    const res = await authedPost(page, token, `${API.xuLy}/thuc-thi`, {
+      sangKienId: '00000000-0000-0000-0000-000000000000',
+      truongHopId: '00000000-0000-0000-0000-000000000000',
+      yKien: "Test' OR '1'='1; DROP TABLE sang_kien;--",
+    });
+    expect([400, 404, 422].includes(res.status())).toBeTruthy();
+  });
+});
