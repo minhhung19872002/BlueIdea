@@ -1,80 +1,54 @@
-# Autopilot Iteration 24
+# Autopilot Iteration 26
 
 ## Summary
 
-Implemented TAO_BIEN_BAN automated workflow action (REQ-12). When a workflow transitions from a step with the TAO_BIEN_BAN action configured (e.g., after scoring/voting), the system now automatically creates meeting minutes for the completed council session.
+Two changes in this iteration:
+
+1. **CONG_BO_KET_QUA** (REQ-12): Implemented automated result publication workflow action. When workflow transitions from a step with CONG_BO_KET_QUA, a background job marks evaluation results as published, sets innovation to public, and notifies authors.
+
+2. **P0 Bug Fix**: Fixed regression in `LayHanhDongKhaDungQueryHandler` where org-scope IDOR check (added in iteration 21, commit 4a5fdd7) blocked cross-department council members from seeing workflow actions. Council members from PHONG_YTE/PHONG_VHTT couldn't act on innovations from TH_LE_LOI (under PHONG_GDDT).
 
 ## Changes
 
-### DichVuBienBanHop refactoring (DichVuBienBanHop.cs)
+### CONG_BO_KET_QUA Feature
 
-- Extracted core minutes-creation logic into private `TaoBienBanCoiLoiAsync` — shared by both user-initiated and system-initiated paths
-- Added `LapTuDongAsync(Guid phienHopId)` — system-initiated (no permission check), returns null if session not ended or minutes already signed
-- `LapAsync` now delegates to `TaoBienBanCoiLoiAsync` after permission check
+- `src/BlueIdea.Application/Chung/GiaoDienHeThong.cs` — Added `XepLichCongBoKetQua(Guid sangKienId)` to `IHangDoiCongViecNen`
+- `src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs` — Wired CONG_BO_KET_QUA dispatch, reduced unimplemented warning group from 3 to 2
+- `src/BlueIdea.Infrastructure/CongViecNen/CongViecNen.cs` — `CongViecCongBoKetQua`: marks `DaCongBo=true`, `NgayCongBo`, sets innovation `CongKhai=true`, `DaCongBoKetQua=true`, notifies authors. Idempotent. Hangfire retry 2 attempts 60/300s
+- `src/BlueIdea.Infrastructure/CongViecNen/HangDoiCongViecNenHangfire.cs` — Wired Hangfire + no-op implementation
+- `tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs` — Updated counts (3→2 unimplemented, 5→6 implemented), added value test
 
-### Background job (CongViecTaoBienBan in CongViecNen.cs)
+### Cross-Org Council Member Scope Fix
 
-- Looks up `HoiDongId` from `QuyTrinhBuoc` (via `buocTruocId` — the step being exited)
-- Finds the most recent `PhienHopHoiDong` for that council where this innovation appears in `DanhSachHoSo` and session status is `DaKetThuc`
-- Delegates to `DichVuBienBanHop.LapTuDongAsync` — reuses all snapshot logic without duplication
-- Idempotent: calling twice for same session refreshes existing minutes, skips if already signed
-- Hangfire retry: 2 attempts with 60s/300s delays
-
-### Interface (IHangDoiCongViecNen in GiaoDienHeThong.cs)
-
-- Added `XepLichTaoBienBan(Guid sangKienId, Guid buocTruocId)`
-
-### Hangfire adapter (HangDoiCongViecNenHangfire.cs)
-
-- Wired `XepLichTaoBienBan` to enqueue `CongViecTaoBienBan.ChayAsync`
-- No-op implementation added for `HangDoiCongViecNenKhongHoatDong`
-
-### Action dispatcher (DichVuDieuPhaiHanhDong.cs)
-
-- TAO_BIEN_BAN now dispatches to `_hangDoi.XepLichTaoBienBan` instead of logging a warning
-- Guards against null `BuocTruocId` (workflow just started)
-- Warning group reduced from 4 to 3 unimplemented actions
-
-### Unit tests (DichVuDieuPhaiHanhDongTests.cs)
-
-- Added `HanhDongTuDong_TaoBienBan_Dung_Gia_Tri` — verifies constant value
-- Updated unimplemented count test from 4 to 3 (TAO_BIEN_BAN removed)
-- Updated implemented count test from 4 to 5 (TAO_BIEN_BAN added)
-- Added `TaoBienBan_Khong_Trong_Nhom_Chua_Trien_Khai` — guards against regression
+- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` — In `LayHanhDongKhaDungQueryHandler.Handle`, replaced blanket org-scope rejection with bypass for:
+  - Users who are active `HoiDongThanhVien` AND have a `SangKienPhanCong` record for the innovation (scoring assignment)
+  - Users who are active `HoiDongThanhVien` AND whose council has the innovation in a `PhienHopHoSo` (council session)
+  - Falls through to `BoMayQuyTrinh.LayHanhDongKhaDungAsync` which is the authoritative actor check
 
 ## Quality Gate
 
-- Result: PASS (7/7)
-- Unit tests: 500 (499 + 1 new)
+- Result: PASS (8/8)
+- Unit tests: 501
+- Integration tests: 197
 - Warnings: 0
 
 ## Requirements Affected
 
-- REQ-12 (Chuc nang bo sung) — TAO_BIEN_BAN implemented, gap updated from 4 to 3 unimplemented actions
+- REQ-12 (Chuc nang bo sung) — CONG_BO_KET_QUA implemented, gap reduced from 3 to 2 unimplemented actions (TAO_QUYET_DINH, YEU_CAU_KY_SO remain)
 
-## Files Changed
+## Commits
 
-- `src/BlueIdea.Application/Chung/GiaoDienHeThong.cs` (XepLichTaoBienBan interface)
-- `src/BlueIdea.Application/HoiDong/DichVuBienBanHop.cs` (LapTuDongAsync + TaoBienBanCoiLoiAsync refactor)
-- `src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs` (TAO_BIEN_BAN dispatch)
-- `src/BlueIdea.Infrastructure/CongViecNen/CongViecNen.cs` (CongViecTaoBienBan job)
-- `src/BlueIdea.Infrastructure/CongViecNen/HangDoiCongViecNenHangfire.cs` (Hangfire + no-op)
-- `tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs` (1 new + 3 updated tests)
-- `docs/requirements/traceability.yaml` (REQ-12 updated)
-
-## Commit
-
-5bd02f3
+- b24adda — feat: implement CONG_BO_KET_QUA automated workflow action (REQ-12)
+- 2213dd5 — fix: allow cross-org council members to see workflow actions (IDOR scope regression)
 
 ## Next Priority
 
-Remaining items by priority:
 1. TD-001: Semantic Embedding is Lexical Only (Medium, BLOCKED_EXTERNAL — needs ONNX model)
 2. TD-002: No Frontend Automated Tests (Medium)
-3. REQ-12: 3 remaining unimplemented actions — CONG_BO_KET_QUA is the next most feasible (publish results to applicants via notification)
-4. REQ integration tests — many REQs at IMPLEMENTED_NOT_VERIFIED need runtime integration tests (require Docker)
+3. REQ-12: 2 remaining unimplemented actions — TAO_QUYET_DINH (needs admin input), YEU_CAU_KY_SO (interactive signing)
+4. REQ integration tests — many REQs at IMPLEMENTED_NOT_VERIFIED need runtime integration tests
 5. TD-004: Database Partitioning (Low)
 
 ## Blockers
 
-Integration tests require Docker for Testcontainers — cannot be executed in current environment.
+None. Docker is available for Testcontainers.
