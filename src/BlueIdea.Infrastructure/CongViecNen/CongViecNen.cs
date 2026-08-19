@@ -1,4 +1,5 @@
 using BlueIdea.Application.Chung;
+using BlueIdea.Application.HoiDong;
 using BlueIdea.Application.TrungLap;
 using BlueIdea.Domain.Ai;
 using BlueIdea.Domain.Chung;
@@ -724,5 +725,78 @@ public sealed class CongViecPhanCongCham
             "PHAN_CONG_CHAM tự động: đã phân công {SoLuot} thành viên chấm sáng kiến {MaHoSo} "
             + "trong hội đồng {TenHoiDong}.",
             daPhanCong, hoSo.MaHoSo, hoiDong.Ten);
+    }
+}
+
+/// <summary>
+/// Hanh dong tu dong TAO_BIEN_BAN — khi buoc quy trinh (vd CHAM_DIEM, BO_PHIEU) hoan thanh,
+/// tu dong lap bien ban phien hop hoi dong neu phien da ket thuc.
+/// Luy dang: goi nhieu lan cho cung phien khong tao ban ghi trung.
+/// </summary>
+public sealed class CongViecTaoBienBan
+{
+    private readonly IAppDbContext _db;
+    private readonly DichVuBienBanHop _dichVuBienBan;
+    private readonly ILogger<CongViecTaoBienBan> _logger;
+
+    public CongViecTaoBienBan(
+        IAppDbContext db, DichVuBienBanHop dichVuBienBan,
+        ILogger<CongViecTaoBienBan> logger)
+    {
+        _db = db;
+        _dichVuBienBan = dichVuBienBan;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })]
+    public async Task ChayAsync(Guid sangKienId, Guid buocTruocId, CancellationToken ct = default)
+    {
+        var buoc = await _db.QuyTrinhBuoc.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == buocTruocId, ct)
+            .ConfigureAwait(false);
+
+        if (buoc?.HoiDongId is null)
+        {
+            _logger.LogWarning(
+                "TAO_BIEN_BAN bỏ qua: bước {BuocId} không có hội đồng gắn kết cho sáng kiến {SangKienId}.",
+                buocTruocId, sangKienId);
+            return;
+        }
+
+        var hoiDongId = buoc.HoiDongId.Value;
+
+        var phienHopId = await _db.PhienHopHoSo.AsNoTracking()
+            .Where(x => x.SangKienId == sangKienId
+                        && x.PhienHop!.HoiDongId == hoiDongId
+                        && x.PhienHop!.TrangThaiPhien == TrangThaiPhienHop.DaKetThuc)
+            .OrderByDescending(x => x.PhienHop!.ThoiGianBatDau)
+            .Select(x => (Guid?)x.PhienHopId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (phienHopId is null)
+        {
+            _logger.LogWarning(
+                "TAO_BIEN_BAN bỏ qua: không tìm thấy phiên họp đã kết thúc "
+                + "của hội đồng {HoiDongId} có sáng kiến {SangKienId} trong danh sách hồ sơ.",
+                hoiDongId, sangKienId);
+            return;
+        }
+
+        var bienBanId = await _dichVuBienBan.LapTuDongAsync(phienHopId.Value, ct)
+            .ConfigureAwait(false);
+
+        if (bienBanId is null)
+        {
+            _logger.LogInformation(
+                "TAO_BIEN_BAN bỏ qua: phiên họp {PhienHopId} chưa kết thúc hoặc biên bản đã ký.",
+                phienHopId.Value);
+            return;
+        }
+
+        _logger.LogInformation(
+            "TAO_BIEN_BAN tự động: đã lập biên bản {BienBanId} cho phiên họp {PhienHopId} "
+            + "(sáng kiến {SangKienId} kích hoạt).",
+            bienBanId.Value, phienHopId.Value, sangKienId);
     }
 }

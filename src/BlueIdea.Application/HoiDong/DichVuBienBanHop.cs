@@ -98,9 +98,43 @@ public sealed class DichVuBienBanHop
                 "Chỉ lập biên bản sau khi phiên họp đã kết thúc và có kết luận.");
         }
 
+        var bienBanId = await TaoBienBanCoiLoiAsync(phien, ct).ConfigureAwait(false);
+
+        if (bienBanId is null)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Biên bản đã có chữ ký nên không lập lại được. Muốn sửa phải huỷ chữ ký trước.");
+        }
+
+        return await LayAsync(bienBanId.Value, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lap bien ban tu dong boi hanh dong quy trinh TAO_BIEN_BAN (background job).
+    /// Khong kiem tra quyen — hanh dong tu dong chay nhu he thong.
+    /// Tra ve null neu phien chua ket thuc hoac bien ban da ky.
+    /// </summary>
+    public async Task<Guid?> LapTuDongAsync(Guid phienHopId, CancellationToken ct = default)
+    {
+        var phien = await LayPhienAsync(phienHopId, ct).ConfigureAwait(false);
+
+        if (phien.TrangThaiPhien != TrangThaiPhienHop.DaKetThuc)
+        {
+            return null;
+        }
+
+        return await TaoBienBanCoiLoiAsync(phien, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Loi chung cho LapAsync va LapTuDongAsync: tao/lam moi bien ban, them dong chu ky,
+    /// chup lai noi dung. Tra ve null neu bien ban da ky/ban hanh.
+    /// </summary>
+    private async Task<Guid?> TaoBienBanCoiLoiAsync(PhienHopHoiDong phien, CancellationToken ct)
+    {
         var bienBan = await _db.BienBanHop
             .Include(x => x.ChuKy)
-            .FirstOrDefaultAsync(x => x.PhienHopId == phienHopId, ct)
+            .FirstOrDefaultAsync(x => x.PhienHopId == phien.Id, ct)
             .ConfigureAwait(false);
 
         if (bienBan is null)
@@ -108,7 +142,7 @@ public sealed class DichVuBienBanHop
             bienBan = new BienBanHop
             {
                 Id = Guid.NewGuid(),
-                PhienHopId = phienHopId,
+                PhienHopId = phien.Id,
                 SoBienBan = $"BB-{phien.MaPhien}",
                 NgayLap = DateOnly.FromDateTime(_dongHo.BayGio.DateTime),
                 TrangThaiBienBan = TrangThaiBienBan.DaLap
@@ -118,11 +152,9 @@ public sealed class DichVuBienBanHop
         }
         else if (bienBan.TrangThaiBienBan is TrangThaiBienBan.DaKy or TrangThaiBienBan.DaBanHanh)
         {
-            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
-                "Biên bản đã có chữ ký nên không lập lại được. Muốn sửa phải huỷ chữ ký trước.");
+            return null;
         }
 
-        // Dong chu ky: moi thanh vien co quyen ky bien ban duoc mot dong.
         var nguoiKy = await _db.HoiDongThanhVien.AsNoTracking()
             .Where(x => x.HoiDongId == phien.HoiDongId
                         && x.QuyenKyBienBan
@@ -145,7 +177,7 @@ public sealed class DichVuBienBanHop
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        return await LayAsync(bienBan.Id, ct).ConfigureAwait(false);
+        return bienBan.Id;
     }
 
     public async Task<BienBanHopDto?> LayTheoPhienAsync(

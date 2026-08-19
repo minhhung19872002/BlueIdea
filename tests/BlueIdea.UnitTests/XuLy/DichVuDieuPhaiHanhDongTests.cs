@@ -113,47 +113,53 @@ public class DichVuDieuPhaiHanhDongTests
     }
 
     [Fact]
-    public void HanhDongTuDong_Con_4_Hanh_Dong_Chua_Trien_Khai()
+    public void HanhDongTuDong_Con_3_Hanh_Dong_Chua_Trien_Khai()
     {
         var chuaTrienKhai = new[]
         {
             HanhDongTuDong.TaoQuyetDinh,
             HanhDongTuDong.YeuCauKySo,
-            HanhDongTuDong.TaoBienBan,
             HanhDongTuDong.CongBoKetQua
         };
 
-        chuaTrienKhai.Should().HaveCount(4);
+        chuaTrienKhai.Should().HaveCount(3);
         chuaTrienKhai.Should().OnlyHaveUniqueItems();
         chuaTrienKhai.Should().NotContain(HanhDongTuDong.PhanCongCham);
+        chuaTrienKhai.Should().NotContain(HanhDongTuDong.TaoBienBan);
     }
 
     [Fact]
-    public void HanhDongTuDong_Da_Trien_Khai_Co_4_Hanh_Dong()
+    public void HanhDongTuDong_Da_Trien_Khai_Co_5_Hanh_Dong()
     {
         var daTrienKhai = new[]
         {
             HanhDongTuDong.DongBoLienThong,
             HanhDongTuDong.KiemTraTrungLap,
             HanhDongTuDong.CapNhatKetQua,
-            HanhDongTuDong.PhanCongCham
+            HanhDongTuDong.PhanCongCham,
+            HanhDongTuDong.TaoBienBan
         };
 
-        daTrienKhai.Should().HaveCount(4);
+        daTrienKhai.Should().HaveCount(5);
         daTrienKhai.Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
-    public void PhanCongCham_Khong_Trong_Nhom_Chua_Trien_Khai()
+    public void TaoBienBan_Khong_Trong_Nhom_Chua_Trien_Khai()
     {
         var chuaTrienKhai = new[]
         {
             HanhDongTuDong.TaoQuyetDinh,
             HanhDongTuDong.YeuCauKySo,
-            HanhDongTuDong.TaoBienBan,
             HanhDongTuDong.CongBoKetQua
         };
 
-        chuaTrienKhai.Should().NotContain(HanhDongTuDong.PhanCongCham);
+        chuaTrienKhai.Should().NotContain(HanhDongTuDong.TaoBienBan);
+    }
+
+    [Fact]
+    public void HanhDongTuDong_TaoBienBan_Dung_Gia_Tri()
+    {
+        HanhDongTuDong.TaoBienBan.Should().Be("TAO_BIEN_BAN");
     }
 }

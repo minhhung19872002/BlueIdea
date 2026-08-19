@@ -91,9 +91,22 @@ public sealed class DichVuDieuPhaiHanhDong
                 }
                 break;
 
+            case HanhDongTuDong.TaoBienBan:
+                if (ketQua.BuocTruocId is not null)
+                {
+                    _hangDoi.XepLichTaoBienBan(sangKienId, ketQua.BuocTruocId.Value);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "TAO_BIEN_BAN bỏ qua: không có bước trước (quy trình mới bắt đầu?) " +
+                        "cho sáng kiến {SangKienId}.",
+                        sangKienId);
+                }
+                break;
+
             case HanhDongTuDong.TaoQuyetDinh:
             case HanhDongTuDong.YeuCauKySo:
-            case HanhDongTuDong.TaoBienBan:
             case HanhDongTuDong.CongBoKetQua:
                 _logger.LogWarning(
                     "Hành động tự động {HanhDong} được cấu hình nhưng chưa có bộ xử lý tự động " +

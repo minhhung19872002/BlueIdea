@@ -210,11 +210,12 @@ requirements:
       tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/XuLy/LayKenhChoPhepTests.cs", "tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs"]
     gaps:
       - "No runtime integration test for feature toggles affecting live workflow execution"
-      - "4 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, TAO_BIEN_BAN, CONG_BO_KET_QUA) log warnings — require future implementation"
+      - "3 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO, CONG_BO_KET_QUA) log warnings — require future implementation"
     notes:
       - "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
       - "Iteration-23: PHAN_CONG_CHAM automated — CongViecPhanCongCham background job auto-assigns council members to score innovations when workflow transitions to a scoring step. Conflict-of-interest exclusion (authors can't score their own work), idempotent assignment (no duplicates), deadline from step config, notifications to assigned members. 4 remaining unimplemented actions: TAO_QUYET_DINH (needs admin input), YEU_CAU_KY_SO (interactive signing), TAO_BIEN_BAN, CONG_BO_KET_QUA."
+      - "Iteration-24: TAO_BIEN_BAN automated — CongViecTaoBienBan background job auto-creates meeting minutes when workflow transitions from a step with TAO_BIEN_BAN action. Finds completed council session for the innovation, delegates to DichVuBienBanHop.LapTuDongAsync (no permission check, reuses core logic). Idempotent: existing minutes refreshed, signed minutes skipped. 3 remaining unimplemented actions."
 
   - id: REQ-13
     source_number: 13

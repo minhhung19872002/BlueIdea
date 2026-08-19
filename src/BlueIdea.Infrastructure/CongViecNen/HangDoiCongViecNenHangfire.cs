@@ -23,6 +23,10 @@ public sealed class HangDoiCongViecNenHangfire : IHangDoiCongViecNen
     public void XepLichPhanCongCham(Guid sangKienId, Guid buocMoiId)
         => _hangfire.Enqueue<CongViecPhanCongCham>(
             x => x.ChayAsync(sangKienId, buocMoiId, CancellationToken.None));
+
+    public void XepLichTaoBienBan(Guid sangKienId, Guid buocTruocId)
+        => _hangfire.Enqueue<CongViecTaoBienBan>(
+            x => x.ChayAsync(sangKienId, buocTruocId, CancellationToken.None));
 }
 
 /// <summary>
@@ -44,6 +48,10 @@ public sealed class HangDoiCongViecNenKhongHoatDong : IHangDoiCongViecNen
     }
 
     public void XepLichPhanCongCham(Guid sangKienId, Guid buocMoiId)
+    {
+    }
+
+    public void XepLichTaoBienBan(Guid sangKienId, Guid buocTruocId)
     {
     }
 }
