@@ -51,7 +51,11 @@ public static class DangKyDichVuUngDung
         // Tinh han xu ly can doc bang ngay nghi le -> dang ky scoped, nguon do Infrastructure cung cap.
         services.AddScoped<ITinhHanXuLy, TinhHanXuLy>();
         services.AddScoped<IBoMayQuyTrinh, BoMayQuyTrinh>();
-        services.AddScoped<IWorkflowEngine, DichVuWorkflow>();
+        services.AddScoped<DichVuWorkflow>();
+
+        // Dang ky ca kieu cu the: mot so truy van doc (danh sach tac nhan cua buoc) khong thuoc
+        // hop dong IWorkflowEngine — do la du lieu cho giao dien, khong phai hanh vi cua may chay.
+        services.AddScoped<IWorkflowEngine>(sp => sp.GetRequiredService<DichVuWorkflow>());
 
         // --- Dich vu nghiep vu ---
         services.AddScoped<DichVuLinhVuc>();

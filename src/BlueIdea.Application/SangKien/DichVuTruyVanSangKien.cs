@@ -244,8 +244,20 @@ public sealed class DichVuTruyVanSangKien
                 .Concat(quyTrinh.TrangThaiToanCuc)
                 .FirstOrDefault(t => t.Id == hoSo.TrangThaiHienTaiId);
 
-            dto.TenTrangThaiHienTai = trangThai?.Ten;
-            dto.MauTrangThai = trangThai?.MauSac;
+            // Chuc nang 14 — trang thai khai "khong hien cho tac gia" thi tac gia chi thay nhan
+            // trung tinh. Van phai co MOT nhan: khong hien gi ca thi tac gia tuong he thong loi.
+            if (trangThai is not null
+                && !trangThai.HienThiChoTacGia
+                && await ChiLaTacGiaAsync(hoSo.Id, ct).ConfigureAwait(false))
+            {
+                dto.TenTrangThaiHienTai = "Đang xử lý";
+                dto.MauTrangThai = null;
+            }
+            else
+            {
+                dto.TenTrangThaiHienTai = trangThai?.Ten;
+                dto.MauTrangThai = trangThai?.MauSac;
+            }
 
             dto.ThanhPhanHoSo = BoKiemTraThanhPhanHoSo
                 .LapChecklist(quyTrinh.ThanhPhanHoSo.ToList(), hoSo, hoSo.TepDinhKem.ToList())
@@ -304,28 +316,74 @@ public sealed class DichVuTruyVanSangKien
         var trangThaiIds = buocs.Where(x => x.TrangThaiId.HasValue)
             .Select(x => x.TrangThaiId!.Value).Distinct().ToList();
 
-        var tenTrangThai = await _db.QuyTrinhTrangThai.AsNoTracking()
+        var trangThai = await _db.QuyTrinhTrangThai.AsNoTracking()
             .Where(x => trangThaiIds.Contains(x.Id))
-            .ToDictionaryAsync(x => x.Id, x => x.Ten, ct)
+            .Select(x => new { x.Id, x.Ten, x.HienThiChoTacGia })
+            .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return buocs.Select(x => new MocTienDoDto(
-            x.Id,
-            x.BuocId,
-            x.TenBuocSnapshot,
-            x.TrangThaiId.HasValue ? tenTrangThai.GetValueOrDefault(x.TrangThaiId.Value) : null,
-            x.TenTruongHopSnapshot,
-            x.NguoiXuLyId.HasValue ? tenNguoi.GetValueOrDefault(x.NguoiXuLyId.Value) : null,
-            x.YKien,
-            x.ThoiGianNhan,
-            x.HanXuLy,
-            x.ThoiGianXuLy,
-            x.SoNgayXuLy,
-            x.QuaHan,
-            teps.Where(t => x.TepDinhKemIds.Contains(t.Id))
-                .Select(t => new TepDinhKemDto(t.Id, t.Id, t.TenGoc, t.KichThuoc,
-                    t.MimeType, string.Empty, null, t.NgayTaiLen))
-                .ToList())).ToList();
+        var tenTrangThai = trangThai.ToDictionary(x => x.Id, x => x.Ten);
+        var choTacGiaXem = trangThai.ToDictionary(x => x.Id, x => x.HienThiChoTacGia);
+
+        // Chuc nang 14: trang thai co the khai "khong hien cho tac gia" (vi du: dang tham dinh noi
+        // bo, dang xin y kien lanh dao). Voi nguoi CHI la tac gia, cac moc do chi hien thoi gian va
+        // ten buoc, con nhan trang thai + y kien noi bo bi giau — day la cau hinh nghiep vu, khong
+        // phai an giao dien: may chu khong tra du lieu do ve.
+        var chiLaTacGia = await ChiLaTacGiaAsync(id, ct).ConfigureAwait(false);
+
+        return buocs.Select(x =>
+        {
+            var hien = !chiLaTacGia
+                       || !x.TrangThaiId.HasValue
+                       || choTacGiaXem.GetValueOrDefault(x.TrangThaiId.Value, true);
+
+            return new MocTienDoDto(
+                x.Id,
+                x.BuocId,
+                x.TenBuocSnapshot,
+                hien && x.TrangThaiId.HasValue
+                    ? tenTrangThai.GetValueOrDefault(x.TrangThaiId.Value)
+                    : null,
+                hien ? x.TenTruongHopSnapshot : null,
+                x.NguoiXuLyId.HasValue ? tenNguoi.GetValueOrDefault(x.NguoiXuLyId.Value) : null,
+                hien ? x.YKien : null,
+                x.ThoiGianNhan,
+                x.HanXuLy,
+                x.ThoiGianXuLy,
+                x.SoNgayXuLy,
+                x.QuaHan,
+                hien
+                    ? teps.Where(t => x.TepDinhKemIds.Contains(t.Id))
+                        .Select(t => new TepDinhKemDto(t.Id, t.Id, t.TenGoc, t.KichThuoc,
+                            t.MimeType, string.Empty, null, t.NgayTaiLen))
+                        .ToList()
+                    : new List<TepDinhKemDto>());
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Nguoi dang xem CHI dong vai tac gia cua ho so nay (khong phai can bo xu ly, hoi dong hay
+    /// quan tri). Dung de quyet dinh co ap dung <c>hien_thi_cho_tac_gia</c> hay khong.
+    /// </summary>
+    private async Task<bool> ChiLaTacGiaAsync(Guid sangKienId, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null) return true;
+
+        if (_nguoiDung.Quyen.Contains(MaQuyen.XuLyXem)
+            || _nguoiDung.Quyen.Contains(MaQuyen.SangKienXemTatCa)
+            || _nguoiDung.Quyen.Contains(MaQuyen.DanhGiaXem)
+            || _nguoiDung.VaiTro.Contains(MaVaiTro.QuanTriHeThong))
+        {
+            return false;
+        }
+
+        var nguoiDungId = _nguoiDung.Id.Value;
+
+        return await _db.SangKien.AsNoTracking()
+            .Where(x => x.Id == sangKienId)
+            .AnyAsync(x => x.NguoiTaoId == nguoiDungId
+                           || x.DanhSachTacGia.Any(t => t.NguoiDungId == nguoiDungId), ct)
+            .ConfigureAwait(false);
     }
 
     /// <summary>Chuc nang 23 - Lich su chinh sua (diff truoc/sau).</summary>

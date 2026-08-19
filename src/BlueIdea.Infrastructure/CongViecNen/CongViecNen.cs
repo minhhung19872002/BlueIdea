@@ -6,6 +6,7 @@ using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.HoiDong;
 using BlueIdea.Domain.QuanTri;
 using BlueIdea.Domain.SangKien;
+using BlueIdea.Workflow;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -237,20 +238,29 @@ public sealed class CongViecNhacHan
     /// <summary>Khoang lang giua hai lan nhac cho cung mot doi tuong.</summary>
     private const int SoGioKhongNhacLai = 20;
 
+    /// <summary>
+    /// Chan tren khi quet buoc sap den han: khong buoc nao canh bao truoc qua 30 ngay.
+    /// Co chan tren thi truy van van co gioi han, du cau hinh tung buoc dat gia tri vo ly.
+    /// </summary>
+    private const int SoNgayQuetToiDa = 30;
+
     private readonly IAppDbContext _db;
     private readonly IDichVuThongBao _thongBao;
     private readonly IDongHoHeThong _dongHo;
     private readonly IDichVuCauHinh _cauHinh;
+    private readonly IBoChuyenDoiSnapshotQuyTrinh _snapshot;
     private readonly ILogger<CongViecNhacHan> _logger;
 
     public CongViecNhacHan(
         IAppDbContext db, IDichVuThongBao thongBao, IDongHoHeThong dongHo,
-        IDichVuCauHinh cauHinh, ILogger<CongViecNhacHan> logger)
+        IDichVuCauHinh cauHinh, IBoChuyenDoiSnapshotQuyTrinh snapshot,
+        ILogger<CongViecNhacHan> logger)
     {
         _db = db;
         _thongBao = thongBao;
         _dongHo = dongHo;
         _cauHinh = cauHinh;
+        _snapshot = snapshot;
         _logger = logger;
     }
 
@@ -268,14 +278,17 @@ public sealed class CongViecNhacHan
         var soDaNhac = 0;
 
         // --- Han xu ly buoc quy trinh ---
+        // Quet rong theo chan tren roi loc lai trong bo nho: nguong canh bao co the khai rieng cho
+        // tung buoc (canh_bao_truoc_han_gio - chuc nang 11) nen khong loc het duoc bang mot cau SQL.
         var buocSapHetHan = await _db.SangKienXuLy.AsNoTracking()
             .Where(x => x.ThoiGianXuLy == null
                         && x.NguoiXuLyId != null
                         && x.HanXuLy != null
-                        && x.HanXuLy <= nguong)
+                        && x.HanXuLy <= bayGio.AddDays(SoNgayQuetToiDa))
             .Select(x => new
             {
                 x.SangKienId,
+                x.BuocId,
                 x.NguoiXuLyId,
                 x.HanXuLy,
                 x.TenBuocSnapshot
@@ -283,8 +296,20 @@ public sealed class CongViecNhacHan
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        // Snapshot quy trinh dung chung cho nhieu buoc cua cung mot ho so - doc mot lan.
+        var gioCanhBaoTheoHoSo = new Dictionary<Guid, IReadOnlyDictionary<Guid, int>>();
+
         foreach (var buoc in buocSapHetHan)
         {
+            var nguongBuoc = await LayNguongCanhBaoAsync(
+                    buoc.SangKienId, buoc.BuocId, bayGio, nguong, gioCanhBaoTheoHoSo, ct)
+                .ConfigureAwait(false);
+
+            if (buoc.HanXuLy > nguongBuoc)
+            {
+                continue;
+            }
+
             if (await DaNhacGanDayAsync(buoc.SangKienId, buoc.NguoiXuLyId!.Value, khongNhacTruoc, ct)
                     .ConfigureAwait(false))
             {
@@ -405,6 +430,45 @@ public sealed class CongViecNhacHan
                            && x.DoiTuongId == sangKienId
                            && x.LoaiSuKien == SuKienThongBao.SapHetHan
                            && x.ThoiGian >= khongNhacTruoc, ct);
+
+    /// <summary>
+    /// Chuc nang 11 — Moc thoi gian bat dau nhac cho mot buoc.
+    ///
+    /// Uu tien <c>canh_bao_truoc_han_gio</c> khai trong SNAPSHOT quy trinh cua chinh ho so
+    /// (khong doc quy trinh hien hanh — xem ADR 0002). Buoc khong khai thi dung cau hinh chung
+    /// <c>SO_NGAY_NHAC_TRUOC_HAN</c> nhu truoc day.
+    /// </summary>
+    private async Task<DateTimeOffset> LayNguongCanhBaoAsync(
+        Guid sangKienId,
+        Guid buocId,
+        DateTimeOffset bayGio,
+        DateTimeOffset nguongChung,
+        Dictionary<Guid, IReadOnlyDictionary<Guid, int>> boNho,
+        CancellationToken ct)
+    {
+        if (!boNho.TryGetValue(sangKienId, out var theoBuoc))
+        {
+            var snapshot = await _db.SangKien.AsNoTracking()
+                .Where(x => x.Id == sangKienId)
+                .Select(x => x.QuyTrinhSnapshot)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            var quyTrinh = _snapshot.DocSnapshot(snapshot);
+
+            theoBuoc = quyTrinh?.DanhSachBuoc
+                          .Where(b => b.CanhBaoTruocHanGio > 0)
+                          .ToDictionary(b => b.Id, b => b.CanhBaoTruocHanGio)
+                      ?? new Dictionary<Guid, int>();
+
+            boNho[sangKienId] = theoBuoc;
+        }
+
+        // Buoc khai "canh bao truoc N gio" => bat dau nhac khi han con duoi N gio nua.
+        return theoBuoc.TryGetValue(buocId, out var soGio) && soGio > 0
+            ? bayGio.AddHours(soGio)
+            : nguongChung;
+    }
 }
 
 /// <summary>

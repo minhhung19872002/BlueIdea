@@ -52,6 +52,14 @@ public sealed class HanhDongKhaDung
 
     public bool BatBuocDinhKem { get; init; }
 
+    /// <summary>
+    /// Buoc cho phep xu ly THAY nguoi khac (uy quyen).
+    ///
+    /// Giao dien can biet de hien o chon nguoi uy quyen; khong co co nay thi cau hinh
+    /// <c>cho_phep_uy_quyen</c> khai xong khong ai dung toi duoc.
+    /// </summary>
+    public bool ChoPhepUyQuyen { get; init; }
+
     public IReadOnlyList<string> TepBatBuoc { get; init; } = Array.Empty<string>();
 
     /// <summary>True khi dieu kien chuyen tiep hien khong thoa (nut bi mo/disable kem ly do).</summary>

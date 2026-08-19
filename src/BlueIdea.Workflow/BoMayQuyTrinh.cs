@@ -143,6 +143,7 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
                 MauNut = th.MauNut ?? SuyRaMauNut(th.Ma),
                 BatBuocNhapYKien = buoc.BatBuocNhapYKien,
                 BatBuocDinhKem = buoc.BatBuocDinhKem,
+                ChoPhepUyQuyen = buoc.ChoPhepUyQuyen,
                 TepBatBuoc = buoc.DanhSachTepBatBuoc,
                 BiChan = !danhGia.Khop,
                 LyDoChan = danhGia.Khop ? null : danhGia.GiaiThich,

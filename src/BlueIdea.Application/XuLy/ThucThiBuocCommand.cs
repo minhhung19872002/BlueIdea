@@ -81,6 +81,35 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
             }
         }
 
+        // Chuc nang 15/29 — uy quyen chi hop le khi NGUOI UY QUYEN cung la tac nhan cua buoc do.
+        // Khong kiem thi ai cung khai bua mot Id vao truong nay va nhat ky xu ly ghi sai nguoi
+        // chiu trach nhiem — dung thu ma ho so nghiem thu dua vao de truy nguoc.
+        if (request.NguoiUyQuyenId.HasValue)
+        {
+            var hoSo = await _db.SangKien.AsNoTracking()
+                .Where(x => x.Id == request.SangKienId)
+                .Select(x => new { x.BuocHienTaiId })
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            if (hoSo?.BuocHienTaiId is null)
+            {
+                throw new NghiepVuException(MaLoiHeThong.BuocKhongHopLe,
+                    "Hồ sơ không ở bước xử lý nào nên không uỷ quyền được.");
+            }
+
+            var uyQuyenHopLe = await _engine
+                .KiemTraQuyenXuLyAsync(
+                    request.SangKienId, hoSo.BuocHienTaiId.Value, request.NguoiUyQuyenId.Value, ct)
+                .ConfigureAwait(false);
+
+            if (!uyQuyenHopLe)
+            {
+                throw new NghiepVuException(MaLoiHeThong.KhongCoQuyenXuLyBuoc,
+                    "Người uỷ quyền không phải tác nhân được cấu hình xử lý bước hiện tại.");
+            }
+        }
+
         var ketQua = await _engine.ThucThiAsync(new XuLyBuocRequest
         {
             SangKienId = request.SangKienId,
