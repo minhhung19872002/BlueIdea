@@ -57,7 +57,7 @@ Resolved TD-005: DoiTuongId was passed through the MediatR authorization pipelin
 
 ## Commit
 
-(pending)
+4a5fdd7
 
 ## Next Priority
 
