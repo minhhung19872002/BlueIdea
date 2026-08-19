@@ -46,7 +46,7 @@ Fixed dual-permission gate inconsistency in DonVi (organization unit) service. T
 
 ## Commit
 
-pending
+33abd4d
 
 ## Next Priority
 
