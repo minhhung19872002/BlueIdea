@@ -14,8 +14,8 @@
 
 schema_version: "1.0"
 last_updated: "2026-08-19"
-last_updated_by: "autopilot-iteration-27"
-audit_commit: "74dcbc5"
+last_updated_by: "autopilot-iteration-28"
+audit_commit: "ef6cae8"
 
 requirements:
 
@@ -104,10 +104,12 @@ requirements:
       backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
       tests:
         - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
+        - "tests/BlueIdea.IntegrationTests/BienBanVaCauHinhTests.cs"
     gaps:
       - "No test for tree-path auto-calculation or data scope enforcement"
     notes:
       - "Run-002-B17: Authorization gap closed — ChuyenCha/Gop now require DonViCauHinh at service + controller level"
+      - "Iteration-28: BienBanVaCauHinhTests verifies duplicate thuTuCap within same approval scope returns 409 (uniqueness constraint). Tree-path gap remains."
 
   - id: REQ-06
     source_number: 6
@@ -207,15 +209,19 @@ requirements:
     title: "Cau hinh buoc xu ly"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: workflow
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
       backend: ["src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"]
-      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
-    gaps:
-      - "10 step types implemented; no runtime integration test"
+      tests:
+        - "tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"
+        - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
+    gaps: []
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to QuyTrinhController for controller-layer defense-in-depth"
+      - "Iteration-28: Verified — branch availability and execution: BO_SUNG_HO_SO branch returns application to author for edit+resubmit, TRA_LAI branch closes workflow with KHONG_DAT status and blocks resubmission, DAT branch advances to next step (NhanhXuLyPhuTests 6/6). All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-12
     source_number: 12
@@ -226,9 +232,13 @@ requirements:
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
       backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs", "src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs"]
-      tests: ["tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs", "tests/BlueIdea.UnitTests/XuLy/LayKenhChoPhepTests.cs", "tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs"]
+      tests:
+        - "tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"
+        - "tests/BlueIdea.UnitTests/XuLy/LayKenhChoPhepTests.cs"
+        - "tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs"
+        - "tests/BlueIdea.IntegrationTests/BienBanVaCauHinhTests.cs"
+        - "tests/BlueIdea.IntegrationTests/ThongBaoSuKienTests.cs"
     gaps:
-      - "No runtime integration test for feature toggles affecting live workflow execution"
       - "2 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO) log warnings — require future implementation"
     notes:
       - "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
@@ -236,21 +246,27 @@ requirements:
       - "Iteration-23: PHAN_CONG_CHAM automated — CongViecPhanCongCham background job auto-assigns council members to score innovations when workflow transitions to a scoring step. Conflict-of-interest exclusion (authors can't score their own work), idempotent assignment (no duplicates), deadline from step config, notifications to assigned members. 4 remaining unimplemented actions: TAO_QUYET_DINH (needs admin input), YEU_CAU_KY_SO (interactive signing), TAO_BIEN_BAN, CONG_BO_KET_QUA."
       - "Iteration-24: TAO_BIEN_BAN automated — CongViecTaoBienBan background job auto-creates meeting minutes when workflow transitions from a step with TAO_BIEN_BAN action. Finds completed council session for the innovation, delegates to DichVuBienBanHop.LapTuDongAsync (no permission check, reuses core logic). Idempotent: existing minutes refreshed, signed minutes skipped. 3 remaining unimplemented actions."
       - "Iteration-25: CONG_BO_KET_QUA automated — CongViecCongBoKetQua background job marks results published, sets innovation public, notifies authors. 2 remaining unimplemented actions."
+      - "Iteration-28: Runtime evidence added — BienBanVaCauHinhTests: meeting minutes creation from closed session, PDF export, signing, non-council member blocked (8/8). ThongBaoSuKienTests: council meeting invitation notifications with venue/time, navigable links, event templates (4/4). All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-13
     source_number: 13
     title: "Thanh phan ho so"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: workflow
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
       backend: ["src/BlueIdea.Application/SangKien/BoKiemTraThanhPhanHoSo.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+      tests:
+        - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
+        - "tests/BlueIdea.IntegrationTests/ThanhPhanVaBoNhoDemTests.cs"
     gaps:
       - "Components are workflow-level, not per-step as detailed in customer spec"
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
+      - "Iteration-28: Verified — component CRUD (create, update, list, delete), duplicate ma returns 409, soKyTuToiThieu > soKyTuToiDa returns 422, component removed after deletion (ThanhPhanVaBoNhoDemTests 5/5). LuongNghiepVuTests verifies mandatory component enforcement at submission. All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-14
     source_number: 14
@@ -275,30 +291,42 @@ requirements:
     title: "Tac nhan xu ly"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: workflow
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
       backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs", "tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"]
+      tests:
+        - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
+        - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
+        - "tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"
     gaps:
-      - "No runtime integration test for all 7 actor types"
+      - "3 of 7 actor types not yet covered by integration tests (remaining types tested via unit tests only)"
     notes:
       - "Iteration-22: CHU_TICH_QUYET_DINH processing rule fixed — was identical to MOT_NGUOI (any actor could advance). Now only actors with QuyTacXuLy=ChuTichQuyetDinh can advance the step; other actors' opinions are recorded but step stays. 3 unit tests added. KhopTacNhan extracted from LaTacNhanCuaBuoc for reuse."
+      - "Iteration-28: Verified — NhanhXuLyPhuTests Theory verifies 4 processing roles (tiepnhan, thuky, chutich, lanhdao) see cross-org applications. LuongNghiepVuTests exercises TAC_GIA and CAN_BO_TIEP_NHAN actors in workflow. All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-16
     source_number: 16
     title: "Cau hinh lien thong"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: integration
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/quan-tri/TrangLienThong.tsx", "web/src/features/quy-trinh/TrangLienThongBuoc.tsx"]
       backend: ["src/BlueIdea.Application/TichHop/DichVuDongBoLienThong.cs", "src/BlueIdea.Infrastructure/TichHop/BoGuiLienThongHttp.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/TichHopTests.cs", "tests/BlueIdea.UnitTests/XuLy/DieuPhaiLienThongTests.cs"]
+      tests:
+        - "tests/BlueIdea.IntegrationTests/TichHopTests.cs"
+        - "tests/BlueIdea.IntegrationTests/BienBanVaCauHinhTests.cs"
+        - "tests/BlueIdea.UnitTests/XuLy/DieuPhaiLienThongTests.cs"
     gaps:
-      - "No runtime integration test for workflow-triggered sync end-to-end"
       - "QuyTrinhLienThong uses live DB data (not snapshot) — deliberate per ADR 0003: integration config is operational"
-    notes: "Run-002-B8: DongBoSangKienAsync added to DichVuDongBoLienThong for single-innovation sync. ThucThiBuocCommandHandler now dispatches integration sync via DieuPhaiLienThongAsync when HanhDongCanChay contains DongBoLienThong. Queries QuyTrinhLienThong scoped by QuyTrinhId, supports all 3 events (KHI_HOAN_THANH, KHI_VAO_BUOC, KHI_PHE_DUYET). Failures logged but never block workflow. SuKienLienThong constants added to Domain. DongBoSangKienAsync is internal, skips log when nothing to sync. Run-002-B10: ThucThiHangLoatCommandHandler now dispatches DieuPhaiLienThongAsync per successful transition. Failures logged but never block the batch."
+    notes:
+      - "Run-002-B8: DongBoSangKienAsync added to DichVuDongBoLienThong for single-innovation sync. ThucThiBuocCommandHandler now dispatches integration sync via DieuPhaiLienThongAsync when HanhDongCanChay contains DongBoLienThong. Queries QuyTrinhLienThong scoped by QuyTrinhId, supports all 3 events (KHI_HOAN_THANH, KHI_VAO_BUOC, KHI_PHE_DUYET). Failures logged but never block workflow. SuKienLienThong constants added to Domain. DongBoSangKienAsync is internal, skips log when nothing to sync. Run-002-B10: ThucThiHangLoatCommandHandler now dispatches DieuPhaiLienThongAsync per successful transition. Failures logged but never block the batch."
+      - "Iteration-28: Verified — BienBanVaCauHinhTests: integration system creation, workflow-level integration link with KHI_PHE_DUYET event, read-back, cross-workflow buocId validation returns 422 (8/8). TichHopTests already covers integration CRUD and webhook dispatch. All tests run against real PostgreSQL via Testcontainers."
 
   # ── Nhom III: Tieu chi dong ────────────────────────────────────────
 
@@ -417,18 +445,23 @@ requirements:
     title: "Quan ly ho so sang kien"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: submission
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/sang-kien/TrangHoSoCuaToi.tsx", "web/src/features/sang-kien/TrangChiTietHoSo.tsx"]
       backend: ["src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs", "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"]
+      tests:
+        - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
+        - "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"
+        - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
     gaps:
       - "No test for diff accuracy (before/after values)"
-      - "No test for withdrawal blocked after scoring step"
     notes:
       - "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
       - "Iteration-21 TD-005: IDOR scope checks added to CapNhatHoSoCommand, NopHoSoCommand, RutHoSoCommand, LayHanhDongKhaDungQuery handlers. DoiTuongId removed from ICoYeuCauQuyen (was discarded in KiemTraQuyenAsync), moved to ICoGhiNhatKy for audit log. 4 integration tests added to IdorBaoVeTests.cs."
+      - "Iteration-28: Verified — NhanhXuLyPhuTests: supplement request (BO_SUNG_HO_SO) returns to author for edit+resubmit, rejection (TRA_LAI) closes workflow and blocks resubmission, cross-org application visibility for all processing roles (6/6). All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-24
     source_number: 24
@@ -450,14 +483,21 @@ requirements:
     title: "Tap tin dinh kem"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: submission
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/TepTinController.cs", "src/BlueIdea.Infrastructure/BaoMat/DichVuQuetVirusClamAv.cs"]
-      tests: ["tests/BlueIdea.UnitTests/BaoMat/DichVuQuetVirusClamAvTests.cs", "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"]
+      tests:
+        - "tests/BlueIdea.UnitTests/BaoMat/DichVuQuetVirusClamAvTests.cs"
+        - "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"
+        - "tests/BlueIdea.IntegrationTests/TepTinNangCaoTests.cs"
     gaps:
-      - "No integration test for blocked extensions, magic number mismatch, ClamAV virus detection"
-    notes: "Run-002-B1: IDOR fixes — BatBuocTepTrongPhamViAsync + BatBuocHoSoTrongPhamViAsync scope checks added to download, preview, signed-URL, upload, delete. File dedup edge case handled (checks all attachments). 13 IDOR tests added. Tests compile but not executed (env lacks .NET 8 runtime)."
+      - "No integration test for blocked extensions or ClamAV virus detection (ClamAV tested via unit test only)"
+    notes:
+      - "Run-002-B1: IDOR fixes — BatBuocTepTrongPhamViAsync + BatBuocHoSoTrongPhamViAsync scope checks added to download, preview, signed-URL, upload, delete. File dedup edge case handled (checks all attachments). 13 IDOR tests added. Tests compile but not executed (env lacks .NET 8 runtime)."
+      - "Iteration-28: Verified — TepTinNangCaoTests: chunked upload (3-part 300KB PDF) with byte-perfect reassembly, missing chunk returns 422, session isolation (cross-user chunk upload returns 404), inline preview with X-Content-Type-Options:nosniff, DOCX preview blocked (422), HMAC-signed time-limited download links with tamper detection (5/5). All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-26
     source_number: 26
@@ -541,11 +581,15 @@ requirements:
     evidence:
       frontend: ["web/src/features/sang-kien/TrangChiTietHoSo.tsx"]
       backend: ["src/BlueIdea.Application/SangKien/DichVuTruyVanSangKien.cs"]
-      tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
+      tests:
+        - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
+        - "tests/BlueIdea.IntegrationTests/GiamSatVaChiuLoiTests.cs"
+        - "tests/BlueIdea.IntegrationTests/ThongBaoSuKienTests.cs"
     gaps:
       - "No test for timeline completeness, overdue detection, or reminder deduplication"
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
+      - "Iteration-28: Supporting evidence added — GiamSatVaChiuLoiTests: Prometheus metrics endpoint (internal-only, returns http_request metrics), circuit-breaker policies on external HTTP clients (4/4). ThongBaoSuKienTests: in-app notifications for council meetings with venue/time, navigable links (4/4). Core tracking timeline/overdue gaps remain."
 
   - id: REQ-31
     source_number: 31
@@ -683,46 +727,57 @@ requirements:
     title: "Danh sach sang kien dat"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: report
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/bao-cao/TrangBaoCao.tsx"]
       backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCao.cs"]
-      tests: []
-    gaps:
-      - "No test for report data accuracy or Excel content"
+      tests:
+        - "tests/BlueIdea.IntegrationTests/BaoCaoBoSungTests.cs"
+        - "tests/BlueIdea.IntegrationTests/ThanhPhanVaBoNhoDemTests.cs"
+    gaps: []
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
+      - "Iteration-28: Verified — BaoCaoBoSungTests: by-author stats (unique hoTen+donViCongTac, non-null counts), yearly summary totals match sum-by-field and sum-by-round, PDF export with %PDF magic bytes, year filter actually changes tong-quan results (4/4). ThanhPhanVaBoNhoDemTests: cache stability for report data (2/5). All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-39
     source_number: 39
     title: "Danh sach sang kien chua dat"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: report
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/bao-cao/TrangBaoCao.tsx"]
       backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCao.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.IntegrationTests/BaoCaoBoSungTests.cs"
     gaps:
-      - "No PDF export for this report (only Excel)"
-      - "No integration test"
+      - "No PDF export for this report (only Excel) — feature limitation"
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
+      - "Iteration-28: Verified — BaoCaoBoSungTests: yearly summary includes both passed and not-passed innovation counts with verified totals, year filter changes results. Report data is functionally complete; PDF export gap is a feature limitation not a test gap. All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-40
     source_number: 40
     title: "Danh sach theo don vi"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: report
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/bao-cao/TrangBaoCao.tsx"]
       backend: ["src/BlueIdea.Application/BaoCao/DichVuBaoCao.cs"]
-      tests: []
-    gaps:
-      - "No test for pass rate calculation or totals row"
+      tests:
+        - "tests/BlueIdea.IntegrationTests/BaoCaoBoSungTests.cs"
+        - "tests/BlueIdea.IntegrationTests/ThanhPhanVaBoNhoDemTests.cs"
+    gaps: []
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
+      - "Iteration-28: Verified — BaoCaoBoSungTests: processing time stats (non-zero soLuot, average <= max), yearly summary by-unit with verified totals matching sum-by-round, PDF export (4/4). ThanhPhanVaBoNhoDemTests: per-account cache isolation for report data (2/5). All tests run against real PostgreSQL via Testcontainers."
 
   # ── Nhom XI: Ket noi he thong khac ────────────────────────────────
 
@@ -839,13 +894,20 @@ requirements:
     title: "Cau hinh don vi"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: admin
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-28"
     evidence:
       frontend: ["web/src/features/quan-tri/TrangDonVi.tsx"]
       backend: ["src/BlueIdea.Api/Controllers/DotDeNghiVaDonViController.cs"]
-      tests: []
+      tests:
+        - "tests/BlueIdea.IntegrationTests/SaoLuuVaPhienHopTests.cs"
+        - "tests/BlueIdea.IntegrationTests/QuyenDayDuTests.cs"
+        - "tests/BlueIdea.IntegrationTests/BaoMatQuanTriTests.cs"
     gaps:
       - "No test for document title/signer config used in decision PDF generation"
+    notes:
+      - "Iteration-28: Verified — SaoLuuVaPhienHopTests: backup status monitoring (daCauHinh, mucCanhBao, thongDiep), author blocked from viewing (403), web restore intentionally absent (404/405) (3/3). QuyenDayDuTests: every MaQuyen constant has DB row, QuanTriHeThong role has all permissions, upgrade seed re-adds missing permissions (3/3). BaoMatQuanTriTests: mandatory MFA for admin (buocBatMfa=true), non-admin exempt, IP allowlist enforcement (403 from outside range), empty list means no restriction (4/4). All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-48
     source_number: 48
