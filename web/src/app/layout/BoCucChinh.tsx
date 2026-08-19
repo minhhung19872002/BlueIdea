@@ -5,6 +5,7 @@ import {
   KeyOutlined,
   LogoutOutlined,
   MenuOutlined,
+  SafetyOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import * as Icons from '@ant-design/icons';
@@ -213,9 +214,19 @@ export function BoCucChinh() {
                 },
                 { type: 'divider' },
                 {
+                  key: 'ho-so-ca-nhan',
+                  icon: <UserOutlined />,
+                  label: <Link to="/ho-so-ca-nhan">Thông tin cá nhân</Link>,
+                },
+                {
                   key: 'doi-mat-khau',
                   icon: <KeyOutlined />,
                   label: <Link to="/doi-mat-khau">Đổi mật khẩu</Link>,
+                },
+                {
+                  key: 'bao-mat-tai-khoan',
+                  icon: <SafetyOutlined />,
+                  label: <Link to="/bao-mat-tai-khoan">Bảo mật tài khoản</Link>,
                 },
                 {
                   key: 'dang-xuat',

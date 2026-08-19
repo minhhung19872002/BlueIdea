@@ -42,6 +42,8 @@ import {
   apiDanhGia,
   apiHoiDong,
   apiNhapXuat,
+  DUOI_TEP_PHIEU,
+  type DinhDangPhieuCham,
   apiSangKien,
   type DongMaTranDiem,
   type PhienHop,
@@ -277,11 +279,12 @@ export default function TrangChiTietHoiDong() {
               items: [
                 { key: 'PDF', label: 'Một tệp PDF (mỗi phiếu một trang)' },
                 { key: 'ZIP', label: 'ZIP — mỗi phiếu một tệp riêng' },
+                { key: 'DOCX', label: 'Word (.docx) — sửa được trước khi đóng hồ sơ' },
               ],
               onClick: ({ key }) =>
                 taiTep(
-                  apiNhapXuat.duongDanPhieuChamHoiDong(id, key as 'PDF' | 'ZIP'),
-                  `phieu-cham-${hoiDong.ma}.${key === 'ZIP' ? 'zip' : 'pdf'}`,
+                  apiNhapXuat.duongDanPhieuChamHoiDong(id, key as DinhDangPhieuCham),
+                  `phieu-cham-${hoiDong.ma}.${DUOI_TEP_PHIEU[key as DinhDangPhieuCham]}`,
                   hoiDong.dotDeNghiId ? { dotDeNghiId: hoiDong.dotDeNghiId } : undefined,
                 ).catch((loi: unknown) =>
                   message.error(

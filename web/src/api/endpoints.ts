@@ -268,12 +268,22 @@ export interface HanhDongKhaDung {
   mauNut: string;
   batBuocNhapYKien: boolean;
   batBuocDinhKem: boolean;
+  /** Bước cho phép xử lý thay người khác (chức năng 15/29). */
+  choPhepUyQuyen: boolean;
   tepBatBuoc: string[];
   biChan: boolean;
   lyDoChan?: string | null;
   buocTiepTheoId?: string | null;
   tenBuocTiepTheo?: string | null;
   hanhDongTuDong: string[];
+}
+
+/** Một người có thể xử lý bước hiện tại của hồ sơ. */
+export interface TacNhanBuoc {
+  id: string;
+  hoTen: string;
+  chucVu?: string | null;
+  tenDangNhap: string;
 }
 
 export interface MocTienDo {
@@ -337,6 +347,11 @@ export const apiSangKien = {
   trungLap: (id: string) => layDuLieu<KetQuaTrungLap | null>(`/api/v1/sang-kien/${id}/trung-lap`),
   chayLaiTrungLap: (id: string) =>
     guiDuLieu<KetQuaTrungLap>(`/api/v1/sang-kien/${id}/trung-lap/chay-lai`),
+  /** Chức năng 26 — hội đồng ghi nhận đã xem xét cảnh báo trùng lặp. */
+  xemXetTrungLap: (id: string, yKienHoiDong?: string) =>
+    guiDuLieu<KetQuaTrungLap>(`/api/v1/sang-kien/${id}/trung-lap/xem-xet`, { yKienHoiDong }),
+  /** Chức năng 26 — đường dẫn tải báo cáo trùng lặp bản PDF. */
+  duongDanBaoCaoTrungLap: (id: string) => `/api/v1/sang-kien/${id}/trung-lap/xuat-pdf`,
   tao: (duLieu: NoiDungHoSo) => guiDuLieu<string>('/api/v1/sang-kien', duLieu),
   capNhat: (id: string, duLieu: NoiDungHoSo, phienBan?: number) =>
     capNhatDuLieu(`/api/v1/sang-kien/${id}${phienBan ? `?phienBan=${phienBan}` : ''}`, duLieu),
@@ -418,6 +433,7 @@ export const apiXuLy = {
     truongHopId: string;
     yKien?: string;
     tepDinhKemIds?: string[];
+    nguoiUyQuyenId?: string | null;
     phienBanHoSo?: number;
   }) =>
     guiDuLieu<{ thongBao: string; tenBuocMoi?: string; choThemTacNhan: boolean }>(
@@ -425,6 +441,9 @@ export const apiXuLy = {
       duLieu,
       { headers: { 'Idempotency-Key': crypto.randomUUID() } },
     ),
+  /** Chức năng 15/29 — người có thể xử lý bước hiện tại, dùng cho ô chọn người uỷ quyền. */
+  tacNhanBuoc: (sangKienId: string) =>
+    layDuLieu<TacNhanBuoc[]>(`/api/v1/xu-ly/tac-nhan-buoc/${sangKienId}`),
   thucThiHangLoat: (duLieu: { sangKienIds: string[]; truongHopId: string; yKien?: string }) =>
     guiDuLieu<{ tongSo: number; thanhCong: number; thatBai: number; chiTietLoi: string[] }>(
       '/api/v1/xu-ly/thuc-thi-hang-loat',
@@ -651,6 +670,9 @@ export const apiBaoCao = {
   tongHopNam: (nam: number, thamSo?: Record<string, unknown>) =>
     layDuLieu<BaoCaoTongHopNam>(`/api/v1/bao-cao/tong-hop-nam/${nam}`, { params: thamSo }),
   duongDanTongHopNamPdf: (nam: number) => `/api/v1/bao-cao/tong-hop-nam/${nam}/xuat-pdf`,
+  /** Nhóm X — đặt lệnh xuất báo cáo ở tiến trình nền, nhận thông báo kèm liên kết khi xong. */
+  datLenhXuatNen: (loai: string, thamSo?: Record<string, unknown>) =>
+    guiDuLieu<null>(`/api/v1/bao-cao/${loai}/xuat-nen`, undefined, { params: thamSo }),
 };
 
 export interface DongBaoCaoTacGia {
@@ -1234,6 +1256,16 @@ export interface KetQuaQuetPlaceholder {
   nguonGoiY: NguonDuLieuBaoCao[];
 }
 
+/** Chức năng 35 — định dạng xuất phiếu chấm: PDF liền mạch, ZIP mỗi phiếu một tệp, hoặc bản Word. */
+export type DinhDangPhieuCham = 'PDF' | 'ZIP' | 'DOCX';
+
+/** Đuôi tệp tương ứng từng định dạng — đặt một chỗ để hai màn hình không đặt tên lệch nhau. */
+export const DUOI_TEP_PHIEU: Record<DinhDangPhieuCham, string> = {
+  PDF: 'pdf',
+  ZIP: 'zip',
+  DOCX: 'docx',
+};
+
 export const apiNhapXuat = {
   duongDanMauNhapNguoiDung: () => '/api/v1/nhap-xuat/nguoi-dung/mau-nhap',
 
@@ -1280,12 +1312,12 @@ export const apiNhapXuat = {
     return data.duLieu;
   },
 
-  duongDanPhieuChamHoSo: (sangKienId: string, dinhDang?: 'PDF' | 'ZIP') =>
+  duongDanPhieuChamHoSo: (sangKienId: string, dinhDang?: DinhDangPhieuCham) =>
     `/api/v1/nhap-xuat/phieu-cham/ho-so/${sangKienId}` +
-    (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
-  duongDanPhieuChamHoiDong: (hoiDongId: string, dinhDang?: 'PDF' | 'ZIP') =>
+    (dinhDang && dinhDang !== 'PDF' ? `?dinhDang=${dinhDang}` : ''),
+  duongDanPhieuChamHoiDong: (hoiDongId: string, dinhDang?: DinhDangPhieuCham) =>
     `/api/v1/nhap-xuat/phieu-cham/hoi-dong/${hoiDongId}` +
-    (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
+    (dinhDang && dinhDang !== 'PDF' ? `?dinhDang=${dinhDang}` : ''),
 
   nguonDuLieuBaoCao: () =>
     layDuLieu<NguonDuLieuBaoCao[]>('/api/v1/nhap-xuat/bao-cao-tuy-bien/nguon-du-lieu'),

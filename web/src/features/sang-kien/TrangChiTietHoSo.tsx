@@ -42,6 +42,8 @@ import {
   apiDanhGia,
   apiHoiDong,
   apiNhapXuat,
+  DUOI_TEP_PHIEU,
+  type DinhDangPhieuCham,
   apiSangKien,
   apiXuLy,
   type HanhDongKhaDung,
@@ -93,6 +95,7 @@ export default function TrangChiTietHoSo() {
   const queryClient = useQueryClient();
 
   const [hanhDongDangChon, setHanhDongDangChon] = useState<HanhDongKhaDung | null>(null);
+  const [nguoiUyQuyenId, setNguoiUyQuyenId] = useState<string | undefined>();
   /*
    * Ràng buộc "bắt buộc ý kiến" thay đổi theo nhánh người dùng bấm, nhưng resolver của form thì
    * chỉ nhận một lần. Đọc qua ref để luật luôn thấy nhánh đang chọn mà form không phải dựng lại.
@@ -108,6 +111,8 @@ export default function TrangChiTietHoSo() {
   const duocThuHoi = useAuthStore((st) => st.coQuyen('XU_LY.THU_HOI'));
   const duocPhanCong = useAuthStore((st) => st.coQuyen('DANH_GIA.PHAN_CONG'));
   const duocTongHop = useAuthStore((st) => st.coQuyen('DANH_GIA.TONG_HOP'));
+  const duocXemXetTrungLap = useAuthStore((st) => st.coQuyen('TRUNG_LAP.XEM_XET'));
+  const nguoiDungHienTaiId = useAuthStore((st) => st.nguoiDung?.id);
 
   const chiTiet = useQuery({
     queryKey: ['sang-kien', id],
@@ -134,6 +139,14 @@ export default function TrangChiTietHoSo() {
     queryFn: () => apiSangKien.trungLap(id),
   });
 
+  // Chỉ hỏi máy chủ khi thật sự mở hộp thoại của một bước cho phép uỷ quyền — hồ sơ bình thường
+  // không phải gánh thêm một lượt gọi API chỉ để dựng một ô chọn không ai dùng.
+  const tacNhanBuoc = useQuery({
+    queryKey: ['sang-kien', id, 'tac-nhan-buoc'],
+    queryFn: () => apiXuLy.tacNhanBuoc(id),
+    enabled: !!hanhDongDangChon?.choPhepUyQuyen,
+  });
+
   /*
    * Nghe tín hiệu realtime của hồ sơ đang mở.
    *
@@ -156,16 +169,18 @@ export default function TrangChiTietHoSo() {
   }, [id, queryClient]);
 
   const thucThi = useMutation({
-    mutationFn: (duLieu: { truongHopId: string; yKien?: string }) =>
+    mutationFn: (duLieu: { truongHopId: string; yKien?: string; nguoiUyQuyenId?: string }) =>
       apiXuLy.thucThi({
         sangKienId: id,
         truongHopId: duLieu.truongHopId,
         yKien: duLieu.yKien,
+        nguoiUyQuyenId: duLieu.nguoiUyQuyenId ?? null,
         phienBanHoSo: chiTiet.data?.phienBan,
       }),
     onSuccess: (ketQua) => {
       message.success(ketQua.thongBao);
       setHanhDongDangChon(null);
+      setNguoiUyQuyenId(undefined);
       formXuLy.reset({ yKien: '' });
       void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
     },
@@ -239,6 +254,16 @@ export default function TrangChiTietHoSo() {
       void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
     },
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Kiểm tra thất bại.'),
+  });
+
+  const xemXetTrungLap = useMutation({
+    mutationFn: (yKien: string | undefined) => apiSangKien.xemXetTrungLap(id, yKien),
+    onSuccess: () => {
+      message.success('Đã ghi nhận ý kiến xem xét');
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien', id, 'trung-lap'] });
+    },
+    onError: (loi) =>
+      message.error(loi instanceof LoiApi ? loi.message : 'Không ghi được ý kiến xem xét.'),
   });
 
   const rutHoSo = useMutation({
@@ -354,12 +379,13 @@ export default function TrangChiTietHoSo() {
                   items: [
                     { key: 'PDF', label: 'Một tệp PDF (mỗi phiếu một trang)' },
                     { key: 'ZIP', label: 'ZIP — mỗi phiếu một tệp riêng' },
+                    { key: 'DOCX', label: 'Word (.docx) — sửa được trước khi đóng hồ sơ' },
                   ],
                   onClick: async ({ key }) => {
                     try {
                       await taiTep(
-                        apiNhapXuat.duongDanPhieuChamHoSo(id!, key as 'PDF' | 'ZIP'),
-                        `phieu-cham-${hs.maHoSo}.${key === 'ZIP' ? 'zip' : 'pdf'}`,
+                        apiNhapXuat.duongDanPhieuChamHoSo(id!, key as DinhDangPhieuCham),
+                        `phieu-cham-${hs.maHoSo}.${DUOI_TEP_PHIEU[key as DinhDangPhieuCham]}`,
                       );
                     } catch (loi) {
                       message.error(
@@ -539,9 +565,13 @@ export default function TrangChiTietHoSo() {
               label: 'Kiểm tra trùng lặp',
               children: (
                 <TabTrungLap
+                  sangKienId={id}
                   duLieu={trungLap.data ?? null}
                   dangTai={trungLap.isLoading || chayLaiTrungLap.isPending}
                   onChayLai={() => chayLaiTrungLap.mutate()}
+                  duocXemXet={duocXemXetTrungLap}
+                  dangGhiYKien={xemXetTrungLap.isPending}
+                  onXemXet={(yKien) => xemXetTrungLap.mutate(yKien)}
                 />
               ),
             },
@@ -566,7 +596,10 @@ export default function TrangChiTietHoSo() {
         okText="Xác nhận"
         cancelText="Hủy"
         confirmLoading={thucThi.isPending || formXuLy.formState.isSubmitting}
-        onCancel={() => setHanhDongDangChon(null)}
+        onCancel={() => {
+          setHanhDongDangChon(null);
+          setNguoiUyQuyenId(undefined);
+        }}
         okButtonProps={{ htmlType: 'submit', form: 'form-xu-ly' }}
       >
         {hanhDongDangChon?.tenBuocTiepTheo && (
@@ -578,6 +611,31 @@ export default function TrangChiTietHoSo() {
           />
         )}
 
+        {hanhDongDangChon?.choPhepUyQuyen && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 4 }}>Xử lý thay cho (uỷ quyền)</div>
+            <Select
+              allowClear
+              showSearch
+              style={{ width: '100%' }}
+              placeholder="Để trống nếu bạn tự xử lý"
+              loading={tacNhanBuoc.isLoading}
+              value={nguoiUyQuyenId}
+              onChange={setNguoiUyQuyenId}
+              optionFilterProp="label"
+              options={(tacNhanBuoc.data ?? [])
+                .filter((x) => x.id !== nguoiDungHienTaiId)
+                .map((x) => ({
+                  value: x.id,
+                  label: x.chucVu ? `${x.hoTen} — ${x.chucVu}` : x.hoTen,
+                }))}
+            />
+            <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+              Nhật ký xử lý ghi cả người trực tiếp bấm và người uỷ quyền.
+            </div>
+          </div>
+        )}
+
         <BieuMau
           id="form-xu-ly"
           form={formXuLy}
@@ -585,6 +643,7 @@ export default function TrangChiTietHoSo() {
             thucThi.mutateAsync({
               truongHopId: hanhDongDangChon!.truongHopId,
               yKien: giaTri.yKien,
+              nguoiUyQuyenId: hanhDongDangChon?.choPhepUyQuyen ? nguoiUyQuyenId : undefined,
             })
           }
         >
@@ -824,16 +883,23 @@ function TabLichSu({
 }
 
 function TabTrungLap({
+  sangKienId,
   duLieu,
   dangTai,
   onChayLai,
+  duocXemXet,
+  dangGhiYKien,
+  onXemXet,
 }: {
+  sangKienId: string;
   duLieu: {
     tongSoDoiChieu: number;
     tyLeCaoNhat: number;
     mucCanhBao: string;
     thoiGianXuLyMs: number;
     ngayChay: string;
+    daXemXet?: boolean;
+    yKienHoiDong?: string | null;
     chiTiet: {
       sangKienDoiChieuId: string;
       tyLeTuongDong: number;
@@ -845,8 +911,18 @@ function TabTrungLap({
   } | null;
   dangTai: boolean;
   onChayLai: () => void;
+  duocXemXet: boolean;
+  dangGhiYKien: boolean;
+  onXemXet: (yKien: string | undefined) => void;
 }) {
   const [capDangXem, setCapDangXem] = useState<number | null>(null);
+  const [yKien, setYKien] = useState<string>('');
+
+  // Ý kiến đã ghi trước đó phải hiện lại trong ô nhập, nếu không người dùng tưởng mình chưa ghi
+  // và gõ lại từ đầu, ghi đè mất kết luận cũ của hội đồng.
+  useEffect(() => {
+    setYKien(duLieu?.yKienHoiDong ?? '');
+  }, [duLieu?.yKienHoiDong]);
 
   if (dangTai) return <KhoiDangTai soDong={4} />;
 
@@ -899,16 +975,61 @@ function TabTrungLap({
             <Descriptions.Item label="Thời gian xử lý">{duLieu.thoiGianXuLyMs} ms</Descriptions.Item>
             <Descriptions.Item label="Lần chạy gần nhất">{ngayGio(duLieu.ngayChay)}</Descriptions.Item>
           </Descriptions>
-          <Button
-            icon={<ReloadOutlined />}
-            style={{ marginTop: 12 }}
-            onClick={onChayLai}
-            className="khong-in"
-          >
-            Chạy lại kiểm tra
-          </Button>
+          <Space wrap style={{ marginTop: 12 }} className="khong-in">
+            <Button icon={<ReloadOutlined />} onClick={onChayLai}>
+              Chạy lại kiểm tra
+            </Button>
+            <Button
+              icon={<FilePdfOutlined />}
+              href={apiSangKien.duongDanBaoCaoTrungLap(sangKienId)}
+              target="_blank"
+            >
+              Xuất báo cáo PDF
+            </Button>
+          </Space>
         </Col>
       </Row>
+
+      <Card
+        size="small"
+        title="Ý kiến hội đồng về cảnh báo trùng lặp"
+        className="khong-in"
+        style={{ marginBottom: 16 }}
+        extra={
+          duLieu.daXemXet ? (
+            <Tag color="success">Đã xem xét</Tag>
+          ) : (
+            <Tag color="warning">Chưa xem xét</Tag>
+          )
+        }
+      >
+        {duocXemXet ? (
+          <>
+            <Input.TextArea
+              rows={3}
+              value={yKien}
+              maxLength={2000}
+              showCount
+              placeholder="Kết luận của hội đồng: có coi là sao chép hay không, căn cứ vào đâu…"
+              onChange={(e) => setYKien(e.target.value)}
+            />
+            <Button
+              type="primary"
+              style={{ marginTop: 8 }}
+              loading={dangGhiYKien}
+              onClick={() => onXemXet(yKien.trim() || undefined)}
+            >
+              {duLieu.daXemXet ? 'Cập nhật ý kiến' : 'Đánh dấu đã xem xét'}
+            </Button>
+          </>
+        ) : (
+          <div style={{ color: '#888' }}>
+            {duLieu.yKienHoiDong
+              ? duLieu.yKienHoiDong
+              : 'Chưa có ý kiến. Bạn không có quyền ghi ý kiến xem xét.'}
+          </div>
+        )}
+      </Card>
 
       <Table
         rowKey="sangKienDoiChieuId"
