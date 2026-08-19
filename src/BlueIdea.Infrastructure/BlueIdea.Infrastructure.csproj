@@ -9,6 +9,7 @@
     <ProjectReference Include="..\BlueIdea.Domain\BlueIdea.Domain.csproj" />
     <ProjectReference Include="..\BlueIdea.Shared\BlueIdea.Shared.csproj" />
     <ProjectReference Include="..\BlueIdea.Workflow\BlueIdea.Workflow.csproj" />
+    <ProjectReference Include="..\BlueIdea.Reporting\BlueIdea.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +24,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+    <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
