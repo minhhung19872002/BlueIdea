@@ -105,9 +105,12 @@ public sealed class DichVuDieuPhaiHanhDong
                 }
                 break;
 
+            case HanhDongTuDong.CongBoKetQua:
+                _hangDoi.XepLichCongBoKetQua(sangKienId);
+                break;
+
             case HanhDongTuDong.TaoQuyetDinh:
             case HanhDongTuDong.YeuCauKySo:
-            case HanhDongTuDong.CongBoKetQua:
                 _logger.LogWarning(
                     "Hành động tự động {HanhDong} được cấu hình nhưng chưa có bộ xử lý tự động " +
                     "cho sáng kiến {SangKienId}. Cần xử lý thủ công.",

@@ -324,6 +324,9 @@ public interface IHangDoiCongViecNen
 
     /// <summary>Tu dong lap bien ban phien hop khi buoc quy trinh co hanh dong TAO_BIEN_BAN hoan thanh.</summary>
     void XepLichTaoBienBan(Guid sangKienId, Guid buocTruocId);
+
+    /// <summary>Tu dong cong bo ket qua sang kien khi buoc quy trinh co hanh dong CONG_BO_KET_QUA hoan thanh.</summary>
+    void XepLichCongBoKetQua(Guid sangKienId);
 }
 
 /// <summary>

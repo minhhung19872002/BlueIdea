@@ -729,6 +729,112 @@ public sealed class CongViecPhanCongCham
 }
 
 /// <summary>
+/// Hanh dong tu dong CONG_BO_KET_QUA — khi buoc quy trinh co cau hinh CONG_BO_KET_QUA hoan thanh,
+/// tu dong danh dau ket qua da cong bo, mo cong khai, va thong bao cho tac gia.
+/// Luy dang: goi nhieu lan cho cung ho so khong thay doi neu da cong bo.
+/// </summary>
+public sealed class CongViecCongBoKetQua
+{
+    private readonly IAppDbContext _db;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly IDichVuThongBao _thongBao;
+    private readonly ILogger<CongViecCongBoKetQua> _logger;
+
+    public CongViecCongBoKetQua(
+        IAppDbContext db, IDongHoHeThong dongHo, IDichVuThongBao thongBao,
+        ILogger<CongViecCongBoKetQua> logger)
+    {
+        _db = db;
+        _dongHo = dongHo;
+        _thongBao = thongBao;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })]
+    public async Task ChayAsync(Guid sangKienId, CancellationToken ct = default)
+    {
+        var hoSo = await _db.SangKien
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false);
+
+        if (hoSo is null)
+        {
+            return;
+        }
+
+        if (hoSo.DaCongBoKetQua)
+        {
+            _logger.LogInformation(
+                "CONG_BO_KET_QUA bỏ qua: sáng kiến {MaHoSo} đã công bố kết quả trước đó.",
+                hoSo.MaHoSo);
+            return;
+        }
+
+        var bayGio = _dongHo.BayGio;
+
+        var ketQuaChuaCongBo = await _db.KetQuaXetDuyet
+            .Where(k => k.SangKienId == sangKienId && !k.DaCongBo)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var k in ketQuaChuaCongBo)
+        {
+            k.DaCongBo = true;
+            k.NgayCongBo = bayGio;
+        }
+
+        hoSo.CongKhai = true;
+        hoSo.DaCongBoKetQua = true;
+        hoSo.NgayCongBoKetQua = bayGio;
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        string? soQuyetDinh = null;
+        string? ngayBanHanh = null;
+
+        if (hoSo.QuyetDinhId is not null)
+        {
+            var quyetDinh = await _db.QuyetDinh.AsNoTracking()
+                .Where(x => x.Id == hoSo.QuyetDinhId.Value)
+                .Select(x => new { x.SoQuyetDinh, x.NgayBanHanh })
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            soQuyetDinh = quyetDinh?.SoQuyetDinh;
+            ngayBanHanh = quyetDinh?.NgayBanHanh.ToString("dd/MM/yyyy");
+        }
+
+        var nguoiNhan = hoSo.DanhSachTacGia
+            .Where(t => t.NguoiDungId.HasValue)
+            .Select(t => t.NguoiDungId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (nguoiNhan.Count > 0)
+        {
+            await _thongBao.GuiTheoSuKienAsync(
+                SuKienThongBao.CoKetQua, nguoiNhan,
+                new Dictionary<string, object?>
+                {
+                    ["sangKienId"] = sangKienId,
+                    ["maHoSo"] = hoSo.MaHoSo,
+                    ["tenSangKien"] = hoSo.TenSangKien,
+                    ["soQuyetDinh"] = soQuyetDinh,
+                    ["ngayBanHanh"] = ngayBanHanh,
+                    ["duongDan"] = DuongDanGiaoDien.ChiTietHoSo(sangKienId)
+                },
+                ct).ConfigureAwait(false);
+        }
+
+        _logger.LogInformation(
+            "CONG_BO_KET_QUA tự động: đã công bố kết quả sáng kiến {MaHoSo}, "
+            + "thông báo {SoTacGia} tác giả.",
+            hoSo.MaHoSo, nguoiNhan.Count);
+    }
+}
+
+/// <summary>
 /// Hanh dong tu dong TAO_BIEN_BAN — khi buoc quy trinh (vd CHAM_DIEM, BO_PHIEU) hoan thanh,
 /// tu dong lap bien ban phien hop hoi dong neu phien da ket thuc.
 /// Luy dang: goi nhieu lan cho cung phien khong tao ban ghi trung.

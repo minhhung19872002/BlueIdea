@@ -113,23 +113,23 @@ public class DichVuDieuPhaiHanhDongTests
     }
 
     [Fact]
-    public void HanhDongTuDong_Con_3_Hanh_Dong_Chua_Trien_Khai()
+    public void HanhDongTuDong_Con_2_Hanh_Dong_Chua_Trien_Khai()
     {
         var chuaTrienKhai = new[]
         {
             HanhDongTuDong.TaoQuyetDinh,
-            HanhDongTuDong.YeuCauKySo,
-            HanhDongTuDong.CongBoKetQua
+            HanhDongTuDong.YeuCauKySo
         };
 
-        chuaTrienKhai.Should().HaveCount(3);
+        chuaTrienKhai.Should().HaveCount(2);
         chuaTrienKhai.Should().OnlyHaveUniqueItems();
         chuaTrienKhai.Should().NotContain(HanhDongTuDong.PhanCongCham);
         chuaTrienKhai.Should().NotContain(HanhDongTuDong.TaoBienBan);
+        chuaTrienKhai.Should().NotContain(HanhDongTuDong.CongBoKetQua);
     }
 
     [Fact]
-    public void HanhDongTuDong_Da_Trien_Khai_Co_5_Hanh_Dong()
+    public void HanhDongTuDong_Da_Trien_Khai_Co_6_Hanh_Dong()
     {
         var daTrienKhai = new[]
         {
@@ -137,29 +137,35 @@ public class DichVuDieuPhaiHanhDongTests
             HanhDongTuDong.KiemTraTrungLap,
             HanhDongTuDong.CapNhatKetQua,
             HanhDongTuDong.PhanCongCham,
-            HanhDongTuDong.TaoBienBan
+            HanhDongTuDong.TaoBienBan,
+            HanhDongTuDong.CongBoKetQua
         };
 
-        daTrienKhai.Should().HaveCount(5);
+        daTrienKhai.Should().HaveCount(6);
         daTrienKhai.Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
-    public void TaoBienBan_Khong_Trong_Nhom_Chua_Trien_Khai()
+    public void CongBoKetQua_Khong_Trong_Nhom_Chua_Trien_Khai()
     {
         var chuaTrienKhai = new[]
         {
             HanhDongTuDong.TaoQuyetDinh,
-            HanhDongTuDong.YeuCauKySo,
-            HanhDongTuDong.CongBoKetQua
+            HanhDongTuDong.YeuCauKySo
         };
 
-        chuaTrienKhai.Should().NotContain(HanhDongTuDong.TaoBienBan);
+        chuaTrienKhai.Should().NotContain(HanhDongTuDong.CongBoKetQua);
     }
 
     [Fact]
     public void HanhDongTuDong_TaoBienBan_Dung_Gia_Tri()
     {
         HanhDongTuDong.TaoBienBan.Should().Be("TAO_BIEN_BAN");
+    }
+
+    [Fact]
+    public void HanhDongTuDong_CongBoKetQua_Dung_Gia_Tri()
+    {
+        HanhDongTuDong.CongBoKetQua.Should().Be("CONG_BO_KET_QUA");
     }
 }
