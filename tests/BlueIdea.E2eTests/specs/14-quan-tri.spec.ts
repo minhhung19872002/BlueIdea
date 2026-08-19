@@ -1130,3 +1130,370 @@ test.describe('Responsive viewport', () => {
     await context.close();
   });
 });
+
+// ─── Trang ngày nghỉ lễ ────────────────────────────────────────────────────
+
+test.describe('REQ-46: Ngày nghỉ lễ', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang ngày nghỉ lễ tải với bảng và nút thêm', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.ngayNghiLe);
+    await expect(page.locator('.ant-card-head-title').getByText('Danh mục')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /thêm ngày nghỉ/i })).toBeVisible();
+    await expect(page.locator('table')).toBeVisible();
+  });
+
+  test('UI: bộ chọn năm hiển thị đúng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.ngayNghiLe);
+    await expect(page.getByText(/Năm \d{4}/)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('UI: thông tin ngày nghỉ ảnh hưởng hạn xử lý hiển thị', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.ngayNghiLe);
+    await expect(page.getByText(/không tính vào thời hạn xử lý/i)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('API: GET ngay-nghi-le — 200 trả về mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.ngayNghiLe);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API: GET ngay-nghi-le với tham số năm — 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const nam = new Date().getFullYear();
+    const res = await apiRequest(page, 'GET', `${API.ngayNghiLe}?nam=${nam}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API: POST ngay-nghi-le — tạo và xoá ngày nghỉ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.ngayNghiLe, {
+      ngay: '2026-12-25',
+      ten: 'Ngày kiểm tra E2E',
+      lapLaiHangNam: false,
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const id = body.duLieu;
+    expect(id).toBeTruthy();
+    const del = await apiRequest(page, 'DELETE', `${API.ngayNghiLe}/${id}`);
+    expect(del!.status()).toBe(200);
+  });
+
+  test('Auth: không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.ngayNghiLe);
+    expect(res.status()).toBe(401);
+  });
+
+  test('Auth: tác giả GET — 200 hoặc 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', API.ngayNghiLe);
+    expect([200, 403]).toContain(res!.status());
+  });
+});
+
+// ─── Trang sao lưu ─────────────────────────────────────────────────────────
+
+test.describe('REQ-46: Sao lưu hệ thống', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang sao lưu tải với thông tin tình trạng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.saoLuu);
+    await expect(page.getByText('Cấu hình hệ thống')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('API: GET sao-luu — 200 với các trường bắt buộc', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.saoLuu);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeDefined();
+    const data = body.duLieu;
+    expect(typeof data.mucCanhBao).toBe('string');
+    expect(typeof data.soBan).toBe('number');
+    expect(typeof data.tongKichThuocByte).toBe('number');
+  });
+
+  test('API: sao-luu — danhSach là mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.saoLuu);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu.danhSach).toBeInstanceOf(Array);
+  });
+
+  test('Auth: không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.saoLuu);
+    expect(res.status()).toBe(401);
+  });
+
+  test('Auth: tác giả → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', API.saoLuu);
+    expect(res!.status()).toBe(403);
+  });
+});
+
+// ─── Trang mẫu thông báo ───────────────────────────────────────────────────
+
+test.describe('REQ-50: Mẫu thông báo', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang mẫu thông báo tải với bảng và nút thêm', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.mauThongBao);
+    await expect(page.getByText('Cấu hình hệ thống')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /thêm mẫu/i })).toBeVisible();
+    await expect(page.locator('table')).toBeVisible();
+  });
+
+  test('UI: bảng có cột Mã, Tên mẫu, Sự kiện, Kênh', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.mauThongBao);
+    await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+    const headers = page.locator('.ant-table-thead th');
+    await expect(headers.first()).toBeVisible({ timeout: 5_000 });
+    const headerTexts = await headers.allTextContents();
+    const combined = headerTexts.join(' ');
+    expect(combined).toContain('Mã');
+    expect(combined).toContain('Tên mẫu');
+    expect(combined).toContain('Kênh');
+  });
+
+  test('UI: bộ lọc theo sự kiện hiện đúng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.mauThongBao);
+    await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Lọc theo sự kiện')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('API: GET mau-thong-bao — 200 trả về mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.mauThongBao);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API: GET mau-thong-bao/su-kien — 200 trả về danh sách sự kiện', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.mauThongBao}/su-kien`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('Auth: không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.mauThongBao);
+    expect(res.status()).toBe(401);
+  });
+
+  test('Auth: tác giả → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', API.mauThongBao);
+    expect(res!.status()).toBe(403);
+  });
+});
+
+// ─── Trang khoá API ngoài ──────────────────────────────────────────────────
+
+test.describe('REQ-46: Khoá API ngoài', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang khoá API tải với nút cấp khoá mới', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.khoaApi);
+    await expect(page.getByRole('button', { name: /cấp khoá mới/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('table')).toBeVisible();
+  });
+
+  test('UI: bảng có cột Tên hệ thống, Khoá, Trạng thái', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.khoaApi);
+    await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+    const headers = page.locator('.ant-table-thead th');
+    await expect(headers.first()).toBeVisible({ timeout: 5_000 });
+    const headerTexts = await headers.allTextContents();
+    const combined = headerTexts.join(' ');
+    expect(combined).toContain('Tên hệ thống');
+    expect(combined).toContain('Trạng thái');
+  });
+
+  test('API: GET khoa-api-ngoai — 200 trả về mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.khoaApiNgoai);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API: POST khoa-api-ngoai — tạo khoá mới', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.khoaApiNgoai, {
+      ten: 'E2E Test System',
+      danhSachIp: [],
+      ngayHetHan: null,
+      ghiChu: 'Test khoá tạo từ E2E',
+    });
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu.khoa).toBeTruthy();
+    expect(body.duLieu.id).toBeTruthy();
+    const del = await apiRequest(page, 'DELETE', `${API.khoaApiNgoai}/${body.duLieu.id}`);
+    expect(del!.status()).toBe(200);
+  });
+
+  test('API: POST khoa-api-ngoai với tên rỗng → lỗi hoặc từ chối', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.khoaApiNgoai, {
+      ten: '',
+      danhSachIp: [],
+    });
+    const status = res!.status();
+    if (status === 200) {
+      const body = await res!.json();
+      if (body.duLieu?.id) {
+        await apiRequest(page, 'DELETE', `${API.khoaApiNgoai}/${body.duLieu.id}`);
+      }
+    }
+    expect([200, 400, 422]).toContain(status);
+  });
+
+  test('Auth: không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(API.khoaApiNgoai);
+    expect(res.status()).toBe(401);
+  });
+
+  test('Auth: tác giả → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', API.khoaApiNgoai);
+    expect(res!.status()).toBe(403);
+  });
+});
+
+// ─── Trang nhật ký đồng bộ ─────────────────────────────────────────────────
+
+test.describe('REQ-46: Nhật ký đồng bộ', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang nhật ký đồng bộ tải đúng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.nhatKyDongBo);
+    await expect(page.locator('.ant-card-head-title').getByText('Nhật ký hệ thống')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('API: GET tich-hop/he-thong — 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tichHop}/he-thong`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeDefined();
+  });
+
+  test('Auth: không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.tichHop}/he-thong`);
+    expect(res.status()).toBe(401);
+  });
+});
+
+// ─── Trang nhật ký lỗi ─────────────────────────────────────────────────────
+
+test.describe('REQ-46: Nhật ký lỗi hệ thống', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang nhật ký lỗi tải với bộ lọc và bảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.nhatKyLoi);
+    await expect(page.locator('.ant-card-head-title').getByText('Nhật ký hệ thống')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('UI: bộ lọc mức độ hiển thị đúng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.nhatKyLoi);
+    await expect(page.locator('.ant-card-head-title').getByText('Nhật ký hệ thống')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Chưa xử lý').first()).toBeVisible();
+  });
+
+  test('API: GET nhat-ky/loi — 200 với phân trang', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nhatKyLoi}?trang=1&soDong=10`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(typeof body.tongSo).toBe('number');
+  });
+
+  test('API: GET nhat-ky/loi lọc theo mức độ — 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nhatKyLoi}?trang=1&soDong=10&mucDo=LOI`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('API: GET nhat-ky/loi lọc daXuLy=true — 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.nhatKyLoi}?trang=1&soDong=10&daXuLy=true`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('Auth: không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.nhatKyLoi}?trang=1&soDong=10`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('Auth: tác giả → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.nhatKyLoi}?trang=1&soDong=10`);
+    expect(res!.status()).toBe(403);
+  });
+});

@@ -42,6 +42,15 @@ export const API = {
   tichHop: '/api/v1/tich-hop',
   guiTin: '/api/v1/cau-hinh-gui-tin',
   chuKySo: '/api/v1/cau-hinh-chu-ky-so',
+  ngayNghiLe: '/api/v1/ngay-nghi-le',
+  saoLuu: '/api/v1/sao-luu',
+  mauThongBao: '/api/v1/mau-thong-bao',
+  khoaApiNgoai: '/api/v1/khoa-api-ngoai',
+  nhatKyLoi: '/api/v1/he-thong/nhat-ky/loi',
+  mfa: '/api/v1/xac-thuc/mfa',
+  doiMatKhau: '/api/v1/xac-thuc/doi-mat-khau',
+  quenMatKhau: '/api/v1/xac-thuc/quen-mat-khau',
+  datLaiMatKhau: '/api/v1/xac-thuc/dat-lai-mat-khau',
 } as const;
 
 export const ROUTES = {
@@ -77,4 +86,10 @@ export const ROUTES = {
   saoLuu: '/quan-tri/sao-luu',
   mauThongBao: '/quan-tri/mau-thong-bao',
   capPheDuyet: '/quan-tri/danh-muc/cap-phe-duyet',
+  doiMatKhau: '/doi-mat-khau',
+  baoMatTaiKhoan: '/bao-mat-tai-khoan',
+  quenMatKhau: '/quen-mat-khau',
+  nhatKyDongBo: '/quan-tri/nhat-ky/dong-bo',
+  nhatKyLoi: '/quan-tri/nhat-ky-loi',
+  khoaApi: '/quan-tri/khoa-api',
 } as const;

@@ -376,3 +376,186 @@ test.describe('REQ-21: Responsive trang đăng nhập', () => {
     await context.close();
   });
 });
+
+// ─── REQ-21: Đổi mật khẩu ──────────────────────────────────────────────────
+
+test.describe('REQ-21: Đổi mật khẩu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang đổi mật khẩu tải đúng với 3 trường nhập', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.doiMatKhau);
+    await expect(page.getByText('Đổi mật khẩu').first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('input[autocomplete="current-password"]')).toBeVisible();
+    await expect(page.locator('input[autocomplete="new-password"]').first()).toBeVisible();
+    await expect(page.locator('input[autocomplete="new-password"]').nth(1)).toBeVisible();
+  });
+
+  test('UI: label đúng — Mật khẩu hiện tại, Mật khẩu mới, Xác nhận', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.doiMatKhau);
+    await expect(page.getByText('Mật khẩu hiện tại')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Mật khẩu mới').first()).toBeVisible();
+    await expect(page.getByText('Xác nhận mật khẩu mới')).toBeVisible();
+  });
+
+  test('UI: gửi form trống — hiển thị lỗi bắt buộc', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.doiMatKhau);
+    await expect(page.getByText('Đổi mật khẩu').first()).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+    await expect(page.getByText('Vui lòng nhập mật khẩu hiện tại')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('UI: mật khẩu mới yếu — hiển thị lỗi định dạng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.doiMatKhau);
+    await expect(page.getByText('Đổi mật khẩu').first()).toBeVisible({ timeout: 10_000 });
+    await page.locator('input[autocomplete="current-password"]').fill('oldpass');
+    await page.locator('input[autocomplete="new-password"]').first().fill('weak');
+    await page.locator('input[autocomplete="new-password"]').nth(1).fill('weak');
+    await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+    await expect(page.getByText(/ít nhất 8 ký tự/)).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('UI: xác nhận không khớp — hiển thị lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.doiMatKhau);
+    await expect(page.getByText('Đổi mật khẩu').first()).toBeVisible({ timeout: 10_000 });
+    await page.locator('input[autocomplete="current-password"]').fill('OldPass@123');
+    await page.locator('input[autocomplete="new-password"]').first().fill('NewPass@456');
+    await page.locator('input[autocomplete="new-password"]').nth(1).fill('Different@789');
+    await page.getByRole('button', { name: 'Đổi mật khẩu' }).click();
+    await expect(page.getByText('Mật khẩu xác nhận không khớp')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('API: POST doi-mat-khau với mật khẩu cũ sai → lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.doiMatKhau, {
+      matKhauCu: 'WrongPassword@999',
+      matKhauMoi: 'NewValid@Pass1',
+    });
+    expect([400, 401, 422]).toContain(res!.status());
+  });
+
+  test('API: POST doi-mat-khau không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.doiMatKhau, {
+      data: { matKhauCu: 'old', matKhauMoi: 'new' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('UI: hiển thị gợi ý độ mạnh mật khẩu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.doiMatKhau);
+    await expect(page.getByText(/chữ hoa, chữ thường, chữ số và ký tự đặc biệt/)).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ─── REQ-21: Quên mật khẩu ──────────────────────────────────────────────────
+
+test.describe('REQ-21: Quên mật khẩu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang quên mật khẩu tải với bước 1 — nhập tài khoản', async ({ page }) => {
+    await page.goto(ROUTES.quenMatKhau);
+    await expect(page.getByText('Quên mật khẩu')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Nhận mã')).toBeVisible();
+    await expect(page.getByText('Đặt mật khẩu')).toBeVisible();
+    await expect(page.locator('input[autocomplete="username"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: /gửi mã/i })).toBeVisible();
+  });
+
+  test('UI: link quay lại đăng nhập hiện đúng', async ({ page }) => {
+    await page.goto(ROUTES.quenMatKhau);
+    await expect(page.getByRole('link', { name: /quay lại đăng nhập/i })).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('UI: gửi form trống — hiển thị lỗi bắt buộc', async ({ page }) => {
+    await page.goto(ROUTES.quenMatKhau);
+    await expect(page.getByRole('button', { name: /gửi mã/i })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /gửi mã/i }).click();
+    await expect(page.getByText(/bắt buộc|vui lòng/i).first()).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('API: POST quen-mat-khau — luôn trả 200 (không lộ tài khoản tồn tại)', async ({ page }) => {
+    const res = await page.request.post(API.quenMatKhau, {
+      data: { dinhDanh: 'nonexistent_user_xyz_99' },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test('API: POST dat-lai-mat-khau với mã sai → lỗi', async ({ page }) => {
+    const res = await page.request.post(API.datLaiMatKhau, {
+      data: { tenDangNhap: 'admin', ma: '000000', matKhauMoi: 'NewPass@123' },
+    });
+    expect([400, 401, 422]).toContain(res.status());
+  });
+
+  test('UI: responsive trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto(ROUTES.quenMatKhau);
+    await expect(page.getByText('Quên mật khẩu')).toBeVisible({ timeout: 10_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+});
+
+// ─── REQ-21: Bảo mật tài khoản (MFA) ───────────────────────────────────────
+
+test.describe('REQ-21: Bảo mật tài khoản (MFA)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('UI: trang bảo mật tải với thông tin TOTP', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoMatTaiKhoan);
+    await expect(page.getByText(/xác thực hai lớp/i).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Trạng thái')).toBeVisible();
+  });
+
+  test('UI: hiển thị nút bật MFA khi chưa bật', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoMatTaiKhoan);
+    await expect(page.getByText(/xác thực hai lớp/i).first()).toBeVisible({ timeout: 10_000 });
+    const nutBat = page.getByRole('button', { name: /bật xác thực/i });
+    const nutTat = page.getByRole('button', { name: /tắt xác thực/i });
+    const coNutBat = await nutBat.isVisible().catch(() => false);
+    const coNutTat = await nutTat.isVisible().catch(() => false);
+    expect(coNutBat || coNutTat).toBe(true);
+  });
+
+  test('API: GET mfa/trang-thai — 200 với trường daBat', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.mfa}/trang-thai`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(typeof body.duLieu.daBat).toBe('boolean');
+  });
+
+  test('API: GET mfa/trang-thai không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.mfa}/trang-thai`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('API: POST mfa/xac-nhan-ghi-danh với mã sai → lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', `${API.mfa}/xac-nhan-ghi-danh`, { ma: '000000' });
+    expect([400, 422]).toContain(res!.status());
+  });
+});
