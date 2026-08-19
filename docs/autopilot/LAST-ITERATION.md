@@ -1,45 +1,63 @@
-# Autopilot Iteration 22
+# Autopilot Iteration 23
 
 ## Summary
 
-Fixed REQ-15 bug: CHU_TICH_QUYET_DINH processing rule in the workflow engine was functionally identical to MOT_NGUOI, allowing any step actor (including regular council members) to advance a Chairman-decision step. The Chairman's decision should be the only one that advances the workflow.
+Implemented PHAN_CONG_CHAM automated workflow action (REQ-12/REQ-33). When a workflow transitions to a scoring step (CHAM_DIEM), the system now automatically assigns eligible council members to score the innovation. Previously this required manual secretary intervention.
 
 ## Changes
 
-### Workflow engine fix (BoMayQuyTrinh.cs)
+### Background job (CongViecPhanCongCham in CongViecNen.cs)
 
-- Extracted `KhopTacNhan` helper from `LaTacNhanCuaBuoc` — single-actor matching logic now reusable without duplication
-- Refactored `LaTacNhanCuaBuoc` to use `KhopTacNhan`
-- **Fixed `DemTacNhan`**: Separated ChuTichQuyetDinh from MotNguoi. When ChuTichQuyetDinh is the effective rule, only actors whose `QuyTacXuLy == ChuTichQuyetDinh` can advance the step. Other actors' actions are recorded (ThanhCong=true, ChoThemTacNhan=true) but the step does not advance until the Chairman acts.
+- Looks up `HoiDongId` from the workflow step (`QuyTrinhBuoc`)
+- Gets eligible council members (`QuyenChamDiem` + active status)
+- Conflict-of-interest exclusion: authors cannot score their own innovation
+- Idempotent: calling twice for the same (sangKien, thanhVien) pair skips existing assignments
+- Deadline sourced from the step's processing deadline (`SangKienXuLy.HanXuLy`)
+- Sends `DUOC_PHAN_CONG_CHAM` notification to assigned members
+- `NguoiPhanCongId = null` distinguishes system-assigned from manually-assigned
+- Hangfire retry: 2 attempts with 60s/300s delays
 
-### Test helpers (XuongDuLieuTest.cs)
+### Interface (IHangDoiCongViecNen in GiaoDienHeThong.cs)
 
-- Added `ThemTacNhanChucDanh` extension method for creating `ChucDanhHoiDong`-type actors in tests
+- Added `XepLichPhanCongCham(Guid sangKienId, Guid buocMoiId)`
 
-### Unit tests (BoMayQuyTrinhTests.cs)
+### Hangfire adapter (HangDoiCongViecNenHangfire.cs)
 
-- Added `NguoiVoiChucDanh` helper for creating user context with council role
-- Added 3 tests:
-  1. `Quy_Tac_CHU_TICH_QUYET_DINH_Chu_Tich_Chuyen_Buoc_Ngay` — Chairman advances immediately
-  2. `Quy_Tac_CHU_TICH_QUYET_DINH_Uy_Vien_Ghi_Nhan_Nhung_Chua_Chuyen_Buoc` — Member recorded but step stays
-  3. `Quy_Tac_CHU_TICH_QUYET_DINH_Sau_Uy_Vien_Chu_Tich_Chuyen_Buoc` — Chairman advances after member already recorded
+- Wired `XepLichPhanCongCham` to enqueue `CongViecPhanCongCham.ChayAsync`
+- No-op implementation added for `HangDoiCongViecNenKhongHoatDong` (test environments)
+
+### Action dispatcher (DichVuDieuPhaiHanhDong.cs)
+
+- PHAN_CONG_CHAM now dispatches to `_hangDoi.XepLichPhanCongCham` instead of logging a warning
+- Guards against null `BuocMoiId` (workflow already ended)
+- Warning group reduced from 5 to 4 unimplemented actions
+
+### Unit tests (DichVuDieuPhaiHanhDongTests.cs)
+
+- Added `HanhDongTuDong_PhanCongCham_Dung_Gia_Tri` — verifies constant value
+- Updated unimplemented count test from 5 to 4 (PHAN_CONG_CHAM removed)
+- Added `HanhDongTuDong_Da_Trien_Khai_Co_4_Hanh_Dong` — verifies implemented set
+- Added `PhanCongCham_Khong_Trong_Nhom_Chua_Trien_Khai` — guards against regression
 
 ## Quality Gate
 
 - Result: PASS (7/7)
-- Unit tests: 496 (493 + 3 new)
+- Unit tests: 499 (496 + 3 new)
 - Warnings: 0
 
 ## Requirements Affected
 
-- REQ-15 (Tac nhan xu ly) — ChuTichQuyetDinh bug fixed, gap updated
+- REQ-12 (Chuc nang bo sung) — PHAN_CONG_CHAM implemented, gap updated from 5 to 4 unimplemented actions
+- REQ-33 (Danh sach ho so danh gia) — automated scoring assignment now wired
 
 ## Files Changed
 
-- `src/BlueIdea.Workflow/BoMayQuyTrinh.cs` (KhopTacNhan extraction + DemTacNhan fix)
-- `tests/BlueIdea.UnitTests/TienIch/XuongDuLieuTest.cs` (ThemTacNhanChucDanh helper)
-- `tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs` (3 new tests + NguoiVoiChucDanh helper)
-- `docs/requirements/traceability.yaml` (REQ-15 updated)
+- `src/BlueIdea.Application/Chung/GiaoDienHeThong.cs` (XepLichPhanCongCham interface)
+- `src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs` (PHAN_CONG_CHAM dispatch)
+- `src/BlueIdea.Infrastructure/CongViecNen/CongViecNen.cs` (CongViecPhanCongCham job)
+- `src/BlueIdea.Infrastructure/CongViecNen/HangDoiCongViecNenHangfire.cs` (Hangfire + no-op)
+- `tests/BlueIdea.UnitTests/XuLy/DichVuDieuPhaiHanhDongTests.cs` (3 new + 1 updated tests)
+- `docs/requirements/traceability.yaml` (REQ-12, REQ-33 updated)
 
 ## Commit
 
@@ -50,8 +68,9 @@ Fixed REQ-15 bug: CHU_TICH_QUYET_DINH processing rule in the workflow engine was
 Remaining items by priority:
 1. TD-001: Semantic Embedding is Lexical Only (Medium, BLOCKED_EXTERNAL — needs ONNX model)
 2. TD-002: No Frontend Automated Tests (Medium)
-3. REQ integration tests — many REQs at IMPLEMENTED_NOT_VERIFIED need runtime integration tests (require Docker)
-4. TD-004: Database Partitioning (Low)
+3. REQ-12: 4 remaining unimplemented actions — TAO_BIEN_BAN is most feasible next (background job pattern, DichVuBienBanHop.LapAsync is idempotent)
+4. REQ integration tests — many REQs at IMPLEMENTED_NOT_VERIFIED need runtime integration tests (require Docker)
+5. TD-004: Database Partitioning (Low)
 
 ## Blockers
 
