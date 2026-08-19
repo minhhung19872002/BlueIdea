@@ -220,8 +220,6 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
 public sealed record LayHanhDongKhaDungQuery(Guid SangKienId) : IRequest<IReadOnlyList<HanhDongKhaDung>>, ICoYeuCauQuyen
 {
     public string MaQuyenYeuCau => MaQuyen.SangKienXem;
-
-    public Guid? DoiTuongId => SangKienId;
 }
 
 public sealed class LayHanhDongKhaDungQueryHandler
@@ -229,20 +227,51 @@ public sealed class LayHanhDongKhaDungQueryHandler
 {
     private readonly IWorkflowEngine _engine;
     private readonly INguoiDungHienTai _nguoiDung;
+    private readonly IAppDbContext _db;
+    private readonly IDichVuPhanQuyen _phanQuyen;
 
-    public LayHanhDongKhaDungQueryHandler(IWorkflowEngine engine, INguoiDungHienTai nguoiDung)
+    public LayHanhDongKhaDungQueryHandler(
+        IWorkflowEngine engine, INguoiDungHienTai nguoiDung,
+        IAppDbContext db, IDichVuPhanQuyen phanQuyen)
     {
         _engine = engine;
         _nguoiDung = nguoiDung;
+        _db = db;
+        _phanQuyen = phanQuyen;
     }
 
     public async Task<IReadOnlyList<HanhDongKhaDung>> Handle(
         LayHanhDongKhaDungQuery request, CancellationToken ct)
-        => _nguoiDung.Id is null
-            ? Array.Empty<HanhDongKhaDung>()
-            : await _engine
-                .LayHanhDongKhaDungAsync(request.SangKienId, _nguoiDung.Id.Value, ct)
-                .ConfigureAwait(false);
+    {
+        if (_nguoiDung.Id is null)
+            return Array.Empty<HanhDongKhaDung>();
+
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == request.SangKienId, ct)
+            .ConfigureAwait(false);
+
+        if (hoSo is null)
+            return Array.Empty<HanhDongKhaDung>();
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(_nguoiDung.Id.Value, ct).ConfigureAwait(false);
+        if (!phamVi.ToanHeThong)
+        {
+            var laTacGia = hoSo.NguoiTaoId == _nguoiDung.Id.Value
+                           || (hoSo.DanhSachTacGia?.Any(t => t.NguoiDungId == _nguoiDung.Id.Value) == true);
+
+            if (phamVi.ChiCaNhan && !laTacGia)
+                return Array.Empty<HanhDongKhaDung>();
+
+            var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+            if (!laTacGia && !trongDonVi)
+                return Array.Empty<HanhDongKhaDung>();
+        }
+
+        return await _engine
+            .LayHanhDongKhaDungAsync(request.SangKienId, _nguoiDung.Id.Value, ct)
+            .ConfigureAwait(false);
+    }
 }
 
 /// <summary>Xu ly hang loat nhieu ho so cung buoc (chuc nang 29).</summary>

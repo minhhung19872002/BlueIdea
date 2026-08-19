@@ -223,7 +223,7 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     /// </summary>
     public async Task ChuyenChaAsync(Guid id, Guid? donViChaMoiId, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DonViCauHinh, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DonViCauHinh, ct).ConfigureAwait(false);
 
         await BatBuocDonViTrongPhamViAsync(id, ct).ConfigureAwait(false);
         if (donViChaMoiId.HasValue)
@@ -477,7 +477,7 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
     /// </summary>
     public async Task<TongQuanDotDto> LayTongQuanAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, ct).ConfigureAwait(false);
 
         var dot = await Db.DotDeNghi.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("đợt đề nghị", id);
@@ -589,7 +589,7 @@ public sealed class DichVuDotDeNghi : DichVuDanhMucCoSo<DotDeNghi>
 
     public async Task DoiTrangThaiDotAsync(Guid id, string trangThaiMoi, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucSua, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucSua, ct).ConfigureAwait(false);
 
         var dot = await Db.DotDeNghi.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                   ?? throw new KhongTimThayException(TenDanhMuc, id);

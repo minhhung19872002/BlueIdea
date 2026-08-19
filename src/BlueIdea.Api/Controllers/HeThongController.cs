@@ -272,7 +272,7 @@ public sealed class HeThongController : ControllerBase
     public async Task<IActionResult> DoiTrangThaiNguoiDungAsync(
         Guid id, [FromQuery] string trangThai, CancellationToken ct)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungSua, id, ct);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungSua, ct);
 
         var nguoiDung = await _db.NguoiDung.FirstOrDefaultAsync(x => x.Id == id, ct)
                         ?? throw new KhongTimThayException("người dùng", id);

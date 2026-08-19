@@ -222,7 +222,7 @@ public sealed class DichVuMfa
                 "Dùng luồng tắt MFA thông thường để gỡ MFA của chính mình.");
         }
 
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungDatLaiMatKhau, nguoiDungId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungDatLaiMatKhau, ct)
             .ConfigureAwait(false);
 
         var nguoiDung = await _db.NguoiDung.FirstOrDefaultAsync(x => x.Id == nguoiDungId, ct)

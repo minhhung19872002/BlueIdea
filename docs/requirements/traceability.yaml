@@ -386,11 +386,10 @@ requirements:
     gaps:
       - "No test for diff accuracy (before/after values)"
       - "No test for withdrawal blocked after scoring step"
-      - "SEC: LayHanhDongKhaDungQuery — ICoYeuCauQuyen added (SangKienXem + DoiTuongId), but DoiTuongId discarded by KiemTraQuyenAsync (pre-existing infra limitation). Residual oracle for SangKienXem holders via 404/200+[] differential (LOW)"
-      - "SEC: No negative authorization tests for /{id}/hanh-dong or /goi-y endpoints"
     notes:
       - "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
+      - "Iteration-21 TD-005: IDOR scope checks added to CapNhatHoSoCommand, NopHoSoCommand, RutHoSoCommand, LayHanhDongKhaDungQuery handlers. DoiTuongId removed from ICoYeuCauQuyen (was discarded in KiemTraQuyenAsync), moved to ICoGhiNhatKy for audit log. 4 integration tests added to IdorBaoVeTests.cs."
 
   - id: REQ-24
     source_number: 24

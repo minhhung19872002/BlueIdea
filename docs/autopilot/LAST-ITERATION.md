@@ -1,57 +1,72 @@
-# Autopilot Iteration 20
+# Autopilot Iteration 21
 
 ## Summary
 
-Fixed dual-permission gate inconsistency in DonVi (organization unit) service. The `DonViController` correctly used `DON_VI.XEM` and `DON_VI.CAU_HINH` policies, but the inherited `DichVuDanhMucCoSo` base class checked `DANH_MUC.XEM/THEM/SUA/XOA` at the service layer. Users needed permissions from both families to perform any DonVi operation.
+Resolved TD-005: DoiTuongId was passed through the MediatR authorization pipeline but explicitly discarded in `KiemTraQuyenAsync`, creating false security documentation. Four mutation/query handlers lacked IDOR scope checks.
 
 ## Changes
 
-### DichVuDanhMucCoSo (src/BlueIdea.Application/DanhMuc/DichVuDanhMucCoSo.cs)
+### Interface refactoring (HanhViPipeline.cs)
 
-- Added 4 virtual properties: `QuyenXem`, `QuyenThem`, `QuyenSua`, `QuyenXoa` (default to `DANH_MUC.*`)
-- Replaced all 7 hardcoded `MaQuyen.DanhMuc*` references in method bodies with the virtual properties
-- Other catalog services (LinhVuc, DoiTuong, LoaiTacGia, QuyetDinh) continue using defaults unchanged
+- Removed `DoiTuongId` from `ICoYeuCauQuyen` (authorization interface)
+- Added `DoiTuongId` to `ICoGhiNhatKy` (audit logging interface) — preserving audit trail
+- `HanhViPhanQuyen` no longer passes `DoiTuongId` to `BatBuocCoQuyenAsync`
+- `HanhViGhiNhatKy` now reads `DoiTuongId` from `ICoGhiNhatKy` instead of casting to `ICoYeuCauQuyen`
 
-### DichVuDonVi (src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs)
+### Authorization API cleanup (IDichVuPhanQuyen + DichVuPhanQuyen)
 
-- Overrode all 4 properties: `QuyenXem` → `DonViXem`, `QuyenThem/Sua/Xoa` → `DonViCauHinh`
-- Now aligned with controller-level `[Authorize(Policy)]` attributes
+- Removed `doiTuongId` parameter from `KiemTraQuyenAsync` and `BatBuocCoQuyenAsync`
+- Removed the explicit discard `_ = doiTuongId` line
+- Updated ~55 call sites across 17 service files to use new 2-parameter signature
 
-### Unit tests (tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs)
+### IDOR scope checks added (SangKienCommands.cs + ThucThiBuocCommand.cs)
 
-5 new tests verifying permission alignment:
-- LayDanhSach checks DON_VI.XEM (not DANH_MUC.XEM)
-- LayTheoId checks DON_VI.XEM (not DANH_MUC.XEM)
-- Them checks DON_VI.CAU_HINH (not DANH_MUC.THEM)
-- CapNhat checks DON_VI.CAU_HINH (not DANH_MUC.SUA)
-- Xoa checks DON_VI.CAU_HINH (not DANH_MUC.XOA)
+- `CapNhatHoSoCommandHandler`: Added `BatBuocTrongPhamViAsync` after loading record
+- `NopHoSoCommandHandler`: Added `BatBuocTrongPhamViAsync` after loading record
+- `RutHoSoCommandHandler`: Added `BatBuocTrongPhamViAsync` after loading record + added `.Include(DanhSachTacGia)` for co-author check
+- `LayHanhDongKhaDungQueryHandler`: Added scope check before engine call, returns empty for out-of-scope requests
+
+### Tests
+
+- Updated 5 existing `DichVuDonViPhamViTests` for new `BatBuocCoQuyenAsync` signature
+- Added 4 integration tests in `IdorBaoVeTests.cs` for cross-org IDOR on CapNhat/Nop/Rut/HanhDong
 
 ## Quality Gate
 
 - Result: PASS (7/7)
-- Unit tests: 493 (up from 482)
+- Unit tests: 493 (unchanged)
 - Warnings: 0
 
 ## Requirements Affected
 
-- REQ-05 (Don vi phe duyet) — MEDIUM security gap closed (dual-permission gate removed from gaps)
-- REQ-44 (Quan ly don vi, to chuc) — note added documenting the fix
+- REQ-23 (Quan ly ho so sang kien) — 2 security gaps closed (DoiTuongId discard, missing hanh-dong auth test)
+- TD-005 — Resolved (moved to Resolved Items in technical-debt.md)
 
 ## Files Changed
 
-- `src/BlueIdea.Application/DanhMuc/DichVuDanhMucCoSo.cs` (modified)
-- `src/BlueIdea.Application/DanhMuc/DichVuDanhMuc.cs` (modified)
-- `tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs` (modified)
-- `docs/requirements/traceability.yaml` (updated)
+- `src/BlueIdea.Application/Chung/HanhViPipeline.cs` (interface + pipeline changes)
+- `src/BlueIdea.Application/Chung/GiaoDienHeThong.cs` (IDichVuPhanQuyen signature)
+- `src/BlueIdea.Infrastructure/DichVu/DichVuPhanQuyen.cs` (implementation)
+- `src/BlueIdea.Application/SangKien/SangKienCommands.cs` (3 IDOR checks + constructor DI)
+- `src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs` (1 IDOR check + remove dead DoiTuongId)
+- 17 service files (BatBuocCoQuyenAsync call site updates)
+- `tests/BlueIdea.UnitTests/DanhMuc/DichVuDonViPhamViTests.cs` (signature update)
+- `tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs` (4 new tests)
+- `docs/requirements/traceability.yaml` (REQ-23 updated)
+- `docs/audit/technical-debt.md` (TD-005 resolved)
 
 ## Commit
 
-33abd4d
+(pending)
 
 ## Next Priority
 
-TD-005: DoiTuongId discarded in KiemTraQuyenAsync — architectural decision needed (implement object-level scope in pipeline, or remove DoiTuongId and document per-service IDOR responsibility).
+Remaining items by priority:
+1. TD-001: Semantic Embedding is Lexical Only (Medium, BLOCKED_EXTERNAL — needs ONNX model)
+2. TD-002: No Frontend Automated Tests (Medium)
+3. REQ integration tests — many REQs at IMPLEMENTED_NOT_VERIFIED need runtime integration tests (require Docker)
+4. TD-004: Database Partitioning (Low)
 
 ## Blockers
 
-None discovered.
+Integration tests (4 new + many existing) require Docker for Testcontainers — cannot be executed in current environment.

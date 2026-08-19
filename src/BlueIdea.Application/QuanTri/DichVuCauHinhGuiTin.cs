@@ -121,7 +121,7 @@ public sealed class DichVuCauHinhGuiTin
 
     public async Task CapNhatAsync(Guid id, LuuCauHinhGuiTinDto dto, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.CauHinhSua, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.CauHinhSua, ct).ConfigureAwait(false);
         KiemTraHopLe(dto);
 
         var cauHinh = await _db.CauHinhEmailSms.FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -141,7 +141,7 @@ public sealed class DichVuCauHinhGuiTin
 
     public async Task XoaAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.CauHinhSua, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.CauHinhSua, ct).ConfigureAwait(false);
 
         var cauHinh = await _db.CauHinhEmailSms.FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("cấu hình gửi tin", id);
@@ -161,7 +161,7 @@ public sealed class DichVuCauHinhGuiTin
     /// </summary>
     public async Task<string> GuiThuAsync(Guid id, string nguoiNhan, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.CauHinhSua, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.CauHinhSua, ct).ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(nguoiNhan))
         {

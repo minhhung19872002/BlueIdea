@@ -67,7 +67,7 @@ public sealed class DichVuKySoUsbToken
     public async Task<YeuCauKyUsbDto> ChuanBiAsync(
         Guid tepTinId, string doiTuong, Guid doiTuongId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhKySo, doiTuongId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhKySo, ct)
             .ConfigureAwait(false);
 
         DonPhienCu();

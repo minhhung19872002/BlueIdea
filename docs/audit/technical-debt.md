@@ -28,15 +28,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Consider adding health check dashboard, error rate alerting, or APM integration.
 **Priority**: Low (Seq provides basic log monitoring)
 
-### TD-005: DoiTuongId Discarded in KiemTraQuyenAsync
-
-**Area**: Security/Authorization
-**Description**: `DichVuPhanQuyen.KiemTraQuyenAsync` receives a `doiTuongId` parameter but explicitly discards it (`_ = doiTuongId`). The `ICoYeuCauQuyen.DoiTuongId` mechanism documented in AN-TOAN-THONG-TIN.md as "chống IDOR từ gốc" provides no actual object-level scope enforcement. All commands/queries that pass `DoiTuongId` through the pipeline rely on it only for audit logging context (`HanhViGhiNhatKy`), not authorization.
-**Impact**: IDOR protection depends entirely on per-service `BatBuocTrongPhamViAsync` / `ApDungPhamViDuLieuAsync` calls. Coverage is uneven — some handlers (e.g., `LayHanhDongKhaDungQuery`) lack explicit scope checks.
-**Resolution**: Implement object-level scope checking in `KiemTraQuyenAsync` by verifying the requested object belongs to the caller's accessible organizations, OR remove `DoiTuongId` from the authorization interface and document that IDOR protection is per-service responsibility.
-**Priority**: Medium (mitigated by per-service scope checks and workflow engine actor filtering, but creates false security documentation)
-**Discovered**: Run-002-B12 security review
-
 ### TD-004: Database Partitioning Not Yet Applied
 
 **Area**: Database
@@ -47,4 +38,8 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 
 ## Resolved Items
 
-(None yet — move items here when resolved, with resolution commit)
+### TD-005: DoiTuongId Discarded in KiemTraQuyenAsync (RESOLVED)
+
+**Resolved by**: Iteration 21
+**Resolution**: Option B — removed `DoiTuongId` from `ICoYeuCauQuyen` authorization interface, moved it to `ICoGhiNhatKy` for audit logging. Removed dead `doiTuongId` parameter from `IDichVuPhanQuyen.KiemTraQuyenAsync` and `BatBuocCoQuyenAsync` (was explicitly discarded). Added `BatBuocTrongPhamViAsync` IDOR scope checks to 4 handlers: `CapNhatHoSoCommandHandler`, `NopHoSoCommandHandler`, `RutHoSoCommandHandler`, `LayHanhDongKhaDungQueryHandler`. IDOR protection is now per-service responsibility (documented). 4 integration tests added.
+**Commit**: (pending)

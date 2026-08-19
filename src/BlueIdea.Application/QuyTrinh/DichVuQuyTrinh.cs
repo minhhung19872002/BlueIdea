@@ -48,7 +48,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     /// <summary>Lay so do day du de render tren ReactFlow.</summary>
     public async Task<SoDoQuyTrinhDto> LaySoDoAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhXem, ct).ConfigureAwait(false);
 
         var quyTrinh = await TaoTruyVanChiTiet()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -202,7 +202,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     public async Task<Guid> ThemThanhPhanAsync(
         Guid quyTrinhId, ThanhPhanHoSoCauHinhDto duLieu, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct)
             .ConfigureAwait(false);
 
         await BatBuocQuyTrinhSuaDuocAsync(quyTrinhId, ct).ConfigureAwait(false);
@@ -231,7 +231,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     public async Task SuaThanhPhanAsync(
         Guid quyTrinhId, Guid id, ThanhPhanHoSoCauHinhDto duLieu, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct)
             .ConfigureAwait(false);
 
         await BatBuocQuyTrinhSuaDuocAsync(quyTrinhId, ct).ConfigureAwait(false);
@@ -258,7 +258,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     /// <summary>Xoa mot thanh phan ho so.</summary>
     public async Task XoaThanhPhanAsync(Guid quyTrinhId, Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct)
             .ConfigureAwait(false);
 
         await BatBuocQuyTrinhSuaDuocAsync(quyTrinhId, ct).ConfigureAwait(false);
@@ -275,7 +275,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     public async Task SapXepThanhPhanAsync(
         Guid quyTrinhId, IReadOnlyList<Guid> idTheoThuTu, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, quyTrinhId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct)
             .ConfigureAwait(false);
 
         var danhSach = await Db.QuyTrinhThanhPhanHoSo
@@ -355,7 +355,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
 
     public async Task LuuSoDoAsync(Guid id, SoDoQuyTrinhDto soDo, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct).ConfigureAwait(false);
 
         var quyTrinh = await TruyVanDayDu()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -536,7 +536,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     /// <summary>Chay validator 7 rule bat buoc.</summary>
     public async Task<KetQuaKiemTraDto> KiemTraAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhXem, ct).ConfigureAwait(false);
 
         var quyTrinh = await TaoTruyVanChiTiet()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -553,7 +553,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     /// <summary>Kich hoat quy trinh (chi khi validator khong con loi).</summary>
     public async Task<KetQuaKiemTraDto> KichHoatAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct).ConfigureAwait(false);
 
         var quyTrinh = await TruyVanDayDu()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -577,7 +577,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
 
     public async Task NgungApDungAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct).ConfigureAwait(false);
 
         var quyTrinh = await Db.QuyTrinh.FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException(TenDanhMuc, id);
@@ -602,7 +602,7 @@ public sealed class DichVuQuyTrinh : DichVuDanhMucCoSo<ThucTheQuyTrinh>
     /// </summary>
     public async Task<Guid> TaoPhienBanMoiAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyTrinhCauHinh, ct).ConfigureAwait(false);
 
         var goc = await Db.QuyTrinh.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)

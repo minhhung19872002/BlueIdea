@@ -135,11 +135,10 @@ public interface INguoiDungHienTai
 /// </summary>
 public interface IDichVuPhanQuyen
 {
-    Task<bool> KiemTraQuyenAsync(Guid nguoiDungId, string maQuyen, Guid? doiTuongId = null,
-        CancellationToken ct = default);
+    Task<bool> KiemTraQuyenAsync(Guid nguoiDungId, string maQuyen, CancellationToken ct = default);
 
     /// <summary>Nem <see cref="KhongCoQuyenException"/> neu khong du quyen.</summary>
-    Task BatBuocCoQuyenAsync(string maQuyen, Guid? doiTuongId = null, CancellationToken ct = default);
+    Task BatBuocCoQuyenAsync(string maQuyen, CancellationToken ct = default);
 
     /// <summary>Danh sach don vi ma nguoi dung duoc phep xem du lieu (theo pham vi vai tro).</summary>
     Task<PhamViTruyCap> LayPhamViTruyCapAsync(Guid nguoiDungId, CancellationToken ct = default);

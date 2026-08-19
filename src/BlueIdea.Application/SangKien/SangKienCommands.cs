@@ -174,16 +174,18 @@ public sealed class CapNhatHoSoCommandHandler : IRequestHandler<CapNhatHoSoComma
     private readonly IDongHoHeThong _dongHo;
     private readonly DichVuDotDeNghi _dichVuDot;
     private readonly IDichVuMaHoa _maHoa;
+    private readonly IDichVuPhanQuyen _phanQuyen;
 
     public CapNhatHoSoCommandHandler(
         IAppDbContext db, INguoiDungHienTai nguoiDung, IDongHoHeThong dongHo,
-        DichVuDotDeNghi dichVuDot, IDichVuMaHoa maHoa)
+        DichVuDotDeNghi dichVuDot, IDichVuMaHoa maHoa, IDichVuPhanQuyen phanQuyen)
     {
         _db = db;
         _nguoiDung = nguoiDung;
         _dongHo = dongHo;
         _dichVuDot = dichVuDot;
         _maHoa = maHoa;
+        _phanQuyen = phanQuyen;
     }
 
     public async Task<Unit> Handle(CapNhatHoSoCommand request, CancellationToken ct)
@@ -192,6 +194,8 @@ public sealed class CapNhatHoSoCommandHandler : IRequestHandler<CapNhatHoSoComma
             .Include(x => x.DanhSachTacGia)
             .FirstOrDefaultAsync(x => x.Id == request.Id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", request.Id);
+
+        await BatBuocTrongPhamViAsync(hoSo, ct).ConfigureAwait(false);
 
         if (request.PhienBan.HasValue && request.PhienBan.Value != hoSo.PhienBan)
         {
@@ -235,6 +239,28 @@ public sealed class CapNhatHoSoCommandHandler : IRequestHandler<CapNhatHoSoComma
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
         return Unit.Value;
+    }
+
+    private async Task BatBuocTrongPhamViAsync(HoSoSangKien hoSo, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(_nguoiDung.Id.Value, ct).ConfigureAwait(false);
+        if (phamVi.ToanHeThong) return;
+
+        var laTacGia = hoSo.NguoiTaoId == _nguoiDung.Id.Value
+                       || (hoSo.DanhSachTacGia?.Any(t => t.NguoiDungId == _nguoiDung.Id.Value) == true);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia) throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+        if (!laTacGia && !trongDonVi)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
     }
 
     /// <summary>Chup gia tri cac truong noi dung de tinh diff luu vao lich su chinh sua.</summary>
@@ -285,12 +311,14 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
     private readonly IDichVuThongBao _thongBao;
     private readonly IDichVuCauHinh _cauHinh;
     private readonly IHangDoiCongViecNen _hangDoi;
+    private readonly IDichVuPhanQuyen _phanQuyen;
 
     public NopHoSoCommandHandler(
         IAppDbContext db, INguoiDungHienTai nguoiDung, IDongHoHeThong dongHo,
         DichVuDotDeNghi dichVuDot, IBoMayQuyTrinh boMay,
         IBoChuyenDoiSnapshotQuyTrinh snapshot, IDichVuThongBao thongBao,
-        IDichVuCauHinh cauHinh, IHangDoiCongViecNen hangDoi)
+        IDichVuCauHinh cauHinh, IHangDoiCongViecNen hangDoi,
+        IDichVuPhanQuyen phanQuyen)
     {
         _db = db;
         _nguoiDung = nguoiDung;
@@ -301,6 +329,7 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
         _thongBao = thongBao;
         _cauHinh = cauHinh;
         _hangDoi = hangDoi;
+        _phanQuyen = phanQuyen;
     }
 
     public async Task<KetQuaNopHoSo> Handle(NopHoSoCommand request, CancellationToken ct)
@@ -310,6 +339,8 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
             .Include(x => x.TepDinhKem)
             .FirstOrDefaultAsync(x => x.Id == request.Id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", request.Id);
+
+        await BatBuocTrongPhamViAsync(hoSo, ct).ConfigureAwait(false);
 
         if (hoSo.TrangThaiTong is not (TrangThaiTongHoSo.Nhap or TrangThaiTongHoSo.YeuCauBoSung))
         {
@@ -452,6 +483,28 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
 
         return quyTrinh ?? throw new KhongTimThayException("quy trình", quyTrinhId);
     }
+
+    private async Task BatBuocTrongPhamViAsync(HoSoSangKien hoSo, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(_nguoiDung.Id.Value, ct).ConfigureAwait(false);
+        if (phamVi.ToanHeThong) return;
+
+        var laTacGia = hoSo.NguoiTaoId == _nguoiDung.Id.Value
+                       || (hoSo.DanhSachTacGia?.Any(t => t.NguoiDungId == _nguoiDung.Id.Value) == true);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia) throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+        if (!laTacGia && !trongDonVi)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+    }
 }
 
 /// <summary>Chuc nang 23 - Rut ho so (chi khi chua vao buoc cham diem).</summary>
@@ -481,22 +534,27 @@ public sealed class RutHoSoCommandHandler : IRequestHandler<RutHoSoCommand, Unit
     private readonly INguoiDungHienTai _nguoiDung;
     private readonly IDongHoHeThong _dongHo;
     private readonly IBoChuyenDoiSnapshotQuyTrinh _snapshot;
+    private readonly IDichVuPhanQuyen _phanQuyen;
 
     public RutHoSoCommandHandler(
         IAppDbContext db, INguoiDungHienTai nguoiDung, IDongHoHeThong dongHo,
-        IBoChuyenDoiSnapshotQuyTrinh snapshot)
+        IBoChuyenDoiSnapshotQuyTrinh snapshot, IDichVuPhanQuyen phanQuyen)
     {
         _db = db;
         _nguoiDung = nguoiDung;
         _dongHo = dongHo;
         _snapshot = snapshot;
+        _phanQuyen = phanQuyen;
     }
 
     public async Task<Unit> Handle(RutHoSoCommand request, CancellationToken ct)
     {
         var hoSo = await _db.SangKien
+            .Include(x => x.DanhSachTacGia)
             .FirstOrDefaultAsync(x => x.Id == request.Id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", request.Id);
+
+        await BatBuocTrongPhamViAsync(hoSo, ct).ConfigureAwait(false);
 
         if (!hoSo.ChoPhepRut())
         {
@@ -537,5 +595,27 @@ public sealed class RutHoSoCommandHandler : IRequestHandler<RutHoSoCommand, Unit
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
         return Unit.Value;
+    }
+
+    private async Task BatBuocTrongPhamViAsync(HoSoSangKien hoSo, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(_nguoiDung.Id.Value, ct).ConfigureAwait(false);
+        if (phamVi.ToanHeThong) return;
+
+        var laTacGia = hoSo.NguoiTaoId == _nguoiDung.Id.Value
+                       || (hoSo.DanhSachTacGia?.Any(t => t.NguoiDungId == _nguoiDung.Id.Value) == true);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia) throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+        if (!laTacGia && !trongDonVi)
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
     }
 }

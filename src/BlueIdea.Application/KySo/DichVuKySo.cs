@@ -102,7 +102,7 @@ public sealed class DichVuKySo
     public async Task<Guid> KyTepAsync(
         Guid tepTinId, string doiTuong, Guid doiTuongId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhKySo, doiTuongId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhKySo, ct)
             .ConfigureAwait(false);
 
         var cauHinh = await _db.CauHinhChuKySo.AsNoTracking()
@@ -243,7 +243,7 @@ public sealed class DichVuKySo
             .FirstOrDefaultAsync(x => x.Id == nhatKyKySoId, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("lần ký số", nhatKyKySoId);
 
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, banGhi.DoiTuongId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, ct)
             .ConfigureAwait(false);
 
         if (banGhi.TepGocId is null || banGhi.TepDaKyId is null)
@@ -278,7 +278,7 @@ public sealed class DichVuKySo
     public async Task<IReadOnlyList<NhatKyKySo>> LichSuAsync(
         string doiTuong, Guid doiTuongId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, doiTuongId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, ct).ConfigureAwait(false);
 
         return await _db.NhatKyKySo.AsNoTracking()
             .Where(x => x.DoiTuong == doiTuong && x.DoiTuongId == doiTuongId)

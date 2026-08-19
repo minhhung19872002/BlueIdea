@@ -87,7 +87,7 @@ public sealed class DichVuBienBanHop
     /// </summary>
     public async Task<BienBanHopDto> LapAsync(Guid phienHopId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, phienHopId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, ct)
             .ConfigureAwait(false);
 
         var phien = await LayPhienAsync(phienHopId, ct).ConfigureAwait(false);
@@ -151,7 +151,7 @@ public sealed class DichVuBienBanHop
     public async Task<BienBanHopDto?> LayTheoPhienAsync(
         Guid phienHopId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, phienHopId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, ct)
             .ConfigureAwait(false);
 
         var id = await _db.BienBanHop.AsNoTracking()
@@ -230,7 +230,7 @@ public sealed class DichVuBienBanHop
             .FirstOrDefaultAsync(x => x.Id == bienBanId, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("biên bản", bienBanId);
 
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, bienBan.PhienHopId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, ct)
             .ConfigureAwait(false);
 
         var phien = await LayPhienAsync(bienBan.PhienHopId, ct).ConfigureAwait(false);

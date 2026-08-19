@@ -100,7 +100,7 @@ public sealed class DichVuQuanTriNguoiDung
 
     public async Task<ThongTinNguoiDungDto> ChiTietAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungXem, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungXem, ct).ConfigureAwait(false);
 
         var nguoiDung = await _db.NguoiDung.AsNoTracking()
             .Include(x => x.VaiTro)
@@ -202,7 +202,7 @@ public sealed class DichVuQuanTriNguoiDung
 
     public async Task CapNhatAsync(Guid id, LuuNguoiDungDto dto, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungSua, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungSua, ct).ConfigureAwait(false);
 
         var nguoiDung = await _db.NguoiDung
             .Include(x => x.VaiTro)
@@ -280,7 +280,7 @@ public sealed class DichVuQuanTriNguoiDung
     /// <summary>Dat lai mat khau ve mot mat khau tam va buoc doi o lan dang nhap ke tiep.</summary>
     public async Task<string> DatLaiMatKhauAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungDatLaiMatKhau, id, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungDatLaiMatKhau, ct)
             .ConfigureAwait(false);
 
         var nguoiDung = await _db.NguoiDung.FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -361,7 +361,7 @@ public sealed class DichVuQuanTriNguoiDung
 
     public async Task CapNhatVaiTroAsync(Guid id, LuuVaiTroDto dto, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.VaiTroCauHinh, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.VaiTroCauHinh, ct).ConfigureAwait(false);
 
         var vaiTro = await _db.VaiTro
             .Include(x => x.DanhSachQuyen)
@@ -424,7 +424,7 @@ public sealed class DichVuQuanTriNguoiDung
 
     public async Task XoaVaiTroAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.VaiTroCauHinh, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.VaiTroCauHinh, ct).ConfigureAwait(false);
 
         var vaiTro = await _db.VaiTro.FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("vai trò", id);

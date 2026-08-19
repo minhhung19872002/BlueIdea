@@ -69,7 +69,7 @@ public sealed class DichVuXuatPhieuCham
         Guid doiTuongId,
         CancellationToken ct)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaXem, doiTuongId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaXem, ct).ConfigureAwait(false);
 
         var phieu = await _db.PhieuDanhGia.AsNoTracking()
             .Where(dieuKien)

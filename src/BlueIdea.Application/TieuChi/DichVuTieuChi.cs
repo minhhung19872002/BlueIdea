@@ -32,7 +32,7 @@ public sealed class DichVuTieuChi : DichVuDanhMucCoSo<BoTieuChi>
     /// <summary>Lay bo tieu chi day du de render cay 2 cap tren man hinh cau hinh.</summary>
     public async Task<BoTieuChiDto> LayChiTietDayDuAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiXem, ct).ConfigureAwait(false);
 
         var bo = await TaoTruyVanChiTiet()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -44,7 +44,7 @@ public sealed class DichVuTieuChi : DichVuDanhMucCoSo<BoTieuChi>
     /// <summary>Kiem tra tinh hop le cua bo tieu chi (trong so, khoang diem, tong diem).</summary>
     public async Task<IReadOnlyList<string>> KiemTraAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiXem, ct).ConfigureAwait(false);
 
         var bo = await TaoTruyVanChiTiet()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -57,7 +57,7 @@ public sealed class DichVuTieuChi : DichVuDanhMucCoSo<BoTieuChi>
     public async Task LuuCayTieuChiAsync(
         Guid boTieuChiId, IReadOnlyList<NhomTieuChiLuuDto> nhomMoi, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiCauHinh, boTieuChiId, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiCauHinh, ct).ConfigureAwait(false);
 
         var bo = await Db.BoTieuChi
             .Include(x => x.DanhSachNhom).ThenInclude(n => n.DanhSachTieuChi).ThenInclude(t => t.DanhSachMucDiem)
@@ -150,7 +150,7 @@ public sealed class DichVuTieuChi : DichVuDanhMucCoSo<BoTieuChi>
     public async Task LuuMucCongNhanAsync(
         Guid boTieuChiId, IReadOnlyList<MucCongNhanLuuDto> danhSach, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiCauHinh, boTieuChiId, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.TieuChiCauHinh, ct).ConfigureAwait(false);
 
         var cu = await Db.MucCongNhan
             .Where(x => x.BoTieuChiId == boTieuChiId)

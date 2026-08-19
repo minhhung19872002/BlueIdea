@@ -11,9 +11,6 @@ public interface ICoYeuCauQuyen
 {
     /// <summary>Ma quyen bat buoc, vi du SANG_KIEN.SUA.</summary>
     string MaQuyenYeuCau { get; }
-
-    /// <summary>Id doi tuong de kiem tra pham vi du lieu (chong IDOR).</summary>
-    Guid? DoiTuongId => null;
 }
 
 /// <summary>Danh dau command lam thay doi du lieu -&gt; bat buoc ghi audit log.</summary>
@@ -22,6 +19,9 @@ public interface ICoGhiNhatKy
     string HanhDongNhatKy { get; }
 
     string ModuleNhatKy { get; }
+
+    /// <summary>Id doi tuong de ghi vao audit log (truy vet hanh dong tren doi tuong cu the).</summary>
+    Guid? DoiTuongId => null;
 }
 
 /// <summary>
@@ -82,7 +82,7 @@ public sealed class HanhViPhanQuyen<TRequest, TResponse> : IPipelineBehavior<TRe
             }
 
             await _phanQuyen
-                .BatBuocCoQuyenAsync(yeuCau.MaQuyenYeuCau, yeuCau.DoiTuongId, cancellationToken)
+                .BatBuocCoQuyenAsync(yeuCau.MaQuyenYeuCau, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -114,7 +114,7 @@ public sealed class HanhViGhiNhatKy<TRequest, TResponse> : IPipelineBehavior<TRe
                 thongTin.HanhDongNhatKy,
                 thongTin.ModuleNhatKy,
                 doiTuong: typeof(TRequest).Name,
-                doiTuongId: (request as ICoYeuCauQuyen)?.DoiTuongId,
+                doiTuongId: thongTin.DoiTuongId,
                 duLieuSau: request,
                 ct: cancellationToken).ConfigureAwait(false);
 

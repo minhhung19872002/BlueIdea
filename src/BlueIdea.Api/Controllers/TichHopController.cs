@@ -122,7 +122,7 @@ public sealed class TichHopController : ControllerBase
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuHeThongTichHopDto duLieu, CancellationToken ct)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, id, ct);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, ct);
         KiemTraHopLe(duLieu);
 
         var heThong = await _db.HeThongTichHop.FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -141,7 +141,7 @@ public sealed class TichHopController : ControllerBase
     [Authorize(Policy = MaQuyen.TichHopCauHinh)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, id, ct);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, ct);
 
         var heThong = await _db.HeThongTichHop.FirstOrDefaultAsync(x => x.Id == id, ct)
                       ?? throw new KhongTimThayException("hệ thống tích hợp", id);

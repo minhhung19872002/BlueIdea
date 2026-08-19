@@ -149,7 +149,7 @@ public sealed class DichVuQuyetDinh
 
     public async Task<QuyetDinhChiTietDto> ChiTietAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, ct).ConfigureAwait(false);
 
         var quyetDinh = await _db.QuyetDinh.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -246,7 +246,7 @@ public sealed class DichVuQuyetDinh
 
     public async Task CapNhatAsync(Guid id, LuuQuyetDinhDto dto, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhBanHanh, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhBanHanh, ct).ConfigureAwait(false);
 
         var quyetDinh = await _db.QuyetDinh.FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("quyết định", id);
@@ -299,7 +299,7 @@ public sealed class DichVuQuyetDinh
 
     public async Task XoaAsync(Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhBanHanh, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhBanHanh, ct).ConfigureAwait(false);
 
         var quyetDinh = await _db.QuyetDinh.FirstOrDefaultAsync(x => x.Id == id, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("quyết định", id);
@@ -351,7 +351,7 @@ public sealed class DichVuQuyetDinh
     /// </summary>
     public async Task<int> CongBoAsync(Guid id, bool congKhai, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhBanHanh, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhBanHanh, ct).ConfigureAwait(false);
 
         var quyetDinh = await _db.QuyetDinh.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -454,7 +454,7 @@ public sealed class DichVuQuyetDinh
         IReadOnlyList<HoSoDuDieuKienDto> DanhSach)> DuLieuXuatAsync(
         Guid id, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, id, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.QuyetDinhXem, ct).ConfigureAwait(false);
 
         var quyetDinh = await _db.QuyetDinh.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, ct)

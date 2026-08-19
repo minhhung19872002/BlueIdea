@@ -35,7 +35,7 @@ public sealed class DichVuDonViPhamViTests
         var dongHo = Substitute.For<IDongHoHeThong>();
         var nguoiDung = Substitute.For<INguoiDungHienTai>();
 
-        phanQuyen.BatBuocCoQuyenAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+        phanQuyen.BatBuocCoQuyenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(ci => new KhongCoQuyenException(ci.Arg<string>()));
 
         var dichVu = new DichVuDonVi(db, phanQuyen, dongHo, nguoiDung);
@@ -51,7 +51,7 @@ public sealed class DichVuDonViPhamViTests
             () => dichVu.LayDanhSachAsync(new ThamSoLocDanhMuc()));
 
         await phanQuyen.Received(1).BatBuocCoQuyenAsync(
-            MaQuyen.DonViXem, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+            MaQuyen.DonViXem, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class DichVuDonViPhamViTests
             () => dichVu.LayTheoIdAsync(DonViA));
 
         await phanQuyen.Received(1).BatBuocCoQuyenAsync(
-            MaQuyen.DonViXem, DonViA, Arg.Any<CancellationToken>());
+            MaQuyen.DonViXem, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class DichVuDonViPhamViTests
             () => dichVu.ThemAsync(new DonVi()));
 
         await phanQuyen.Received(1).BatBuocCoQuyenAsync(
-            MaQuyen.DonViCauHinh, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+            MaQuyen.DonViCauHinh, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class DichVuDonViPhamViTests
             () => dichVu.CapNhatAsync(DonViA, _ => { }));
 
         await phanQuyen.Received(1).BatBuocCoQuyenAsync(
-            MaQuyen.DonViCauHinh, DonViA, Arg.Any<CancellationToken>());
+            MaQuyen.DonViCauHinh, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public sealed class DichVuDonViPhamViTests
             () => dichVu.XoaAsync(DonViA));
 
         await phanQuyen.Received(1).BatBuocCoQuyenAsync(
-            MaQuyen.DonViCauHinh, DonViA, Arg.Any<CancellationToken>());
+            MaQuyen.DonViCauHinh, Arg.Any<CancellationToken>());
     }
 
     [Fact]

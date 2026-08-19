@@ -66,7 +66,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
     public async Task LuuThanhVienAsync(
         Guid hoiDongId, IReadOnlyList<ThanhVienLuuDto> danhSach, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongCauHinh, hoiDongId, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongCauHinh, ct).ConfigureAwait(false);
 
         var soChuTich = danhSach.Count(x => x.ChucDanh == ChucDanhHoiDong.ChuTich);
         if (soChuTich != 1)
@@ -146,7 +146,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
     public async Task<PhienHopHoiDong> TaoPhienHopAsync(
         PhienHopLuuDto duLieu, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, duLieu.HoiDongId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, ct)
             .ConfigureAwait(false);
 
         var phien = new PhienHopHoiDong
@@ -272,7 +272,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 
     public async Task<PhienHopHoiDong> LayPhienHopAsync(Guid phienHopId, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, phienHopId, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, ct).ConfigureAwait(false);
 
         var phien = await Db.PhienHop.AsNoTracking()
             .Include(x => x.DanhSachHoSo)
@@ -288,7 +288,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         Guid phienHopId, Guid thanhVienId, bool coMat, string? lyDoVang,
         CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, phienHopId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, ct)
             .ConfigureAwait(false);
 
         var banGhi = await Db.PhienHopDiemDanh
@@ -317,7 +317,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
     /// <summary>Bo phieu cho mot ho so trong phien hop (ho tro phieu kin).</summary>
     public async Task BoPhieuAsync(BoPhieuDto duLieu, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongBoPhieu, duLieu.SangKienId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongBoPhieu, ct)
             .ConfigureAwait(false);
 
         var phien = await Db.PhienHop.AsNoTracking()
@@ -381,7 +381,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         Guid phienHopId, Guid sangKienId, string? ketLuanRieng, string? ketQua,
         CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, phienHopId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongHopPhien, ct)
             .ConfigureAwait(false);
 
         var phien = await Db.PhienHop.AsNoTracking()
@@ -416,7 +416,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
     public async Task<KetQuaBoPhieuDto> LayKetQuaBoPhieuAsync(
         Guid phienHopId, Guid sangKienId, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, sangKienId, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongXem, ct).ConfigureAwait(false);
 
         var phieus = await Db.PhieuBoPhieu.AsNoTracking()
             .Where(x => x.PhienHopId == phienHopId && x.SangKienId == sangKienId)
@@ -437,7 +437,7 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
     public async Task KetThucPhienHopAsync(
         Guid phienHopId, string? ketLuan, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongKetLuan, phienHopId, ct)
+        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.HoiDongKetLuan, ct)
             .ConfigureAwait(false);
 
         var phien = await Db.PhienHop.FirstOrDefaultAsync(x => x.Id == phienHopId, ct)

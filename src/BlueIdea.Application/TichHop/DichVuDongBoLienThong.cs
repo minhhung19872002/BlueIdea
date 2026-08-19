@@ -171,7 +171,7 @@ public sealed class DichVuDongBoLienThong
     public async Task<KetQuaDongBo> ChayAsync(
         Guid heThongId, Guid? dotDeNghiId, int? nam, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopDongBo, heThongId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopDongBo, ct)
             .ConfigureAwait(false);
 
         var heThong = await _db.HeThongTichHop
@@ -246,7 +246,7 @@ public sealed class DichVuDongBoLienThong
     /// </summary>
     public async Task<KetQuaThuKetNoi> ThuKetNoiAsync(Guid heThongId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, heThongId, ct)
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TichHopCauHinh, ct)
             .ConfigureAwait(false);
 
         var heThong = await _db.HeThongTichHop.AsNoTracking()

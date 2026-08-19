@@ -29,9 +29,8 @@ public sealed class DichVuPhanQuyen : IDichVuPhanQuyen
     }
 
     public async Task<bool> KiemTraQuyenAsync(
-        Guid nguoiDungId, string maQuyen, Guid? doiTuongId = null, CancellationToken ct = default)
+        Guid nguoiDungId, string maQuyen, CancellationToken ct = default)
     {
-        // Quyen da nam trong JWT claims -> khong can truy van CSDL.
         if (_nguoiDung.Id == nguoiDungId && _nguoiDung.Quyen.Count > 0)
         {
             if (_nguoiDung.VaiTro.Contains(MaVaiTro.QuanTriHeThong))
@@ -43,13 +42,12 @@ public sealed class DichVuPhanQuyen : IDichVuPhanQuyen
         }
 
         var quyen = await LayQuyenAsync(nguoiDungId, ct).ConfigureAwait(false);
-        _ = doiTuongId;
 
         return quyen.Contains(maQuyen);
     }
 
     public async Task BatBuocCoQuyenAsync(
-        string maQuyen, Guid? doiTuongId = null, CancellationToken ct = default)
+        string maQuyen, CancellationToken ct = default)
     {
         if (_nguoiDung.Id is null)
         {
@@ -57,7 +55,7 @@ public sealed class DichVuPhanQuyen : IDichVuPhanQuyen
                 "Vui lòng đăng nhập để sử dụng chức năng này.");
         }
 
-        var duQuyen = await KiemTraQuyenAsync(_nguoiDung.Id.Value, maQuyen, doiTuongId, ct)
+        var duQuyen = await KiemTraQuyenAsync(_nguoiDung.Id.Value, maQuyen, ct)
             .ConfigureAwait(false);
 
         if (!duQuyen)

@@ -110,7 +110,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task<T> LayTheoIdAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXem, ct).ConfigureAwait(false);
 
         var banGhi = await TaoTruyVanChiTiet()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -139,7 +139,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task<T> CapNhatAsync(Guid id, Action<T> apDungThayDoi, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, ct).ConfigureAwait(false);
 
         var banGhi = await BangDuLieu.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                      ?? throw new KhongTimThayException(TenDanhMuc, id);
@@ -156,7 +156,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
     /// <summary>Xoa mem. Chan xoa khi ban ghi dang duoc tham chieu (tra ve HTTP 409).</summary>
     public async Task XoaAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXoa, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXoa, ct).ConfigureAwait(false);
 
         var banGhi = await BangDuLieu.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                      ?? throw new KhongTimThayException(TenDanhMuc, id);
@@ -176,7 +176,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task DoiTrangThaiAsync(Guid id, short trangThai, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, ct).ConfigureAwait(false);
 
         var banGhi = await BangDuLieu.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                      ?? throw new KhongTimThayException(TenDanhMuc, id);

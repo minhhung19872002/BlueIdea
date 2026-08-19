@@ -105,6 +105,66 @@ public sealed class IdorBaoVeTests
             "tac gia phai xem duoc lich su ho so cua minh");
     }
 
+    // ── REQ-23: Cap nhat / Nop / Rut / Hanh dong (TD-005 IDOR scope) ──
+
+    [Fact]
+    public async Task Nguoi_Don_Vi_Khac_Khong_Cap_Nhat_Duoc_Ho_So_Don_Vi_Khac()
+    {
+        var (orgA, hoSoId) = await TaoHoSoCuaOrgAAsync();
+        var orgB = await _ungDung.TaoClientDaDangNhapAsync("bs.tuan");
+
+        var phanHoi = await orgB.PutAsJsonAsync($"/api/v1/sang-kien/{hoSoId}", new
+        {
+            tenSangKien = "IDOR inject"
+        });
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "nguoi dung don vi khac khong duoc cap nhat ho so cua don vi khac");
+    }
+
+    [Fact]
+    public async Task Nguoi_Don_Vi_Khac_Khong_Nop_Duoc_Ho_So_Don_Vi_Khac()
+    {
+        var (orgA, hoSoId) = await TaoHoSoCuaOrgAAsync();
+        var orgB = await _ungDung.TaoClientDaDangNhapAsync("bs.tuan");
+
+        var phanHoi = await orgB.PostAsync(
+            $"/api/v1/sang-kien/{hoSoId}/nop", null);
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "nguoi dung don vi khac khong duoc nop ho so cua don vi khac");
+    }
+
+    [Fact]
+    public async Task Nguoi_Don_Vi_Khac_Khong_Rut_Duoc_Ho_So_Don_Vi_Khac()
+    {
+        var (orgA, hoSoId) = await TaoHoSoCuaOrgAAsync();
+        var orgB = await _ungDung.TaoClientDaDangNhapAsync("bs.tuan");
+
+        var phanHoi = await orgB.PostAsJsonAsync(
+            $"/api/v1/sang-kien/{hoSoId}/rut", new { lyDo = "IDOR test" });
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "nguoi dung don vi khac khong duoc rut ho so cua don vi khac");
+    }
+
+    [Fact]
+    public async Task Nguoi_Don_Vi_Khac_Khong_Xem_Duoc_Hanh_Dong_Ho_So_Don_Vi_Khac()
+    {
+        var (orgA, hoSoId) = await TaoHoSoCuaOrgAAsync();
+        var orgB = await _ungDung.TaoClientDaDangNhapAsync("bs.tuan");
+
+        var phanHoi = await orgB.GetAsync($"/api/v1/sang-kien/{hoSoId}/hanh-dong");
+
+        if (phanHoi.StatusCode == HttpStatusCode.OK)
+        {
+            var noiDung = await phanHoi.Content.ReadFromJsonAsync<JsonElement>();
+            var danhSach = noiDung.GetProperty("duLieu").EnumerateArray().ToList();
+            danhSach.Should().BeEmpty(
+                "nguoi dung don vi khac khong duoc thay hanh dong cua ho so don vi khac");
+        }
+    }
+
     // ── REQ-25: Tep tin — Tai len / Tai xuong / Xem truoc / Xoa ────────
 
     [Fact]

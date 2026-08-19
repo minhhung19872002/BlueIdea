@@ -274,7 +274,7 @@ public sealed class DichVuDanhGia
     public async Task<PhieuDanhGiaDto> LayPhieuChamAsync(
         Guid sangKienId, Guid hoiDongId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaChamDiem, sangKienId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaChamDiem, ct).ConfigureAwait(false);
 
         var thanhVien = await LayThanhVienHienTaiAsync(hoiDongId, ct).ConfigureAwait(false);
         var hoSo = await _db.SangKien.AsNoTracking()
@@ -325,7 +325,7 @@ public sealed class DichVuDanhGia
         PhieuChamDto duLieu, bool guiChinhThuc, CancellationToken ct = default)
     {
         await _phanQuyen
-            .BatBuocCoQuyenAsync(MaQuyen.DanhGiaChamDiem, duLieu.SangKienId, ct)
+            .BatBuocCoQuyenAsync(MaQuyen.DanhGiaChamDiem, ct)
             .ConfigureAwait(false);
 
         var thanhVien = await LayThanhVienHienTaiAsync(duLieu.HoiDongId, ct).ConfigureAwait(false);
@@ -453,7 +453,7 @@ public sealed class DichVuDanhGia
     /// <summary>Thu ky mo lai phieu da gui de thanh vien sua.</summary>
     public async Task MoLaiPhieuAsync(Guid phieuId, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaMoLaiPhieu, phieuId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaMoLaiPhieu, ct).ConfigureAwait(false);
 
         var phieu = await _db.PhieuDanhGia.FirstOrDefaultAsync(x => x.Id == phieuId, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("phiếu đánh giá", phieuId);
@@ -481,7 +481,7 @@ public sealed class DichVuDanhGia
     public async Task<KetQuaTongHopDto> TongHopDiemAsync(
         Guid sangKienId, Guid hoiDongId, Guid? phienHopId = null, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaTongHop, sangKienId, ct).ConfigureAwait(false);
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaTongHop, ct).ConfigureAwait(false);
 
         var boTieuChi = await NapBoTieuChiAsync(sangKienId, hoiDongId, ct).ConfigureAwait(false);
 
