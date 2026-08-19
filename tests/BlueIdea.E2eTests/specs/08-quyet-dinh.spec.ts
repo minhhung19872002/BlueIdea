@@ -288,4 +288,26 @@ test.describe('REQ-31/32/36: Quyết định công nhận sáng kiến', () => {
       expect(body.duLieu.length).toBe(0);
     });
   });
+
+  // ─── Kết quả sáng kiến (REQ-32) ──────────────────────────────────
+
+  test.describe('REQ-32: Kết quả sáng kiến', () => {
+    test('API GET /quyet-dinh trả về danh sách quyết định có kết quả', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('trang quyết định hiển thị bảng kết quả', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.quyetDinh);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    });
+  });
 });

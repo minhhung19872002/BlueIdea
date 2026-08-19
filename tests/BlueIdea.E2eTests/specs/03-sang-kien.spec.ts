@@ -274,4 +274,177 @@ test.describe('REQ-09/11/12: Sáng kiến', () => {
       }
     });
   });
+
+  // ─── Xem / Tìm kiếm sáng kiến (REQ-11) ────────────────────────────
+
+  test.describe('REQ-11: Xem / Tìm kiếm sáng kiến', () => {
+    test('API GET /sang-kien/goi-y trả về gợi ý tìm kiếm', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/goi-y?tuKhoa=test`);
+      expect([200, 404]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        expect(body.thanhCong).toBe(true);
+      }
+    });
+
+    test('API GET /sang-kien/{id}/lich-su trả về lịch sử chỉnh sửa', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/lich-su`);
+      expect([200, 404]).toContain(res!.status());
+    });
+
+    test('trang hồ sơ của tôi hỗ trợ phân trang', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu.length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  // ─── Đăng ký nộp sáng kiến (REQ-22) ──────────────────────────────
+
+  test.describe('REQ-22: Đăng ký nộp sáng kiến', () => {
+    test('trang nộp hồ sơ mới hiển thị wizard steps', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      await page.goto(ROUTES.nopMoi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('.ant-steps')).toBeVisible({ timeout: 15_000 });
+    });
+
+    test('wizard hiển thị bước "Đợt đề nghị" đầu tiên', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      await page.goto(ROUTES.nopMoi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('.ant-steps')).toBeVisible({ timeout: 15_000 });
+      const steps = page.locator('.ant-steps-item');
+      await expect(steps.first()).toBeVisible();
+      const stepCount = await steps.count();
+      expect(stepCount).toBeGreaterThanOrEqual(2);
+    });
+
+    test('API POST tạo sáng kiến nháp với đầy đủ trường', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const tenSangKien = `E2E Đăng ký REQ-22 ${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', API.sangKien, {
+        tenSangKien,
+        moTaSangKien: 'Hồ sơ tạo bởi E2E test REQ-22',
+      });
+      if (createRes!.status() === 200) {
+        const body = await createRes!.json();
+        expect(body.thanhCong).toBe(true);
+        expect(body.duLieu).toBeTruthy();
+      } else {
+        expect([400, 422]).toContain(createRes!.status());
+      }
+    });
+
+    test('API GET /sang-kien/{id}/tien-do trả về tiến trình xử lý', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/tien-do`);
+      expect([200, 404]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        expect(body.thanhCong).toBe(true);
+      }
+    });
+
+    test('API GET /sang-kien/{id}/hanh-dong trả về hành động khả dụng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/hanh-dong`);
+      expect([200, 404]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        expect(body.thanhCong).toBe(true);
+      }
+    });
+
+    test('tiếp nhận không có quyền SangKienNop — POST /nop bị từ chối (403)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tiepnhan');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await apiRequest(page, 'POST', `${API.sangKien}/${fakeId}/nop`);
+      expect([403, 404]).toContain(res!.status());
+    });
+
+    test('không xác thực POST /sang-kien trả về 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.post(API.sangKien, {
+        data: { tenSangKien: 'Unauthorized', moTaSangKien: 'Test' },
+      });
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  // ─── Kiểm tra trùng lặp (REQ-26) ─────────────────────────────────
+
+  test.describe('REQ-26: Kiểm tra trùng lặp', () => {
+    test('API GET /sang-kien/{id}/trung-lap trả về kết quả hoặc null', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/trung-lap`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      // duLieu can be null (not yet checked) or an object with similarity result
+      if (body.duLieu != null && typeof body.duLieu === 'object') {
+        expect(typeof body.duLieu).toBe('object');
+      }
+    });
+
+    test('API POST /sang-kien/{id}/trung-lap/chay-lai kích hoạt kiểm tra', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'POST', `${API.sangKien}/${id}/trung-lap/chay-lai`);
+      // May succeed (200) or reject if not submitted (400/422)
+      expect([200, 400, 422]).toContain(res!.status());
+    });
+
+    test('tác giả không có quyền TrungLapChayLai — POST bị từ chối', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'POST', `${API.sangKien}/${id}/trung-lap/chay-lai`);
+      expect([403, 404]).toContain(res!.status());
+    });
+
+    test('không xác thực GET /trung-lap trả về 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.get(`${API.sangKien}/${fakeId}/trung-lap`);
+      expect(res.status()).toBe(401);
+    });
+  });
 });

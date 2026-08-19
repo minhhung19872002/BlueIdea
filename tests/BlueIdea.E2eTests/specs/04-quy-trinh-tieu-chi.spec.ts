@@ -229,4 +229,119 @@ test.describe('REQ-10 & REQ-14: Quy trình và Tiêu chí chấm điểm', () =>
       await expect(page.locator('body')).toBeVisible();
     });
   });
+
+  // ─── Tác nhân xử lý (REQ-15) ─────────────────────────────────────
+
+  test.describe('REQ-15: Tác nhân xử lý', () => {
+    test('API GET /quy-trinh/{id}/so-do chứa thông tin tác nhân', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu quy trình');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeTruthy();
+    });
+
+    test('sơ đồ quy trình có các bước với cấu hình tác nhân', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu quy trình');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+      const body = await res!.json();
+      const soDo = body.duLieu;
+      if (soDo.cacBuoc && soDo.cacBuoc.length > 0) {
+        const buoc = soDo.cacBuoc[0];
+        expect(buoc).toHaveProperty('id');
+        expect(buoc).toHaveProperty('ten');
+      }
+    });
+
+    test('tác giả không có QuyTrinhXem — GET sơ đồ bị từ chối (403)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/00000000-0000-0000-0000-000000000000/so-do`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET /quy-trinh/{id}/so-do trả về 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.quyTrinh}/00000000-0000-0000-0000-000000000000/so-do`);
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  // ─── Cấu hình liên thông (REQ-16) ────────────────────────────────
+
+  test.describe('REQ-16: Cấu hình liên thông', () => {
+    test('trang liên thông hệ thống tải không lỗi', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.lienThong);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    });
+
+    test('API GET /tich-hop/he-thong trả về danh sách hệ thống liên thông', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tichHop}/he-thong`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API GET /quy-trinh/{id}/lien-thong trả về cấu hình liên thông bước', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu quy trình');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/lien-thong`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API GET /tich-hop/nhat-ky-dong-bo trả về nhật ký đồng bộ', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tichHop}/nhat-ky-dong-bo`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('tác giả không có TichHopCauHinh — GET hệ thống bị từ chối (403)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.tichHop}/he-thong`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET /tich-hop/he-thong trả về 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.tichHop}/he-thong`);
+      expect(res.status()).toBe(401);
+    });
+  });
 });

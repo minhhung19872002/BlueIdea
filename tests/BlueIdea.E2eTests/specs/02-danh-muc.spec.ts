@@ -392,4 +392,149 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       await expect(page.locator('table')).toBeVisible();
     });
   });
+
+  // ─── Đơn vị phê duyệt (REQ-05) ──────────────────────────────────
+
+  test.describe('REQ-05: Đơn vị phê duyệt', () => {
+    test('trang đơn vị tải không lỗi và hiển thị cây', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.donVi);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('.ant-tree')).toBeVisible({ timeout: 15_000 });
+    });
+
+    test('API GET /don-vi/cay trả về cây đơn vị', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.donVi}/cay`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeGreaterThan(0);
+    });
+
+    test('API GET /don-vi phân trang', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(typeof body.tongSo).toBe('number');
+      expect(body.duLieu.length).toBeLessThanOrEqual(5);
+    });
+
+    test('API GET /don-vi/chon trả về danh sách cho dropdown', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.donVi}/chon`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API POST tạo + GET xác nhận + DELETE xóa đơn vị', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_DV_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', API.donVi, {
+        ma,
+        ten: 'Đơn vị E2E test',
+        moTa: 'Tạo bởi E2E',
+        thuTu: 999,
+        trangThai: 1,
+        loai: 'DON_VI',
+        laDonViPheDuyet: false,
+      });
+      expect(createRes!.status()).toBe(200);
+      const createBody = await createRes!.json();
+      expect(createBody.thanhCong).toBe(true);
+      const id = createBody.duLieu.id;
+      expect(id).toBeTruthy();
+
+      const getRes = await apiRequest(page, 'GET', `${API.donVi}/${id}`);
+      expect(getRes!.status()).toBe(200);
+      const getBody = await getRes!.json();
+      expect(getBody.duLieu.ma).toBe(ma);
+      expect(getBody.duLieu.ten).toBe('Đơn vị E2E test');
+
+      const delRes = await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+      expect(delRes!.status()).toBe(200);
+    });
+
+    test('API PUT cập nhật đơn vị', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_DV_UPD_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', API.donVi, {
+        ma,
+        ten: 'Đơn vị ban đầu',
+        thuTu: 0,
+        trangThai: 1,
+        loai: 'DON_VI',
+        laDonViPheDuyet: false,
+      });
+      expect(createRes!.status()).toBe(200);
+      const id = (await createRes!.json()).duLieu.id;
+
+      const updateRes = await apiRequest(page, 'PUT', `${API.donVi}/${id}`, {
+        ma,
+        ten: 'Đơn vị đã cập nhật',
+        thuTu: 1,
+        trangThai: 1,
+        loai: 'DON_VI',
+        laDonViPheDuyet: true,
+        capPheDuyet: 'CO_SO',
+      });
+      expect(updateRes!.status()).toBe(200);
+
+      const getRes = await apiRequest(page, 'GET', `${API.donVi}/${id}`);
+      const body = await getRes!.json();
+      expect(body.duLieu.ten).toBe('Đơn vị đã cập nhật');
+      expect(body.duLieu.laDonViPheDuyet).toBe(true);
+
+      await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+    });
+
+    test('trang cấp phê duyệt tải không lỗi', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      await page.goto(ROUTES.capPheDuyet);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+    });
+
+    test('API GET /cap-phe-duyet trả về danh sách', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', '/api/v1/cap-phe-duyet');
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('tác giả không có quyền tạo đơn vị — 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', API.donVi, {
+        ma: 'KHONG_DUOC',
+        ten: 'Unauthorized',
+        thuTu: 0,
+        trangThai: 1,
+        loai: 'DON_VI',
+        laDonViPheDuyet: false,
+      });
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET /don-vi trả về 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.donVi}?trang=1&soDong=5`);
+      expect(res.status()).toBe(401);
+    });
+  });
 });
