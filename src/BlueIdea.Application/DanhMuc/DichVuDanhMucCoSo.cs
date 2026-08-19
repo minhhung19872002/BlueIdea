@@ -62,6 +62,11 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
     /// <summary>Ten hien thi cua danh muc - dung trong thong bao loi.</summary>
     protected abstract string TenDanhMuc { get; }
 
+    protected virtual string QuyenXem => MaQuyen.DanhMucXem;
+    protected virtual string QuyenThem => MaQuyen.DanhMucThem;
+    protected virtual string QuyenSua => MaQuyen.DanhMucSua;
+    protected virtual string QuyenXoa => MaQuyen.DanhMucXoa;
+
     /// <summary>Liet ke cac noi dang tham chieu toi ban ghi (de chan xoa).</summary>
     protected virtual Task<IReadOnlyList<NoiThamChieu>> LayNoiThamChieuAsync(Guid id, CancellationToken ct)
         => Task.FromResult<IReadOnlyList<NoiThamChieu>>(Array.Empty<NoiThamChieu>());
@@ -71,7 +76,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
     public virtual async Task<PagedResult<DanhMucDto>> LayDanhSachAsync(
         ThamSoLocDanhMuc thamSo, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, ct: ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXem, ct: ct).ConfigureAwait(false);
 
         var truyVan = TaoTruyVanCoSo();
 
@@ -105,7 +110,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task<T> LayTheoIdAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXem, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXem, id, ct).ConfigureAwait(false);
 
         var banGhi = await TaoTruyVanChiTiet()
             .FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -116,7 +121,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task<T> ThemAsync(T banGhi, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucThem, ct: ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenThem, ct: ct).ConfigureAwait(false);
         await BatBuocMaChuaTonTaiAsync(banGhi.Ma, null, ct).ConfigureAwait(false);
 
         banGhi.Id = banGhi.Id == Guid.Empty ? Guid.NewGuid() : banGhi.Id;
@@ -134,7 +139,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task<T> CapNhatAsync(Guid id, Action<T> apDungThayDoi, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucSua, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, id, ct).ConfigureAwait(false);
 
         var banGhi = await BangDuLieu.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                      ?? throw new KhongTimThayException(TenDanhMuc, id);
@@ -151,7 +156,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
     /// <summary>Xoa mem. Chan xoa khi ban ghi dang duoc tham chieu (tra ve HTTP 409).</summary>
     public async Task XoaAsync(Guid id, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucXoa, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenXoa, id, ct).ConfigureAwait(false);
 
         var banGhi = await BangDuLieu.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                      ?? throw new KhongTimThayException(TenDanhMuc, id);
@@ -171,7 +176,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
 
     public async Task DoiTrangThaiAsync(Guid id, short trangThai, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucSua, id, ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, id, ct).ConfigureAwait(false);
 
         var banGhi = await BangDuLieu.FirstOrDefaultAsync(x => x.Id == id, ct).ConfigureAwait(false)
                      ?? throw new KhongTimThayException(TenDanhMuc, id);
@@ -183,7 +188,7 @@ public abstract class DichVuDanhMucCoSo<T> where T : ThucTheDanhMuc
     /// <summary>Doi thu tu hien thi hang loat (keo tha tren UI).</summary>
     public async Task SapXepAsync(IReadOnlyList<Guid> thuTuMoi, CancellationToken ct = default)
     {
-        await PhanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhMucSua, ct: ct).ConfigureAwait(false);
+        await PhanQuyen.BatBuocCoQuyenAsync(QuyenSua, ct: ct).ConfigureAwait(false);
 
         var banGhis = await BangDuLieu
             .Where(x => thuTuMoi.Contains(x.Id))

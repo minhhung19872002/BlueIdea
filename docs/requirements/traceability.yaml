@@ -100,7 +100,6 @@ requirements:
         - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
       - "No test for tree-path auto-calculation or data scope enforcement"
-      - "DonViController dual-permission gate: DonViXem at controller vs DanhMucXem at service (MEDIUM)"
     notes:
       - "Run-002-B17: Authorization gap closed — ChuyenCha/Gop now require DonViCauHinh at service + controller level"
 
@@ -737,6 +736,7 @@ requirements:
       - "Run-002-B17 SEC HIGH: ChuyenChaAsync/GopAsync now require DonViCauHinh permission"
       - "Run-002-B17: DonViController defense-in-depth — DonViXem for reads, DonViCauHinh for mutations"
       - "Run-002-P0-B19 SEC MEDIUM: ChuyenChaAsync/GopAsync org-scope enforcement added — BatBuocDonViTrongPhamViAsync checks both source and target unit IDs against caller's PhamViTruyCap. ToanHeThong bypasses, ChiCaNhan/out-of-scope throws KhongTimThayException. 6 unit tests."
+      - "Run-002-P0-B20 SEC MEDIUM: Dual-permission gate fixed — DichVuDanhMucCoSo now exposes virtual QuyenXem/QuyenThem/QuyenSua/QuyenXoa properties (default DANH_MUC.*). DichVuDonVi overrides to DON_VI.XEM and DON_VI.CAU_HINH, aligning service-layer checks with controller-level [Authorize(Policy)] attributes. Previously users needed both DANH_MUC.* and DON_VI.* permissions. 5 unit tests verify permission alignment."
 
   - id: REQ-45
     source_number: 45

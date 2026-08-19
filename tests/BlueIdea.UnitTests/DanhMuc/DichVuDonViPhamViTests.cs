@@ -1,6 +1,9 @@
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhMuc;
+using BlueIdea.Domain.Chung;
+using BlueIdea.Domain.DanhMuc;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace BlueIdea.UnitTests.DanhMuc;
 
@@ -23,6 +26,80 @@ public sealed class DichVuDonViPhamViTests
             .Returns(phamVi);
 
         return new DichVuDonVi(db, phanQuyen, dongHo, nguoiDung);
+    }
+
+    private static (DichVuDonVi dichVu, IDichVuPhanQuyen phanQuyen) TaoDichVuChanQuyen()
+    {
+        var db = Substitute.For<IAppDbContext>();
+        var phanQuyen = Substitute.For<IDichVuPhanQuyen>();
+        var dongHo = Substitute.For<IDongHoHeThong>();
+        var nguoiDung = Substitute.For<INguoiDungHienTai>();
+
+        phanQuyen.BatBuocCoQuyenAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(ci => new KhongCoQuyenException(ci.Arg<string>()));
+
+        var dichVu = new DichVuDonVi(db, phanQuyen, dongHo, nguoiDung);
+        return (dichVu, phanQuyen);
+    }
+
+    [Fact]
+    public async Task LayDanhSach_KiemTraQuyenDonViXem_KhongDanhMucXem()
+    {
+        var (dichVu, phanQuyen) = TaoDichVuChanQuyen();
+
+        await Assert.ThrowsAsync<KhongCoQuyenException>(
+            () => dichVu.LayDanhSachAsync(new ThamSoLocDanhMuc()));
+
+        await phanQuyen.Received(1).BatBuocCoQuyenAsync(
+            MaQuyen.DonViXem, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LayTheoId_KiemTraQuyenDonViXem_KhongDanhMucXem()
+    {
+        var (dichVu, phanQuyen) = TaoDichVuChanQuyen();
+
+        await Assert.ThrowsAsync<KhongCoQuyenException>(
+            () => dichVu.LayTheoIdAsync(DonViA));
+
+        await phanQuyen.Received(1).BatBuocCoQuyenAsync(
+            MaQuyen.DonViXem, DonViA, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Them_KiemTraQuyenDonViCauHinh_KhongDanhMucThem()
+    {
+        var (dichVu, phanQuyen) = TaoDichVuChanQuyen();
+
+        await Assert.ThrowsAsync<KhongCoQuyenException>(
+            () => dichVu.ThemAsync(new DonVi()));
+
+        await phanQuyen.Received(1).BatBuocCoQuyenAsync(
+            MaQuyen.DonViCauHinh, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CapNhat_KiemTraQuyenDonViCauHinh_KhongDanhMucSua()
+    {
+        var (dichVu, phanQuyen) = TaoDichVuChanQuyen();
+
+        await Assert.ThrowsAsync<KhongCoQuyenException>(
+            () => dichVu.CapNhatAsync(DonViA, _ => { }));
+
+        await phanQuyen.Received(1).BatBuocCoQuyenAsync(
+            MaQuyen.DonViCauHinh, DonViA, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Xoa_KiemTraQuyenDonViCauHinh_KhongDanhMucXoa()
+    {
+        var (dichVu, phanQuyen) = TaoDichVuChanQuyen();
+
+        await Assert.ThrowsAsync<KhongCoQuyenException>(
+            () => dichVu.XoaAsync(DonViA));
+
+        await phanQuyen.Received(1).BatBuocCoQuyenAsync(
+            MaQuyen.DonViCauHinh, DonViA, Arg.Any<CancellationToken>());
     }
 
     [Fact]

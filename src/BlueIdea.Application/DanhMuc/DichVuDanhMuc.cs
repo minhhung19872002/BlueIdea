@@ -162,6 +162,11 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
 
     protected override string TenDanhMuc => "Đơn vị";
 
+    protected override string QuyenXem => MaQuyen.DonViXem;
+    protected override string QuyenThem => MaQuyen.DonViCauHinh;
+    protected override string QuyenSua => MaQuyen.DonViCauHinh;
+    protected override string QuyenXoa => MaQuyen.DonViCauHinh;
+
     public async Task<IReadOnlyList<NutCay>> LayCayAsync(CancellationToken ct = default)
     {
         var tatCa = await Db.DonVi.AsNoTracking()
