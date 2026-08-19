@@ -12,14 +12,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Load ONNX sentence-transformer model via `IBoNhungVanBan`. Architecture supports this without code changes.
 **Priority**: Medium (lexical matching still catches most cases)
 
-### TD-002: No Frontend Automated Tests
-
-**Area**: Testing
-**Description**: No Vitest unit tests or Playwright E2E tests exist for the frontend. Verification is currently manual + backend integration tests.
-**Impact**: Frontend regressions may go undetected until manual testing.
-**Resolution**: Add Vitest for component logic and Playwright for critical user flows.
-**Priority**: Medium
-
 ### TD-003: No Monitoring/Alerting
 
 **Area**: Operations
@@ -37,6 +29,12 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Priority**: Low (not an issue at current scale)
 
 ## Resolved Items
+
+### TD-002: No Frontend Automated Tests (RESOLVED)
+
+**Resolved by**: Iterations 31-35
+**Resolution**: 337 Playwright E2E tests across 14 spec files covering all non-blocked requirements. Tests run across 4 viewports (320px-1280px), cover authentication, catalogs, workflow, scoring, councils, submissions, processing, decisions, evaluation, search, reports, mobile responsive, and full lifecycle flows. REQ-41 (SSO/IOC) remains BLOCKED_EXTERNAL — not a test gap.
+**Commit**: 9ff38fd
 
 ### TD-005: DoiTuongId Discarded in KiemTraQuyenAsync (RESOLVED)
 

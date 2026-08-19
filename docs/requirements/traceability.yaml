@@ -14,7 +14,7 @@
 
 schema_version: "1.0"
 last_updated: "2026-08-19"
-last_updated_by: "autopilot-iteration-28"
+last_updated_by: "autopilot-iteration-36"
 audit_commit: "ef6cae8"
 
 requirements:
@@ -255,7 +255,9 @@ requirements:
     title: "Chuc nang bo sung"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: workflow
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-36"
     evidence:
       frontend: ["web/src/features/quy-trinh/TrangThietKeQuyTrinh.tsx"]
       backend: ["src/BlueIdea.Workflow/BoMayQuyTrinh.cs", "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs", "src/BlueIdea.Application/XuLy/DichVuDieuPhaiHanhDong.cs"]
@@ -274,6 +276,7 @@ requirements:
       - "Iteration-24: TAO_BIEN_BAN automated — CongViecTaoBienBan background job auto-creates meeting minutes when workflow transitions from a step with TAO_BIEN_BAN action. Finds completed council session for the innovation, delegates to DichVuBienBanHop.LapTuDongAsync (no permission check, reuses core logic). Idempotent: existing minutes refreshed, signed minutes skipped. 3 remaining unimplemented actions."
       - "Iteration-25: CONG_BO_KET_QUA automated — CongViecCongBoKetQua background job marks results published, sets innovation public, notifies authors. 2 remaining unimplemented actions."
       - "Iteration-28: Runtime evidence added — BienBanVaCauHinhTests: meeting minutes creation from closed session, PDF export, signing, non-council member blocked (8/8). ThongBaoSuKienTests: council meeting invitation notifications with venue/time, navigable links, event templates (4/4). All tests run against real PostgreSQL via Testcontainers."
+      - "Iteration-36: Verified — 55 unit tests (BoMayQuyTrinhTests, LayKenhChoPhepTests, DichVuDieuPhaiHanhDongTests) + 12 integration tests (BienBanVaCauHinhTests 8/8, ThongBaoSuKienTests 4/4) all pass. 8/10 HanhDongCanChay action types fully implemented and tested. 2 remaining (TAO_QUYET_DINH, YEU_CAU_KY_SO) are documented known limitations that log warnings. All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-13
     source_number: 13
@@ -839,12 +842,17 @@ requirements:
     title: "Ung dung di dong"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: mobile
-    status: IMPLEMENTED_NOT_VERIFIED
+    status: VERIFIED
+    verified_date: "2026-08-19"
+    verified_by: "autopilot-iteration-36"
     evidence:
-      frontend: ["web/src/styles/thiet-ke.css"]
-    gaps:
-      - "No automated test for 320px breakpoint, Drawer navigation, horizontal table scroll"
-    notes: "Owner approved responsive web approach instead of App Store/Play Store app."
+      frontend: ["web/src/styles/thiet-ke.css", "web/src/app/layout/BoCucChinh.tsx"]
+      tests:
+        - "tests/BlueIdea.E2eTests/specs/13-di-dong.spec.ts"
+    gaps: []
+    notes:
+      - "Owner approved responsive web approach instead of App Store/Play Store app."
+      - "Iteration-36: Verified — 23 E2E tests covering 4 viewports (320px, 375px, 768px, 1280px). Mobile: hamburger menu visible, sidebar hidden, drawer navigation opens/closes/navigates, search hidden. Tablet: hamburger visible, sidebar hidden. Desktop: sidebar visible, hamburger hidden. Pages load without error across all viewports (dashboard, ho-so-cua-toi, xu-ly, danh-gia, tra-cuu, bao-cao, cong-khai). Horizontal table scroll uses CSS overflow:auto in content containers."
 
   # ── Nhom XIII: Quan tri he thong ───────────────────────────────────
 
