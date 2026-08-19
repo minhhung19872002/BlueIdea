@@ -265,7 +265,34 @@ public sealed class LayHanhDongKhaDungQueryHandler
 
             var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
             if (!laTacGia && !trongDonVi)
-                return Array.Empty<HanhDongKhaDung>();
+            {
+                var thanhVienIds = await _db.HoiDongThanhVien.AsNoTracking()
+                    .Where(x => x.NguoiDungId == _nguoiDung.Id.Value
+                                && x.TrangThai == TrangThaiDanhMuc.HoatDong)
+                    .Select(x => new { x.Id, x.HoiDongId })
+                    .ToListAsync(ct)
+                    .ConfigureAwait(false);
+
+                if (thanhVienIds.Count == 0)
+                    return Array.Empty<HanhDongKhaDung>();
+
+                var duocPhanCong = await _db.SangKienPhanCong.AsNoTracking()
+                    .AnyAsync(x => x.SangKienId == request.SangKienId
+                                   && thanhVienIds.Select(tv => tv.Id).Contains(x.ThanhVienId), ct)
+                    .ConfigureAwait(false);
+
+                if (!duocPhanCong)
+                {
+                    var hoiDongIds = thanhVienIds.Select(tv => tv.HoiDongId).ToList();
+                    var hoSoTrongPhienHop = await _db.PhienHopHoSo.AsNoTracking()
+                        .AnyAsync(x => x.SangKienId == request.SangKienId
+                                       && hoiDongIds.Contains(x.PhienHop!.HoiDongId), ct)
+                        .ConfigureAwait(false);
+
+                    if (!hoSoTrongPhienHop)
+                        return Array.Empty<HanhDongKhaDung>();
+                }
+            }
         }
 
         return await _engine
