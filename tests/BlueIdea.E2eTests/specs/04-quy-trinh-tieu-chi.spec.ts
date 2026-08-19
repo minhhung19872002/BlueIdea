@@ -344,4 +344,168 @@ test.describe('REQ-10 & REQ-14: Quy trình và Tiêu chí chấm điểm', () =>
       expect(res.status()).toBe(401);
     });
   });
+
+  // ─── REQ-14: Tiêu chí — phân trang và chi tiết bổ sung ──────────
+
+  test.describe('REQ-14: Tiêu chí — phân trang và chi tiết bổ sung', () => {
+    test('GET tiêu chí với soDong=2 — trả về tối đa 2 dòng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=2`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(2);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('tiêu chí chi tiết có trường id và ten', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu tiêu chí');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}/${id}`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toHaveProperty('id');
+      expect(body.duLieu).toHaveProperty('ten');
+    });
+
+    test('GET /tieu-chi với trang=9999 — trả về danh sách rỗng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=9999&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBe(0);
+    });
+
+    test('GET /tieu-chi — trường tongSo là số không âm', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.tongSo).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ─── REQ-15: Tác nhân xử lý — chi tiết và CRUD bổ sung ──────────
+
+  test.describe('REQ-15: Tác nhân xử lý — chi tiết và CRUD bổ sung', () => {
+    test('GET chi tiết quy trình — có mảng bước (cacBuoc hoặc buoc)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu quy trình');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      const duLieu = body.duLieu as Record<string, unknown>;
+      expect(duLieu).toBeTruthy();
+      const steps = (duLieu['danhSachBuoc']) as unknown[];
+      expect(steps).toBeInstanceOf(Array);
+    });
+
+    test('bước quy trình có trường id và ten', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu quy trình');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}`);
+      const body = await res!.json();
+      const duLieu = body.duLieu as Record<string, unknown>;
+      const steps = (duLieu['danhSachBuoc']) as unknown[];
+      if (!steps || steps.length === 0) {
+        test.skip(true, 'Quy trình không có bước nào');
+        return;
+      }
+      const step = steps[0] as Record<string, unknown>;
+      expect(step).toHaveProperty('id');
+      expect(step).toHaveProperty('ten');
+    });
+
+    test('POST /quy-trinh/{id}/sao-chep — tạo bản sao với id mới', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có dữ liệu mẫu quy trình');
+        return;
+      }
+      const id: string = listBody.duLieu[0].id;
+      const res = await apiRequest(page, 'POST', `${API.quyTrinh}/${id}/sao-chep`, {
+        ma: `E2E_CLONE_${Date.now()}`,
+        ten: `Bản sao E2E ${Date.now()}`,
+      });
+      expect([200, 201]).toContain(res!.status());
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeTruthy();
+    });
+
+    test('GET /quy-trinh với soDong=2 — phân trang trả về đúng số dòng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=2`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(2);
+      expect(typeof body.tongSo).toBe('number');
+    });
+  });
+
+  // ─── REQ-16: Cấu hình liên thông — cấu trúc bổ sung ─────────────
+
+  test.describe('REQ-16: Cấu hình liên thông — cấu trúc bổ sung', () => {
+    test('GET /tich-hop/nhat-ky-dong-bo — có trường duLieu là mảng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tichHop}/nhat-ky-dong-bo?trang=1&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('GET /tich-hop/he-thong — phần tử có trường ten (nếu có dữ liệu)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.tichHop}/he-thong`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      const items = body.duLieu as unknown[];
+      if (items.length > 0) {
+        const item = items[0] as Record<string, unknown>;
+        expect(item).toHaveProperty('ten');
+      }
+    });
+
+    test('qtdonvi không có TichHopCauHinh — GET hệ thống bị từ chối (403)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'qtdonvi');
+      const res = await apiRequest(page, 'GET', `${API.tichHop}/he-thong`);
+      expect(res!.status()).toBe(403);
+    });
+  });
 });

@@ -181,6 +181,44 @@ test.describe('REQ-28: Danh sách hồ sơ', () => {
       const body = await res!.json();
       expect(body.duLieu).toBeInstanceOf(Array);
     });
+
+    test('GET /sang-kien với soDong=2 trả về tối đa 2 mục', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=2`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(2);
+    });
+
+    test('GET /sang-kien response item có trường tenSangKien', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      if (body.duLieu.length > 0) {
+        const item = body.duLieu[0] as Record<string, unknown>;
+        expect(typeof item['tenSangKien']).toBe('string');
+      }
+    });
+
+    test('thuky GET /sang-kien danh sách — 200 và có tongSo', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('GET /sang-kien không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.sangKien}?trang=1&soDong=5`);
+      expect(res.status()).toBe(401);
+    });
   });
 });
 
@@ -323,6 +361,46 @@ test.describe('REQ-30: Theo dõi hồ sơ', () => {
       await loginViaAPI(page, 'admin');
       const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=0`);
       expect([200, 400, 422]).toContain(res!.status());
+    });
+
+    test('tacgia1 GET /sang-kien/{id}/tien-do của đơn của mình — 200 hoặc 404', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = (listBody.duLieu[0] as { id: string }).id;
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/tien-do`);
+      expect([200, 404]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        expect(body.thanhCong).toBe(true);
+      }
+    });
+
+    test('GET /sang-kien/{id}/lich-su không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.get(`${API.sangKien}/${fakeId}/lich-su`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('thuky GET /sang-kien/{id}/tien-do — 200 hoặc 404', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) return;
+      const id: string = (listBody.duLieu[0] as { id: string }).id;
+      const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/tien-do`);
+      expect([200, 404]).toContain(res!.status());
+    });
+
+    test('GET /sang-kien/{id}/hanh-dong không xác thực → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000000';
+      const res = await page.request.get(`${API.sangKien}/${fakeId}/hanh-dong`);
+      expect(res.status()).toBe(401);
     });
   });
 });

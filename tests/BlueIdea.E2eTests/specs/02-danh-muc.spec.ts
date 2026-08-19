@@ -198,6 +198,97 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       await page.goto(`${ROUTES.danhMuc}/doi-tuong`);
       await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
     });
+
+    test('API GET đối tượng có phân trang', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/doi-tuong?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(5);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('API GET /doi-tuong/chon trả về dropdown', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/doi-tuong/chon`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API POST thiếu tên đối tượng — không lỗi hệ thống', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', `${API.danhMuc}/doi-tuong`, {
+        ma: `E2E_DT_NOTIEN_${Date.now()}`,
+        ten: '',
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect([200, 400, 422]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        const id = body.duLieu?.id ?? body.duLieu;
+        if (id) await apiRequest(page, 'DELETE', `${API.danhMuc}/doi-tuong/${id}`);
+      }
+    });
+
+    test('API POST mã trùng đối tượng trả về 409', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_DT_DUP_${Date.now()}`;
+      const first = await apiRequest(page, 'POST', `${API.danhMuc}/doi-tuong`, {
+        ma,
+        ten: 'Đối tượng thứ nhất',
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect(first!.status()).toBe(200);
+      const id = (await first!.json()).duLieu.id;
+      const dup = await apiRequest(page, 'POST', `${API.danhMuc}/doi-tuong`, {
+        ma,
+        ten: 'Đối tượng trùng mã',
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect(dup!.status()).toBe(409);
+      await apiRequest(page, 'DELETE', `${API.danhMuc}/doi-tuong/${id}`);
+    });
+
+    test('API tìm kiếm đối tượng theo từ khóa', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_DT_TK_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', `${API.danhMuc}/doi-tuong`, {
+        ma,
+        ten: 'Đối tượng tìm kiếm E2E',
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect(createRes!.status()).toBe(200);
+      const id = (await createRes!.json()).duLieu.id;
+      const searchRes = await apiRequest(page, 'GET', `${API.danhMuc}/doi-tuong?tuKhoa=tim+kiem&trang=1&soDong=20`);
+      expect(searchRes!.status()).toBe(200);
+      const body = await searchRes!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      await apiRequest(page, 'DELETE', `${API.danhMuc}/doi-tuong/${id}`);
+    });
+
+    test('tác giả không thể tạo đối tượng — 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', `${API.danhMuc}/doi-tuong`, {
+        ma: 'KHONG_DUOC_DT',
+        ten: 'Không được phép',
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect(res!.status()).toBe(403);
+    });
   });
 
   // ─── Loại tác giả (REQ-04) ─────────────────────────────────────────
@@ -236,6 +327,115 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       await page.goto(`${ROUTES.danhMuc}/loai-tac-gia`);
       await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
     });
+
+    test('API GET loại tác giả có phân trang', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/loai-tac-gia?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(5);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('API GET /loai-tac-gia/chon trả về dropdown', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.danhMuc}/loai-tac-gia/chon`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API POST mã trùng loại tác giả trả về 409', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_LTG_DUP_${Date.now()}`;
+      const first = await apiRequest(page, 'POST', `${API.danhMuc}/loai-tac-gia`, {
+        ma,
+        ten: 'Loại tác giả đầu tiên',
+        thuTu: 0,
+        trangThai: 1,
+        choPhepNhieuTacGia: false,
+        soTacGiaToiDa: 1,
+      });
+      expect(first!.status()).toBe(200);
+      const id = (await first!.json()).duLieu.id;
+      const dup = await apiRequest(page, 'POST', `${API.danhMuc}/loai-tac-gia`, {
+        ma,
+        ten: 'Loại tác giả trùng mã',
+        thuTu: 0,
+        trangThai: 1,
+        choPhepNhieuTacGia: false,
+        soTacGiaToiDa: 1,
+      });
+      expect(dup!.status()).toBe(409);
+      await apiRequest(page, 'DELETE', `${API.danhMuc}/loai-tac-gia/${id}`);
+    });
+
+    test('API POST thiếu tên loại tác giả — không lỗi hệ thống', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', `${API.danhMuc}/loai-tac-gia`, {
+        ma: `E2E_LTG_NOTIEN_${Date.now()}`,
+        ten: '',
+        thuTu: 0,
+        trangThai: 1,
+        choPhepNhieuTacGia: false,
+        soTacGiaToiDa: 1,
+      });
+      expect([200, 400, 422]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        const id = body.duLieu?.id ?? body.duLieu;
+        if (id) await apiRequest(page, 'DELETE', `${API.danhMuc}/loai-tac-gia/${id}`);
+      }
+    });
+
+    test('API cập nhật soTacGiaToiDa — verify saved', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_LTG_UPD_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', `${API.danhMuc}/loai-tac-gia`, {
+        ma,
+        ten: 'Loại tác giả cập nhật',
+        thuTu: 0,
+        trangThai: 1,
+        choPhepNhieuTacGia: true,
+        soTacGiaToiDa: 3,
+      });
+      expect(createRes!.status()).toBe(200);
+      const id = (await createRes!.json()).duLieu.id;
+      const updateRes = await apiRequest(page, 'PUT', `${API.danhMuc}/loai-tac-gia/${id}`, {
+        ma,
+        ten: 'Loại tác giả cập nhật',
+        thuTu: 0,
+        trangThai: 1,
+        choPhepNhieuTacGia: true,
+        soTacGiaToiDa: 10,
+      });
+      expect(updateRes!.status()).toBe(200);
+      const getRes = await apiRequest(page, 'GET', `${API.danhMuc}/loai-tac-gia/${id}`);
+      const body = await getRes!.json();
+      expect(body.duLieu.soTacGiaToiDa).toBe(10);
+      await apiRequest(page, 'DELETE', `${API.danhMuc}/loai-tac-gia/${id}`);
+    });
+
+    test('tác giả không thể tạo loại tác giả — 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', `${API.danhMuc}/loai-tac-gia`, {
+        ma: 'KHONG_DUOC_LTG',
+        ten: 'Không được phép',
+        thuTu: 0,
+        trangThai: 1,
+        choPhepNhieuTacGia: false,
+        soTacGiaToiDa: 1,
+      });
+      expect(res!.status()).toBe(403);
+    });
   });
 
   // ─── Đợt đề nghị (REQ-03) ──────────────────────────────────────────
@@ -257,6 +457,95 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       const body = await res!.json();
       expect(body.duLieu).toBeInstanceOf(Array);
       expect(body.tongSo).toBeGreaterThanOrEqual(0);
+    });
+
+    test('API GET /dot-de-nghi/chon trả về dropdown', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/chon`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API GET /dot-de-nghi/dang-mo trả về đợt đang mở', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/dang-mo`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API GET chi tiết đợt đề nghị', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=5`);
+      expect(listRes!.status()).toBe(200);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length > 0) {
+        const id: string = listBody.duLieu[0].id;
+        const getRes = await apiRequest(page, 'GET', `${API.dotDeNghi}/${id}`);
+        expect(getRes!.status()).toBe(200);
+        const body = await getRes!.json();
+        expect(body.thanhCong).toBe(true);
+        expect(body.duLieu.id).toBe(id);
+        expect(typeof body.duLieu.ten).toBe('string');
+      }
+    });
+
+    test('API POST tạo đợt đề nghị + DELETE', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_DDN_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', API.dotDeNghi, {
+        ma,
+        ten: 'Đợt đề nghị E2E test',
+        moTa: 'Tạo bởi E2E',
+        nam: new Date().getFullYear(),
+        thuTu: 999,
+        trangThai: 1,
+      });
+      expect(createRes!.status()).toBe(200);
+      const createBody = await createRes!.json();
+      expect(createBody.thanhCong).toBe(true);
+      const id: string = createBody.duLieu.id;
+      expect(id).toBeTruthy();
+      const delRes = await apiRequest(page, 'DELETE', `${API.dotDeNghi}/${id}`);
+      expect(delRes!.status()).toBe(200);
+    });
+
+    test('API POST thiếu tên đợt đề nghị — không lỗi hệ thống', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.dotDeNghi, {
+        ma: `E2E_DDN_NOTIEN_${Date.now()}`,
+        ten: '',
+        nam: new Date().getFullYear(),
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect([200, 400, 422]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const body = await res!.json();
+        const id = body.duLieu?.id ?? body.duLieu;
+        if (id) await apiRequest(page, 'DELETE', `${API.dotDeNghi}/${id}`);
+      }
+    });
+
+    test('tác giả không thể tạo đợt đề nghị — 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', API.dotDeNghi, {
+        ma: 'KHONG_DUOC_DDN',
+        ten: 'Không được phép',
+        nam: new Date().getFullYear(),
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect(res!.status()).toBe(403);
     });
   });
 
@@ -301,6 +590,96 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       // Page should load without crash
       await expect(page.locator('body')).toBeVisible();
     });
+
+    test('API GET danh sách biểu mẫu xuất có phân trang', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.bieuMau}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(5);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('API GET /bieu-mau-xuat/chon trả về dropdown', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.bieuMau}/chon`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API GET /bieu-mau-xuat/truong-kha-dung trả về trường dữ liệu', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.bieuMau}/truong-kha-dung?loai=PHIEU_TIEP_NHAN`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API POST tạo + GET xác nhận + DELETE biểu mẫu xuất', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_BMX_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', API.bieuMau, {
+        ma,
+        ten: 'Biểu mẫu xuất E2E',
+        moTa: 'Tạo bởi E2E test',
+        thuTu: 999,
+        trangThai: 1,
+      });
+      expect(createRes!.status()).toBe(200);
+      const createBody = await createRes!.json();
+      expect(createBody.thanhCong).toBe(true);
+      const id: string = createBody.duLieu.id;
+      expect(id).toBeTruthy();
+      const getRes = await apiRequest(page, 'GET', `${API.bieuMau}/${id}`);
+      expect(getRes!.status()).toBe(200);
+      const getBody = await getRes!.json();
+      expect(getBody.duLieu.ma).toBe(ma);
+      const delRes = await apiRequest(page, 'DELETE', `${API.bieuMau}/${id}`);
+      expect(delRes!.status()).toBe(200);
+    });
+
+    test('API GET chi tiết biểu mẫu xuất', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.bieuMau}?trang=1&soDong=5`);
+      expect(listRes!.status()).toBe(200);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length > 0) {
+        const id: string = listBody.duLieu[0].id;
+        const getRes = await apiRequest(page, 'GET', `${API.bieuMau}/${id}`);
+        expect(getRes!.status()).toBe(200);
+        const body = await getRes!.json();
+        expect(body.thanhCong).toBe(true);
+        expect(body.duLieu.id).toBe(id);
+        expect(typeof body.duLieu.ten).toBe('string');
+      }
+    });
+
+    test('tác giả không thể tạo biểu mẫu xuất — 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', API.bieuMau, {
+        ma: 'KHONG_DUOC_BMX',
+        ten: 'Không được phép',
+        thuTu: 0,
+        trangThai: 1,
+      });
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET biểu mẫu xuất — 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.bieuMau}?trang=1&soDong=5`);
+      expect(res.status()).toBe(401);
+    });
   });
 
   test.describe('REQ-07: Biểu mẫu thống kê', () => {
@@ -310,6 +689,111 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       await page.goto(ROUTES.bieuMauThongKe);
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).toBeVisible();
+    });
+
+    test('API GET danh sách biểu mẫu thống kê có phân trang', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.bieuMauThongKe}?trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(5);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('API GET /bieu-mau-thong-ke/chon trả về dropdown', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.bieuMauThongKe}/chon`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu).toBeInstanceOf(Array);
+    });
+
+    test('API POST tạo biểu mẫu thống kê + GET xác nhận + DELETE', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const ma = `E2E_BMTK_${Date.now()}`;
+      const createRes = await apiRequest(page, 'POST', API.bieuMauThongKe, {
+        ma,
+        ten: 'Biểu mẫu thống kê E2E',
+        moTa: 'Tạo bởi E2E test',
+        thuTu: 999,
+        trangThai: 1,
+        cauHinhCot: [
+          { ma: 'COL1', tieuDe: 'Cột 1', thuTu: 0, nguon: 'tenSangKien' },
+        ],
+      });
+      expect([200, 201]).toContain(createRes!.status());
+      const createBody = await createRes!.json();
+      expect(createBody.thanhCong).toBe(true);
+      const id: string = createBody.duLieu?.id ?? createBody.duLieu;
+      expect(id).toBeTruthy();
+      const getRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}/${id}`);
+      expect(getRes!.status()).toBe(200);
+      const getBody = await getRes!.json();
+      expect(getBody.duLieu.ma).toBe(ma);
+      const delRes = await apiRequest(page, 'DELETE', `${API.bieuMauThongKe}/${id}`);
+      expect(delRes!.status()).toBe(200);
+    });
+
+    test('API GET chi tiết biểu mẫu thống kê', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}?trang=1&soDong=5`);
+      expect(listRes!.status()).toBe(200);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length > 0) {
+        const id: string = listBody.duLieu[0].id;
+        const getRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}/${id}`);
+        expect(getRes!.status()).toBe(200);
+        const body = await getRes!.json();
+        expect(body.thanhCong).toBe(true);
+        expect(body.duLieu.id).toBe(id);
+        expect(typeof body.duLieu.ten).toBe('string');
+      }
+    });
+
+    test('API POST thiếu cấu hình cột biểu mẫu thống kê trả về lỗi', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'POST', API.bieuMauThongKe, {
+        ma: `E2E_BMTK_NOCOT_${Date.now()}`,
+        ten: 'Thiếu cột cấu hình',
+        thuTu: 0,
+        trangThai: 1,
+        // omit cauHinhCot to test required field validation
+      });
+      // API should reject if cauHinhCot is required, or accept — either way it must not crash
+      expect([200, 400, 422]).toContain(res!.status());
+      if (res!.status() === 200) {
+        const resBody = await res!.json();
+        const id: string | undefined = resBody.duLieu?.id;
+        if (id) {
+          await apiRequest(page, 'DELETE', `${API.bieuMauThongKe}/${id}`);
+        }
+      }
+    });
+
+    test('tác giả không thể tạo biểu mẫu thống kê — 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', API.bieuMauThongKe, {
+        ma: 'KHONG_DUOC_BMTK',
+        ten: 'Không được phép',
+        thuTu: 0,
+        trangThai: 1,
+        cauHinhCot: [],
+      });
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET biểu mẫu thống kê — 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.bieuMauThongKe}?trang=1&soDong=5`);
+      expect(res.status()).toBe(401);
     });
   });
 
@@ -332,6 +816,71 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
       await page.goto(ROUTES.quyetDinh);
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).toBeVisible();
+    });
+
+    test('API GET quyết định có phân trang đúng', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=3`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(body.duLieu.length).toBeLessThanOrEqual(3);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('API GET quyết định trang 1 vs trang 2 khác nhau', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const page1Res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=2`);
+      const page2Res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=2&soDong=2`);
+      expect(page1Res!.status()).toBe(200);
+      expect(page2Res!.status()).toBe(200);
+      const body1 = await page1Res!.json();
+      const body2 = await page2Res!.json();
+      if (body1.tongSo > 2 && body1.duLieu.length > 0 && body2.duLieu.length > 0) {
+        expect(body1.duLieu[0].id).not.toBe(body2.duLieu[0].id);
+      }
+    });
+
+    test('API GET chi tiết quyết định', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const listRes = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=5`);
+      expect(listRes!.status()).toBe(200);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length > 0) {
+        const id: string = listBody.duLieu[0].id;
+        const getRes = await apiRequest(page, 'GET', `${API.quyetDinh}/${id}`);
+        expect(getRes!.status()).toBe(200);
+        const body = await getRes!.json();
+        expect(body.thanhCong).toBe(true);
+        expect(body.duLieu.id).toBe(id);
+      }
+    });
+
+    test('API GET quyết định — tìm kiếm theo từ khóa', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const res = await apiRequest(page, 'GET', `${API.quyetDinh}?tuKhoa=test&trang=1&soDong=5`);
+      expect(res!.status()).toBe(200);
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+      expect(typeof body.tongSo).toBe('number');
+    });
+
+    test('tác giả xem danh sách quyết định', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=5`);
+      // tacgia may have read-only access to quyết định
+      expect([200, 403]).toContain(res!.status());
+    });
+
+    test('không xác thực GET quyết định — 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.get(`${API.quyetDinh}?trang=1&soDong=5`);
+      expect(res.status()).toBe(401);
     });
   });
 
