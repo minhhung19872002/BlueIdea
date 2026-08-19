@@ -327,6 +327,9 @@ public interface IHangDoiCongViecNen
 
     /// <summary>Tu dong cong bo ket qua sang kien khi buoc quy trinh co hanh dong CONG_BO_KET_QUA hoan thanh.</summary>
     void XepLichCongBoKetQua(Guid sangKienId);
+
+    /// <summary>Xuat mot bao cao lon o tien trinh nen roi gui lien ket tai ve cho nguoi yeu cau.</summary>
+    void XepLichXuatBaoCao(string loaiBaoCao, BaoCao.ThamSoBaoCao thamSo, Guid nguoiYeuCauId);
 }
 
 /// <summary>

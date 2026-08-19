@@ -112,12 +112,30 @@ public sealed class DichVuBaoCao
     private readonly IAppDbContext _db;
     private readonly IDichVuPhanQuyen _phanQuyen;
     private readonly IDongHoHeThong _dongHo;
+    private readonly INguoiDungHienTai _nguoiDung;
 
-    public DichVuBaoCao(IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo)
+    public DichVuBaoCao(
+        IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo,
+        INguoiDungHienTai nguoiDung)
     {
         _db = db;
         _phanQuyen = phanQuyen;
         _dongHo = dongHo;
+        _nguoiDung = nguoiDung;
+    }
+
+    /// <summary>
+    /// Kiem tra quyen xem bao cao.
+    ///
+    /// Chay trong Hangfire thi khong co ngu canh HTTP (DaXacThuc = false). Cong viec nen tu kiem
+    /// quyen cua NGUOI YEU CAU truoc khi goi (xem <c>CongViecXuatBaoCaoNen</c>) — giong cach
+    /// <c>DichVuKiemTraTrungLap</c> dang lam, khong phai mot duong vong qua mat phan quyen.
+    /// </summary>
+    private async Task BatBuocQuyenXemAsync(CancellationToken ct)
+    {
+        if (!_nguoiDung.DaXacThuc) return;
+
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
     }
 
     /// <summary>Chuc nang 38 — Danh sach sang kien DAT.</summary>
@@ -133,7 +151,7 @@ public sealed class DichVuBaoCao
     private async Task<IReadOnlyList<DongBaoCaoSangKien>> LayDanhSachAsync(
         ThamSoBaoCao thamSo, string ketQua, CancellationToken ct)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+        await BatBuocQuyenXemAsync(ct).ConfigureAwait(false);
 
         var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo)
             .Where(x => x.KetQua == ketQua);
@@ -201,7 +219,7 @@ public sealed class DichVuBaoCao
     public async Task<IReadOnlyList<DongBaoCaoDonVi>> TheoDonViAsync(
         ThamSoBaoCao thamSo, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+        await BatBuocQuyenXemAsync(ct).ConfigureAwait(false);
 
         var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo)
             .Where(x => x.TrangThaiTong != TrangThaiTongHoSo.Nhap);
@@ -244,7 +262,7 @@ public sealed class DichVuBaoCao
     public async Task<ThongKeTongQuan> TongQuanAsync(
         ThamSoBaoCao thamSo, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+        await BatBuocQuyenXemAsync(ct).ConfigureAwait(false);
 
         var bayGio = _dongHo.BayGio;
         var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
@@ -347,7 +365,7 @@ public sealed class DichVuBaoCao
     public async Task<IReadOnlyList<DongBaoCaoTacGia>> TheoTacGiaAsync(
         ThamSoBaoCao thamSo, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+        await BatBuocQuyenXemAsync(ct).ConfigureAwait(false);
 
         var hoSo = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
 
@@ -400,7 +418,7 @@ public sealed class DichVuBaoCao
     public async Task<IReadOnlyList<DongThoiGianXuLy>> ThoiGianXuLyAsync(
         ThamSoBaoCao thamSo, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+        await BatBuocQuyenXemAsync(ct).ConfigureAwait(false);
 
         var hoSo = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
 
@@ -445,7 +463,7 @@ public sealed class DichVuBaoCao
     public async Task<BaoCaoTongHopNam> TongHopNamAsync(
         int nam, ThamSoBaoCao thamSo, CancellationToken ct = default)
     {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.BaoCaoXem, ct: ct).ConfigureAwait(false);
+        await BatBuocQuyenXemAsync(ct).ConfigureAwait(false);
 
         thamSo.Nam = nam;
         var truyVan = ApDungLocDay(_db.SangKien.AsNoTracking(), thamSo);
