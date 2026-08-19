@@ -144,10 +144,15 @@ export default function TrangChiTietHoSo() {
   useEffect(() => {
     if (!id) return;
 
+    const BANG_SU_KIEN: Record<string, string> = {
+      'trung-lap': 'trung-lap',
+      'tien-do': 'tien-do',
+      'lich-su': 'lich-su',
+    };
+
     return theoDoiHoSo(id, (suKien) => {
-      void queryClient.invalidateQueries({
-        queryKey: ['sang-kien', id, suKien === 'trung-lap' ? 'trung-lap' : 'tien-do'],
-      });
+      const khoa = BANG_SU_KIEN[suKien] ?? 'tien-do';
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien', id, khoa] });
 
       if (suKien === 'trang-thai') {
         void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
@@ -381,25 +386,28 @@ export default function TrangChiTietHoSo() {
               <Button
                 danger
                 icon={<RollbackOutlined />}
-                onClick={() =>
+                onClick={() => {
+                  let lyDoRut = '';
                   modal.confirm({
                     title: 'Rút hồ sơ',
                     content: (
-                      <Input.TextArea id="ly-do-rut" rows={3} placeholder="Nhập lý do rút hồ sơ" />
+                      <Input.TextArea
+                        rows={3}
+                        placeholder="Nhập lý do rút hồ sơ"
+                        onChange={(e) => { lyDoRut = e.target.value; }}
+                      />
                     ),
                     okText: 'Rút hồ sơ',
                     cancelText: 'Hủy',
                     onOk: () => {
-                      const o = document.getElementById('ly-do-rut') as HTMLTextAreaElement | null;
-                      const lyDo = o?.value?.trim();
-                      if (!lyDo) {
+                      if (!lyDoRut.trim()) {
                         message.error('Vui lòng nhập lý do rút hồ sơ.');
                         return Promise.reject();
                       }
-                      return rutHoSo.mutateAsync(lyDo);
+                      return rutHoSo.mutateAsync(lyDoRut.trim());
                     },
-                  })
-                }
+                  });
+                }}
               >
                 Rút hồ sơ
               </Button>

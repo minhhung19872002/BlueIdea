@@ -226,7 +226,7 @@ export default function TrangNgayNghiLe() {
         okText="Lưu"
         cancelText="Huỷ"
         confirmLoading={luu.isPending || form.formState.isSubmitting}
-        onCancel={() => setMoForm(false)}
+        onCancel={() => { setMoForm(false); setDangSua(null); }}
         okButtonProps={{ htmlType: 'submit', form: 'form-ngay-nghi' }}
       >
         <BieuMau id="form-ngay-nghi" form={form} onGui={(giaTri) => luu.mutateAsync(giaTri)}>

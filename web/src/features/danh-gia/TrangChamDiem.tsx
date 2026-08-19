@@ -69,6 +69,13 @@ export default function TrangChamDiem() {
     if (!phieu.data) return;
 
     const bang: Record<string, DongCham> = {};
+
+    phieu.data.boTieuChi?.danhSachNhom.forEach((nhom) => {
+      nhom.danhSachTieuChi.forEach((tc) => {
+        bang[tc.id] = { tieuChiId: tc.id, diem: 0, mucDiemId: null, nhanXet: null };
+      });
+    });
+
     phieu.data.chiTiet.forEach((c) => {
       bang[c.tieuChiId] = {
         tieuChiId: c.tieuChiId,

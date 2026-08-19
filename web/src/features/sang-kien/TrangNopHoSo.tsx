@@ -267,16 +267,18 @@ export default function TrangNopHoSo() {
     },
   });
 
-  // Tự động lưu nháp định kỳ khi có thay đổi.
+  const refLuuNhap = useRef(luuNhap.mutate);
+  refLuuNhap.current = luuNhap.mutate;
+
   useEffect(() => {
     const dinhKy = setInterval(() => {
       if (hasThayDoi.current && duDeLuuNhap()) {
-        luuNhap.mutate();
+        refLuuNhap.current();
       }
     }, CHU_KY_TU_LUU_MS);
 
     return () => clearInterval(dinhKy);
-  }, [form, luuNhap]);
+  }, []);
 
   const tongTyLe = useMemo(
     () => tacGia.reduce((tong, t) => tong + (Number(t.tyLeDongGop) || 0), 0),
@@ -846,7 +848,11 @@ function tenTruongTheoMa(ma: string): keyof NoiDungHoSo {
     HIEU_QUA_XA_HOI: 'hieuQuaXaHoi',
   };
 
-  return bang[ma] ?? 'moTaGiaiPhap';
+  const truong = bang[ma];
+  if (!truong && process.env.NODE_ENV !== 'production') {
+    console.warn(`[TrangNopHoSo] Mã thành phần "${ma}" chưa có ánh xạ sang trường form.`);
+  }
+  return truong ?? 'moTaGiaiPhap';
 }
 
 /** Các trường cần kiểm tra khi rời từng bước. */

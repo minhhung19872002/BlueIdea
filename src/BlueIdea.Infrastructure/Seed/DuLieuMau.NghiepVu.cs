@@ -168,6 +168,34 @@ public sealed partial class DuLieuMau
             }
         }
 
+        var cauHinhMacDinh = new List<CauHinhTruongBieuMau>
+        {
+            new() { Placeholder = "Mã hồ sơ", Nguon = "maHoSo", Kieu = "text" },
+            new() { Placeholder = "Tên sáng kiến", Nguon = "tenSangKien", Kieu = "text" },
+            new() { Placeholder = "Tác giả chính", Nguon = "tacGiaChinh", Kieu = "text" },
+            new() { Placeholder = "Đồng tác giả", Nguon = "dongTacGia", Kieu = "text" },
+            new() { Placeholder = "Đơn vị", Nguon = "tenDonVi", Kieu = "text" },
+            new() { Placeholder = "Lĩnh vực", Nguon = "tenLinhVuc", Kieu = "text" },
+            new() { Placeholder = "Đợt đề nghị", Nguon = "tenDot", Kieu = "text" },
+            new() { Placeholder = "Ngày nộp", Nguon = "ngayNop", Kieu = "date" },
+            new() { Placeholder = "Tổng điểm", Nguon = "tongDiem", Kieu = "number" },
+            new() { Placeholder = "Kết quả", Nguon = "ketQua", Kieu = "text" },
+            new() { Placeholder = "Mức công nhận", Nguon = "tenMucCongNhan", Kieu = "text" },
+        };
+
+        var bieuMauCu = await _db.BieuMauXuat.Where(x =>
+                x.Ma == "BM_PHIEU_TIEP_NHAN" || x.Ma == "BM_PHIEU_DANH_GIA"
+                || x.Ma == "BM_BIEN_BAN_HOP" || x.Ma == "BM_QUYET_DINH" || x.Ma == "BM_TONG_HOP")
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        foreach (var bm in bieuMauCu)
+        {
+            if (bm.CauHinhTruong.Any(t => t.Nguon.Contains('.')))
+            {
+                bm.CauHinhTruong = cauHinhMacDinh;
+            }
+        }
+
         if (!await _db.BieuMauXuat.AnyAsync(ct).ConfigureAwait(false))
         {
             var bieuMau = new (string Ma, string Ten, string Loai)[]
@@ -190,20 +218,7 @@ public sealed partial class DuLieuMau
                     Loai = loai,
                     DinhDang = "DOCX",
                     ThuTu = thuTu++,
-                    CauHinhTruong = new List<CauHinhTruongBieuMau>
-                    {
-                        new() { Placeholder = "{{MA_HO_SO}}", Nguon = "sang_kien.ma_ho_so", Kieu = "text" },
-                        new() { Placeholder = "{{TEN_SANG_KIEN}}", Nguon = "sang_kien.ten_sang_kien", Kieu = "text" },
-                        new()
-                        {
-                            Placeholder = "{{DS_TAC_GIA}}",
-                            Nguon = "sang_kien_tac_gia[]",
-                            Kieu = "table",
-                            Cot = new List<string> { "ho_ten", "chuc_vu", "don_vi_cong_tac", "ty_le_dong_gop" }
-                        },
-                        new() { Placeholder = "{{NGAY_NOP}}", Nguon = "sang_kien.ngay_nop", Kieu = "date" },
-                        new() { Placeholder = "{{TONG_DIEM}}", Nguon = "sang_kien.tong_diem", Kieu = "number" }
-                    }
+                    CauHinhTruong = cauHinhMacDinh
                 });
             }
         }

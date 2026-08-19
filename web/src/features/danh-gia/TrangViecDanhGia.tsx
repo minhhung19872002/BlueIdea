@@ -26,9 +26,11 @@ export default function TrangViecDanhGia() {
     queryFn: () => apiDanhGia.viecCuaToi({ trang, soDong, trangThai }),
   });
 
-  const soChuaCham = (data?.duLieu ?? []).filter(
-    (x) => x.trangThaiPhanCong !== 'DA_CHAM',
-  ).length;
+  const soChuaCham = useQuery({
+    queryKey: ['danh-gia', 'viec-cua-toi', 'dem-chua-cham'],
+    queryFn: () => apiDanhGia.viecCuaToi({ trang: 1, soDong: 1, trangThai: 'CHUA_CHAM' }),
+    select: (d) => d?.tongSo ?? 0,
+  }).data ?? 0;
 
   if (error) return <KhoiLoi loi={error} thuLai={refetch} />;
 
@@ -70,6 +72,7 @@ export default function TrangViecDanhGia() {
               ),
             },
             { title: 'Tên sáng kiến', dataIndex: 'tenSangKien' },
+            { title: 'Hội đồng', dataIndex: 'tenHoiDong', width: 180, responsive: ['md'] },
             { title: 'Lĩnh vực', dataIndex: 'tenLinhVuc', width: 170, responsive: ['lg'] },
             {
               title: 'Trạng thái',
