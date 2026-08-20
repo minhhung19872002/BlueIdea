@@ -140,8 +140,23 @@ public interface IDichVuPhanQuyen
     /// <summary>Nem <see cref="KhongCoQuyenException"/> neu khong du quyen.</summary>
     Task BatBuocCoQuyenAsync(string maQuyen, CancellationToken ct = default);
 
-    /// <summary>Danh sach don vi ma nguoi dung duoc phep xem du lieu (theo pham vi vai tro).</summary>
+    /// <summary>
+    /// Pham vi du lieu cho HO SO SANG KIEN, tep dinh kem va trung lap.
+    ///
+    /// Quyen SANG_KIEN.XEM_TAT_CA mo pham vi nay ra toan he thong — dung y do la de can bo trong
+    /// chuoi xu ly nhin thay ho so cua moi don vi.
+    /// </summary>
     Task<PhamViTruyCap> LayPhamViTruyCapAsync(Guid nguoiDungId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Pham vi don vi THUAN, chi doc tu <c>pham_vi_du_lieu</c> cua vai tro.
+    ///
+    /// Dung cho nhung thao tac KHONG phai ho so: quan tri tai khoan nguoi khac, sua cay don vi.
+    /// Bat buoc tach khoi <see cref="LayPhamViTruyCapAsync"/> vi quyen SANG_KIEN.XEM_TAT_CA chi
+    /// noi ve HO SO; dung chung mot ham thi mot vai tro co quyen xem het ho so bong nhien cung
+    /// dat lai duoc mat khau va go duoc MFA cua bat ky ai trong he thong.
+    /// </summary>
+    Task<PhamViTruyCap> LayPhamViDonViAsync(Guid nguoiDungId, CancellationToken ct = default);
 }
 
 /// <summary>Pham vi du lieu ma nguoi dung duoc truy cap.</summary>
@@ -332,6 +347,12 @@ public interface IHangDoiCongViecNen
 
     /// <summary>Tu dong cong bo ket qua sang kien khi buoc quy trinh co hanh dong CONG_BO_KET_QUA hoan thanh.</summary>
     void XepLichCongBoKetQua(Guid sangKienId);
+
+    /// <summary>Gom sang kien vao du thao quyet dinh cua dot khi buoc co hanh dong TAO_QUYET_DINH.</summary>
+    void XepLichTaoQuyetDinh(Guid sangKienId);
+
+    /// <summary>Nhac nguoi co quyen ky khi buoc co hanh dong YEU_CAU_KY_SO.</summary>
+    void XepLichYeuCauKySo(Guid sangKienId);
 
     /// <summary>Xuat mot bao cao lon o tien trinh nen roi gui lien ket tai ve cho nguoi yeu cau.</summary>
     void XepLichXuatBaoCao(string loaiBaoCao, BaoCao.ThamSoBaoCao thamSo, Guid nguoiYeuCauId);

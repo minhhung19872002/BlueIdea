@@ -39,7 +39,6 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/SapXepVaPhanCapTests.cs"
         - "tests/BlueIdea.UnitTests/Shared/ChinhSachPhanQuyenControllerTests.cs"
     gaps:
-      - "No test for unaccented search or Excel export"
     notes:
       - "Run-002-B17: Controller-level [Authorize(Policy)] + service-level BatBuocCoQuyenAsync defense-in-depth added"
       - "Iteration-27: Verified — catalog import CRUD (NhapDanhMucVaOpenApiTests 6/6), /chon API contract (HopDongApiDanhMucTests 1/1), hierarchy with danhMucChaId (SapXepVaPhanCapTests 4/4). All tests run against real PostgreSQL via Testcontainers."
@@ -81,7 +80,6 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
         - "tests/BlueIdea.IntegrationTests/BaoCaoBoSungTests.cs"
     gaps:
-      - "No test for auto-lock job (TuDongKhoa background task)"
     notes:
       - "Run-002-B17: Authorization gap closed — lifecycle transitions (mo/dong/khoa) now require DanhMucSua"
       - "Run-002-B17: LayTongQuanAsync/LayDanhSachQuanLyAsync service-level DanhMucXem check added"
@@ -271,8 +269,8 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/BienBanVaCauHinhTests.cs"
         - "tests/BlueIdea.IntegrationTests/ThongBaoSuKienTests.cs"
     gaps:
-      - "2 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO) log warnings — require future implementation"
     notes:
+      - "Ra soat 20/08/2026: hoan thanh 2 hanh dong tu dong cuoi cung. TAO_QUYET_DINH gom sang kien DAT vao du thao quyet dinh cua dot (luy dang, khong gom ho so chua Dat) — khong tao moi mot quyet dinh cho tung ho so vi quyet dinh cong nhan la van ban gom nhieu sang kien. YEU_CAU_KY_SO nhac moi tai khoan mang quyen QUYET_DINH.KY_SO — khong the tu ky vi khoa nam trong token cua nguoi ky. Bang chung: LuongDieuPhoiHoSoTests (3 test). 10/10 hanh dong tu dong nay da co bo xu ly."
       - "Ra soat 20/08/2026: hai loai buoc CONG_BO va BO_PHIEU truoc day khai duoc tren trinh thiet ke nhung may chay quy trinh khong xu ly rieng. Nay qua buoc CONG_BO la ket qua duoc cong bo (chi ho so Dat), va buoc BO_PHIEU chan ket luan Dat khi hoi dong chua bo phieu hoac chua dat nguong thong qua. Bang chung: LuongDieuPhoiHoSoTests.Buoc_Bo_Phieu_Chua_Kiem_Phieu_Thi_Khong_Ket_Luan_Dat_Duoc va Qua_Buoc_Cong_Bo_Thi_Ket_Qua_Duoc_Cong_Bo."
       - "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
@@ -468,9 +466,7 @@ requirements:
       - "SEC: MFA recovery codes — new codes use Argon2id; legacy SHA-256 still accepted for backward compat, will age out as users regenerate (CLOSED for new codes, LOW residual for legacy)"
       - "SEC: MFA Phase 1 reveals account has MFA enabled — design tradeoff for UX, rate-limited (LOW)"
       - "SEC: MFA Phase 1 failures bypass lockout counter — deliberate to prevent DoS oracle, rate limiter is sole protection (LOW, documented)"
-      - "SEC: GoMfaChoNguoiKhacAsync bypasses MediatR pipeline — no HanhViPhanQuyen/HanhViGhiNhatKy (MEDIUM, pre-existing architecture; mitigated by service-level checks)"
       - "SEC: BatBuocNguoiDungTrongPhamViAsync duplicated in DichVuMfa and DichVuQuanTriNguoiDung — divergence risk (LOW)"
-      - "SEC: No integration test for admin MFA reset IDOR fix — env lacks Docker for Testcontainers (gap)"
     notes:
       - "Internal auth verified by 11+ tests (MFA, CAPTCHA, TOTP anti-replay, recovery codes, MFA oracle). Run-002-B3: Account enumeration fixed (all login errors return SaiTaiKhoanMatKhau). SSO state validated server-side (IMemoryCache, 5-min TTL). Open redirect blocked (scheme+host+port whitelist from Cors:NguonChoPhep + Sso:AllowedRedirectHosts). Run-002-B4: Timing oracle fixed (dummy Argon2id for non-existent accounts). CAPTCHA side-channel fixed (log-based CAPTCHA for null/locked/inactive paths). Audit log persistence fixed (SaveChangesAsync on early-exit paths). Run-002-B9: MFA credential-stuffing oracle fixed — Phase 1 defers password check (Argon2id runs for timing but result discarded), Phase 2 unifies error code for wrong password and wrong TOTP (both SAI_TAI_KHOAN_MAT_KHAU). MA_XAC_THUC_KHONG_DUNG added to HTTP 401 mapping. Frontend dead code removed. Run-002-B11: SSO state validation upgraded from IMemoryCache to IDistributedCache (Redis when ConnectionStrings:Redis configured, in-memory fallback for tests/single-instance). Fixes multi-instance HA concern. Run-002-B14: MFA recovery codes upgraded from SHA-256 to Argon2id via IDichVuMatKhau. Legacy SHA-256 still accepted (backward compat with FixedTimeEquals). Format guard added — DungMaKhoiPhuc short-circuits when input lacks dash (prevents TOTP fallthrough to 10× Argon2id). TatAsync null-MfaSecret bypass fixed — undecryptable secret now throws MaXacThucKhongDung instead of silently disabling MFA. Run-002-B15: GoMfaChoNguoiKhacAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync checks caller's PhamViTruyCap against target's DonViId. Self-reset blocked (must use TatAsync). Refresh tokens revoked on admin MFA strip. Audit log added (GO_MFA_NGUOI_KHAC via IDichVuNhatKy)."
       - "Bo sung 19/08/2026: PUT /api/v1/xac-thuc/toi cho nguoi dung tu sua thong tin ca nhan (khong doi duoc don vi/vai tro); menu nguoi dung co loi vao Thong tin ca nhan va Bao mat tai khoan."
@@ -488,7 +484,6 @@ requirements:
       backend: ["src/BlueIdea.Api/Controllers/SangKienController.cs", "src/BlueIdea.Application/SangKien/SangKienCommands.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps:
-      - "No test for contribution ratio = 100% validation"
     notes: "6-step wizard with auto-save. Submission blocked by missing mandatory components (test verified)."
 
   - id: REQ-23
@@ -571,7 +566,6 @@ requirements:
     gaps:
       - "ONNX model not deployed — semantic embedding uses lexical hashing (quality improvement, not functional gap)"
       - "Brute-force O(n^2) pairwise comparison — no backfill mechanism"
-      - "DanhDauDaXemXetAsync uses TrungLapXem (view) for a write op — needs dedicated permission when endpoint is wired (LOW, latent)"
     notes:
       - "Bo sung 19/08/2026: POST /trung-lap/xem-xet (ghi y kien hoi dong, co nhat ky) + GET /trung-lap/xuat-pdf (bao cao PDF kem trich dan doan trung) + giao dien tren tab Trung lap. Quyen moi TRUNG_LAP.XEM_XET."
       - "Run-002-B1: IDOR fix for LayKetQuaGanNhatAsync added. Run-002-B2: ChayAsync IDOR fixed (conditional org-scope check, safe for Hangfire caller). DanhDauDaXemXetAsync IDOR fixed (resolves parent SangKienId for scope check). AI compliance fully satisfied — zero third-party AI references."
@@ -627,7 +621,6 @@ requirements:
       backend: ["src/BlueIdea.Application/XuLy/DichVuWorkflow.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps:
-      - "No test for idempotency key deduplication or batch processing"
       - "SEC: No regression test for batch cross-org MaHoSo leakage (fix in place, needs test)"
     notes:
       - "Multi-step processing flow verified through full workflow. Run-002-B13: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage fixed — batch MaHoSo query now scoped by LayPhamViTruyCapAsync (ToanHeThong/ChiCaNhan/DonViIds). Cross-org IDs short-circuited before workflow engine call (eliminates existence oracle + timing side-channel). FluentValidation added (max 200 items). Deduplication added (prevents ToDictionary crash + double-transition)."
@@ -704,7 +697,6 @@ requirements:
       tests:
         - "tests/BlueIdea.IntegrationTests/NhanhTheoDuLieuTests.cs"
     gaps:
-      - "Score visibility before form submission not verified by test"
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
       - "Iteration-23: Automated scoring assignment via PHAN_CONG_CHAM workflow action — CongViecPhanCongCham background job triggered by DichVuDieuPhaiHanhDong when workflow transitions to a scoring step"
@@ -726,7 +718,6 @@ requirements:
         - "tests/BlueIdea.UnitTests/Scoring/BoTinhDiemTests.cs"
         - "tests/BlueIdea.UnitTests/Scoring/BoTieuChiSnapshotTests.cs"
     gaps:
-      - "Score visibility before form submission not verified by integration test"
     notes:
       - "Run-002-B1-scoring: TrungBinhCong fix + BoTieuChiSnapshot serialization. Run-002-B6: BoTieuChiSnapshot now includes DanhSachMucCongNhan (MucCongNhanDto). ChuyenDoiBoTieuChi filters by DaXoa/TrangThai, orders by DiemTu. Nullable default for backwards compatibility with old snapshots. DanhSachMucDiem DaXoa filter added. 6 unit tests (inclusion, filtering, ordering, JSON round-trip, backwards compat)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to DanhGiaController for controller-layer defense-in-depth"
@@ -823,7 +814,6 @@ requirements:
       tests:
         - "tests/BlueIdea.IntegrationTests/BaoCaoBoSungTests.cs"
     gaps:
-      - "No PDF export for this report (only Excel) — feature limitation"
     notes:
       - "Bo sung 19/08/2026: xuat PDF danh sach chua dat (truoc do nut Xuat PDF tai nham danh sach dat)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to BaoCaoController for controller-layer defense-in-depth"
@@ -901,8 +891,8 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs", "tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
     gaps:
       - "No test for role assignment during user creation/update"
-      - "SEC: No integration test for DatLaiMatKhauAsync cross-org IDOR fix — env lacks Docker for Testcontainers (gap)"
     notes:
+      - "Ra soat 20/08/2026 — LO HONG LEO THANG DAC QUYEN da sua: LayPhamViTruyCapAsync mo pham vi ra toan he thong khi nguoi dung co quyen SANG_KIEN.XEM_TAT_CA, va ham do duoc dung chung cho ca phep kiem pham vi khi QUAN TRI TAI KHOAN. Hau qua: vai tro Quan tri don vi (co XEM_TAT_CA de nhin ho so moi don vi) dat lai duoc mat khau va go duoc MFA cua BAT KY ai trong he thong. Nay tach LayPhamViDonViAsync (chi doc pham_vi_du_lieu) dung cho quan tri tai khoan va sua cay don vi. Bang chung: PhamViQuanTriNguoiDungTests (5 test, co ca phep doi chung trong pham vi)."
       - "Excel import with dry-run mode and row-level error reporting verified by tests. Run-002-B15: DatLaiMatKhauAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync added after user lookup to enforce org-scope. Same pattern as GoMfaChoNguoiKhacAsync fix."
       - "Bo sung 19/08/2026: nguoi dung tu cap nhat ho so ca nhan (khong thay the quan ly nguoi dung cua quan tri vien)."
 

@@ -23,6 +23,30 @@ about production. Re-open this if the investor asks for measured figures at acce
 
 ## Resolved Items
 
+### TD-014: Privilege Escalation Through Shared Data-Scope Helper (RESOLVED)
+
+**Area**: Authorization
+**Found & resolved**: Rà soát 20/08/2026, by a test written to close an old "no test" gap
+**Description**: `LayPhamViTruyCapAsync` widened a user's data scope to the whole system whenever
+they held `SANG_KIEN.XEM_TAT_CA` — correct for applications, and the code even said so in a
+comment. But the same helper was the scope check for **user administration**. A "Quản trị đơn vị",
+who legitimately holds that permission to see applications from every unit, could therefore reset
+the password and remove MFA of **any account in the system**, including a system administrator's.
+
+The bug was invisible from the outside: every permission check passed, the audit log recorded a
+legitimate-looking action, and the scope check was present in the code — it just answered the
+wrong question.
+
+**Resolution**: split the contract. `LayPhamViTruyCapAsync` keeps the application-scope semantics;
+`LayPhamViDonViAsync` reads `pham_vi_du_lieu` only and is used by user administration, MFA removal
+and organisation-tree editing.
+**Tests**: `PhamViQuanTriNguoiDungTests` — 5 tests including a positive control (same-unit reset
+still succeeds), so the negative tests cannot pass merely for lack of permission.
+
+**Lesson**: the gap note said "no integration test — env lacks Docker". The environment had Docker;
+the note had simply gone stale, and a real privilege escalation sat behind it for weeks. Stale
+"can't test this" notes are where bugs hide.
+
 ### TD-008: USB Token Client Step Was Manual (RESOLVED)
 
 **Resolved by**: Rà soát 20/08/2026, kiểm chứng trên token thật

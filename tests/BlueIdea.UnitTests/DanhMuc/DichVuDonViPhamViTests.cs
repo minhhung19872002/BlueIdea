@@ -22,7 +22,9 @@ public sealed class DichVuDonViPhamViTests
         var nguoiDung = Substitute.For<INguoiDungHienTai>();
 
         nguoiDung.Id.Returns(NguoiGoiId);
-        phanQuyen.LayPhamViTruyCapAsync(NguoiGoiId, Arg.Any<CancellationToken>())
+        // Sua cay don vi doc pham vi DON VI thuan, khong phai pham vi ho so: quyen
+        // SANG_KIEN.XEM_TAT_CA khong duoc mo duong sang quan tri to chuc.
+        phanQuyen.LayPhamViDonViAsync(NguoiGoiId, Arg.Any<CancellationToken>())
             .Returns(phamVi);
 
         return new DichVuDonVi(db, phanQuyen, dongHo, nguoiDung);

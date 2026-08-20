@@ -288,6 +288,99 @@ public sealed class LuongDieuPhoiHoSoTests
         sau.CongKhai.Should().BeTrue();
     }
 
+    // ------------------------------------------------- Hanh dong TAO_QUYET_DINH
+
+    /// <summary>
+    /// Hanh dong tu dong TAO_QUYET_DINH: ho so Dat duoc gom vao du thao quyet dinh cua dot.
+    /// Truoc day hanh dong nay chi ghi mot dong canh bao vao log roi thoi.
+    /// </summary>
+    [Fact]
+    public async Task Hanh_Dong_Tao_Quyet_Dinh_Gom_Ho_So_Vao_Du_Thao()
+    {
+        var sangKienId = await TaoHoSoDaNopAsync();
+
+        using var pham = _ungDung.Services.CreateScope();
+        var db = pham.ServiceProvider.GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+        var hoSo = await db.SangKien.FirstAsync(x => x.Id == sangKienId);
+        hoSo.KetQua = Domain.SangKien.KetQuaXetDuyetGiaTri.Dat;
+        await db.SaveChangesAsync();
+
+        var congViec = pham.ServiceProvider
+            .GetRequiredService<Infrastructure.CongViecNen.CongViecTaoQuyetDinh>();
+
+        await congViec.ChayAsync(sangKienId);
+
+        var gan = await db.QuyetDinhSangKien.AsNoTracking()
+            .Where(x => x.SangKienId == sangKienId)
+            .ToListAsync();
+
+        gan.Should().HaveCount(1, "hồ sơ Đạt phải được gom vào đúng một dự thảo");
+
+        var quyetDinh = await db.QuyetDinh.AsNoTracking()
+            .FirstAsync(x => x.Id == gan[0].QuyetDinhId);
+
+        quyetDinh.SoQuyetDinh.Should()
+            .StartWith(Infrastructure.CongViecNen.CongViecTaoQuyetDinh.TienToDuThao);
+        quyetDinh.DaKySo.Should().BeFalse();
+
+        // Chay lai khong duoc gom them lan nua.
+        await congViec.ChayAsync(sangKienId);
+
+        (await db.QuyetDinhSangKien.AsNoTracking().CountAsync(x => x.SangKienId == sangKienId))
+            .Should().Be(1, "gọi lại không được tạo bản ghi trùng");
+    }
+
+    [Fact]
+    public async Task Hanh_Dong_Tao_Quyet_Dinh_Bo_Qua_Ho_So_Chua_Dat()
+    {
+        var sangKienId = await TaoHoSoDaNopAsync();
+
+        using var pham = _ungDung.Services.CreateScope();
+        var db = pham.ServiceProvider.GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+        // Ho so chua co ket qua Dat — quyet dinh cong nhan khong duoc gom ho so nhu vay.
+        var congViec = pham.ServiceProvider
+            .GetRequiredService<Infrastructure.CongViecNen.CongViecTaoQuyetDinh>();
+
+        await congViec.ChayAsync(sangKienId);
+
+        (await db.QuyetDinhSangKien.AsNoTracking().CountAsync(x => x.SangKienId == sangKienId))
+            .Should().Be(0);
+    }
+
+    // --------------------------------------------------- Hanh dong YEU_CAU_KY_SO
+
+    /// <summary>
+    /// Hanh dong tu dong YEU_CAU_KY_SO: khong the tu ky (khoa nam trong token cua nguoi ky), nen
+    /// viec dung nghia la nhac nguoi co quyen ky — de van ban khong nam cho ma khong ai biet.
+    /// </summary>
+    [Fact]
+    public async Task Hanh_Dong_Yeu_Cau_Ky_So_Nhac_Nguoi_Co_Quyen_Ky()
+    {
+        var sangKienId = await TaoHoSoDaNopAsync();
+
+        using var pham = _ungDung.Services.CreateScope();
+        var db = pham.ServiceProvider.GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+        var truoc = await db.ThongBao.AsNoTracking()
+            .CountAsync(x => x.TieuDe == "Có văn bản chờ ký số");
+
+        var congViec = pham.ServiceProvider
+            .GetRequiredService<Infrastructure.CongViecNen.CongViecYeuCauKySo>();
+
+        await congViec.ChayAsync(sangKienId);
+
+        var sau = await db.ThongBao.AsNoTracking()
+            .Where(x => x.TieuDe == "Có văn bản chờ ký số")
+            .ToListAsync();
+
+        sau.Count.Should().BeGreaterThan(truoc,
+            "phải nhắc ít nhất một người mang quyền QUYET_DINH.KY_SO");
+
+        sau.Should().OnlyContain(x => x.MucDo == "CAO");
+    }
+
     // ---------------------------------------------------------------------
 
     /// <summary>Mot ho so dang nam o mot buoc xu ly, kem han hien tai (co the null).</summary>

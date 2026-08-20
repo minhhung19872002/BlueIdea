@@ -32,6 +32,14 @@ public sealed class HangDoiCongViecNenHangfire : IHangDoiCongViecNen
         => _hangfire.Enqueue<CongViecCongBoKetQua>(
             x => x.ChayAsync(sangKienId, CancellationToken.None));
 
+    public void XepLichTaoQuyetDinh(Guid sangKienId)
+        => _hangfire.Enqueue<CongViecTaoQuyetDinh>(
+            x => x.ChayAsync(sangKienId, CancellationToken.None));
+
+    public void XepLichYeuCauKySo(Guid sangKienId)
+        => _hangfire.Enqueue<CongViecYeuCauKySo>(
+            x => x.ChayAsync(sangKienId, CancellationToken.None));
+
     public void XepLichXuatBaoCao(
         string loaiBaoCao, BlueIdea.Application.BaoCao.ThamSoBaoCao thamSo, Guid nguoiYeuCauId)
         => _hangfire.Enqueue<CongViecXuatBaoCaoNen>(
@@ -65,6 +73,14 @@ public sealed class HangDoiCongViecNenKhongHoatDong : IHangDoiCongViecNen
     }
 
     public void XepLichCongBoKetQua(Guid sangKienId)
+    {
+    }
+
+    public void XepLichTaoQuyetDinh(Guid sangKienId)
+    {
+    }
+
+    public void XepLichYeuCauKySo(Guid sangKienId)
     {
     }
 

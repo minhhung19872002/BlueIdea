@@ -64,10 +64,18 @@ public sealed class DichVuPhanQuyen : IDichVuPhanQuyen
         }
     }
 
-    public async Task<PhamViTruyCap> LayPhamViTruyCapAsync(
+    public Task<PhamViTruyCap> LayPhamViTruyCapAsync(
         Guid nguoiDungId, CancellationToken ct = default)
+        => TinhPhamViAsync(nguoiDungId, moTheoXemTatCaHoSo: true, ct);
+
+    public Task<PhamViTruyCap> LayPhamViDonViAsync(
+        Guid nguoiDungId, CancellationToken ct = default)
+        => TinhPhamViAsync(nguoiDungId, moTheoXemTatCaHoSo: false, ct);
+
+    private async Task<PhamViTruyCap> TinhPhamViAsync(
+        Guid nguoiDungId, bool moTheoXemTatCaHoSo, CancellationToken ct)
     {
-        var khoa = $"pham-vi:{nguoiDungId}";
+        var khoa = $"pham-vi:{nguoiDungId}:{(moTheoXemTatCaHoSo ? "ho-so" : "don-vi")}";
         if (_cache.TryGetValue<PhamViTruyCap>(khoa, out var cache) && cache is not null)
         {
             return cache;
@@ -103,10 +111,13 @@ public sealed class DichVuPhanQuyen : IDichVuPhanQuyen
          * kich ban kiem thu truyen thang id van chay tot va loi nay khong lo ra o dau ca.
          *
          * Pham vi nay chi duoc dung cho ho so, tep dinh kem va trung lap — dung dung nhom doi tuong
-         * ma quyen XEM_TAT_CA noi toi.
+         * ma quyen XEM_TAT_CA noi toi. Cac thao tac khac (quan tri tai khoan, sua cay don vi) goi
+         * LayPhamViDonViAsync de KHONG bi mo ra toan he thong: mot "Quan tri don vi" co quyen xem
+         * het ho so ma cung dat lai duoc mat khau cua bat ky ai la leo thang dac quyen.
          */
-        var xemTatCaHoSo = await KiemTraQuyenAsync(nguoiDungId, MaQuyen.SangKienXemTatCa, ct: ct)
-            .ConfigureAwait(false);
+        var xemTatCaHoSo = moTheoXemTatCaHoSo
+                           && await KiemTraQuyenAsync(nguoiDungId, MaQuyen.SangKienXemTatCa, ct: ct)
+                               .ConfigureAwait(false);
 
         if (xemTatCaHoSo)
         {

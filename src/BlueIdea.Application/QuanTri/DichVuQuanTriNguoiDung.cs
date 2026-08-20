@@ -572,7 +572,7 @@ public sealed class DichVuQuanTriNguoiDung
         var nguoiGoiId = _nguoiDungHienTai.Id
                          ?? throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
 
-        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiGoiId, ct).ConfigureAwait(false);
+        var phamVi = await _phanQuyen.LayPhamViDonViAsync(nguoiGoiId, ct).ConfigureAwait(false);
 
         if (phamVi.ToanHeThong) return;
 

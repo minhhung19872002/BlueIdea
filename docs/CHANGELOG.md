@@ -282,6 +282,55 @@ báo đúng nguyên nhân đó thay vì đứng im.
 
 ---
 
+## [2.2.0] — 2026-08-20
+
+Ba việc: hoàn thành hai hành động tự động cuối cùng, dọn ghi chú truy vết lỗi thời, bù kiểm thử
+còn thiếu. Việc thứ ba lôi ra một lỗ hổng leo thang đặc quyền.
+
+### Chức năng 12 — hai hành động tự động cuối cùng
+
+Trước đây `TAO_QUYET_DINH` và `YEU_CAU_KY_SO` chỉ ghi một dòng cảnh báo vào log rồi thôi: quản trị
+viên tick được, hệ thống báo lưu thành công, chạy thì không có gì xảy ra — mà log thì không ai đọc.
+
+- **TAO_QUYET_DINH** gom sáng kiến **Đạt** vào dự thảo quyết định của đợt, mở dự thảo mới nếu chưa
+  có. Không tạo mỗi hồ sơ một quyết định: quyết định công nhận là văn bản gồm nhiều sáng kiến của
+  cùng một đợt. Luỹ đẳng, và bỏ qua hồ sơ chưa Đạt.
+- **YEU_CAU_KY_SO** nhắc mọi tài khoản mang quyền `QUYET_DINH.KY_SO`. Không thể tự ký — khoá nằm
+  trong token của người ký — nên việc đúng nghĩa là không để văn bản nằm chờ mà không ai biết.
+
+10/10 hành động tự động nay đều có bộ xử lý.
+
+### Lỗ hổng leo thang đặc quyền (phát hiện khi viết test bù)
+
+`LayPhamViTruyCapAsync` mở phạm vi ra toàn hệ thống cho người có quyền `SANG_KIEN.XEM_TAT_CA` —
+đúng với **hồ sơ**, và chú thích trong mã cũng nói vậy. Nhưng chính hàm đó lại là phép kiểm phạm vi
+khi **quản trị tài khoản**. Hậu quả: vai trò *Quản trị đơn vị*, vốn cần quyền đó để nhìn hồ sơ mọi
+đơn vị, **đặt lại được mật khẩu và gỡ được MFA của bất kỳ tài khoản nào trong hệ thống** — kể cả
+quản trị viên hệ thống.
+
+Nhìn từ ngoài không thấy gì bất thường: mọi phép kiểm quyền đều qua, nhật ký ghi một thao tác hợp
+lệ, và phép kiểm phạm vi vẫn nằm đó trong mã — chỉ là nó trả lời sai câu hỏi.
+
+Đã tách `LayPhamViDonViAsync` (chỉ đọc `pham_vi_du_lieu`) cho quản trị tài khoản, gỡ MFA và sửa cây
+đơn vị. `PhamViQuanTriNguoiDungTests` — 5 test, có phép đối chứng cùng đơn vị vẫn đặt lại được, để
+test âm không thể xanh chỉ vì thiếu quyền.
+
+### Dọn ghi chú truy vết
+
+Bỏ 6 ghi chú `gaps` đã sai: REQ-39 nói thiếu xuất PDF (có từ 19/08), REQ-26 nói tới một hàm đã xoá,
+REQ-21 nói gỡ MFA không phân quyền/nhật ký (thực tế có đủ). Hai ghi chú viện lý do "môi trường
+không có Docker" — chính chỗ lỗ hổng trên nấp suốt nhiều tuần.
+
+### Bù kiểm thử
+
+`BuKiemThuConThieuTests` — 6 test cho những chỗ mà hỏng sẽ im lặng: ma trận điểm không lộ điểm của
+phiếu còn nháp (chấm độc lập chỉ là khẩu hiệu nếu lộ), chống gửi trùng bằng `Idempotency-Key`, tổng
+tỷ lệ đóng góp phải bằng 100%, tìm không dấu, xuất Excel, job chỉ đóng đợt có bật *tự động khoá*.
+
+254/254 kiểm thử tích hợp, 524/524 đơn vị, 405/405 E2E.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện
