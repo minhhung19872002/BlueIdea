@@ -722,6 +722,24 @@ export const apiQuyTrinh = {
   phienBanMoi: (id: string) => guiDuLieu<string>(`/api/v1/quy-trinh/${id}/phien-ban-moi`),
   saoChep: (id: string, ma: string, ten: string) =>
     guiDuLieu<string>(`/api/v1/quy-trinh/${id}/sao-chep`, { ma, ten }),
+
+  /*
+   * Thanh phan ho so co API rieng tung ban ghi, khong di qua so do.
+   *
+   * Thanh phan ho so khong phai mot nut tren so do. Neu sua no bang cach gui lai ca so do thi
+   * hai nguoi cung mo mot quy trinh — mot nguoi sua buoc, mot nguoi them thanh phan — se ghi de
+   * len nhau, ai bam Luu sau thi thang.
+   */
+  thanhPhan: (id: string) =>
+    layDuLieu<ThanhPhanHoSoCauHinh[]>(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so`),
+  themThanhPhan: (id: string, duLieu: ThanhPhanHoSoCauHinh) =>
+    guiDuLieu<string>(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so`, duLieu),
+  suaThanhPhan: (id: string, thanhPhanId: string, duLieu: ThanhPhanHoSoCauHinh) =>
+    capNhatDuLieu(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so/${thanhPhanId}`, duLieu),
+  xoaThanhPhan: (id: string, thanhPhanId: string) =>
+    xoaDuLieu(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so/${thanhPhanId}`),
+  sapXepThanhPhan: (id: string, idTheoThuTu: string[]) =>
+    capNhatDuLieu(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so/sap-xep`, idTheoThuTu),
 };
 
 export interface PhatHien {

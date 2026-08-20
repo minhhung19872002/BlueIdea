@@ -66,18 +66,6 @@ one can set something inert.
 **Priority**: Medium (`la_trang_thai_ket_thuc` and `dong_bo_hai_chieu` first — both sit on
 configurable business behaviour)
 
-### TD-012: Per-Component CRUD API For Dossier Components Has No Caller
-
-**Area**: Workflow configuration (REQ-13)
-**Description**: `QuyTrinhVaTieuChiController.cs:71-102` exposes GET/POST/PUT/DELETE plus reorder
-for a single dossier component, but `TrangThanhPhanHoSo.tsx:53` still saves through
-`apiQuyTrinh.luuSoDo(...)`, i.e. it re-sends the whole diagram. These are the only endpoints in the
-API with no frontend caller.
-**Impact**: The concurrency benefit claimed in `TRANG-THAI-TRIEN-KHAI.md` (two people editing
-without overwriting each other) is not realised in the running application.
-**Resolution**: Point the screen at the per-component endpoints.
-**Priority**: Medium
-
 ### TD-013: Dead Application Code
 
 **Area**: Housekeeping
@@ -91,6 +79,21 @@ the real one.
 **Priority**: Low
 
 ## Resolved Items
+
+### TD-012: Per-Component CRUD API For Dossier Components Had No Caller (RESOLVED)
+
+**Resolved by**: Rà soát 20/08/2026
+**Resolution**: `TrangThanhPhanHoSo.tsx` saved through `apiQuyTrinh.luuSoDo(...)` — it re-sent the
+whole workflow diagram — so the five per-component endpoints had no caller and the concurrency
+benefit claimed in `TRANG-THAI-TRIEN-KHAI.md` was not real. The screen now diffs against the loaded
+server state and issues only POST / PUT / DELETE for rows that actually changed, plus
+`PUT .../sap-xep` when the order moved; it also shows what is about to be sent ("1 dòng thêm mới,
+2 dòng đã sửa") and names the offending row when the server rejects one. Reorder is driven by
+up/down buttons — previously there was no way to change component order at all.
+**Tests**: `ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Thu_Tu_Checklist`,
+`ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Hoi_Quyen_Cau_Hinh_Quy_Trinh`, and 4 E2E tests in
+`04-quy-trinh-tieu-chi.spec.ts` — one of which asserts the save issues `POST .../thanh-phan-ho-so`
+and **no** `PUT .../so-do`.
 
 ### TD-006: WAL Archiving Not Enabled (RESOLVED)
 

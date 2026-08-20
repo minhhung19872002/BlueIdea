@@ -289,16 +289,22 @@ requirements:
     verified_date: "2026-08-19"
     verified_by: "autopilot-iteration-28"
     evidence:
-      frontend: ["web/src/features/sang-kien/TrangNopHoSo.tsx"]
-      backend: ["src/BlueIdea.Application/SangKien/BoKiemTraThanhPhanHoSo.cs"]
+      frontend:
+        - "web/src/features/sang-kien/TrangNopHoSo.tsx"
+        - "web/src/features/quy-trinh/TrangThanhPhanHoSo.tsx"
+      backend:
+        - "src/BlueIdea.Application/SangKien/BoKiemTraThanhPhanHoSo.cs"
+        - "src/BlueIdea.Application/QuyTrinh/DichVuQuyTrinh.cs"
       tests:
         - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
         - "tests/BlueIdea.IntegrationTests/ThanhPhanVaBoNhoDemTests.cs"
+        - "tests/BlueIdea.E2eTests/specs/04-quy-trinh-tieu-chi.spec.ts"
     gaps:
       - "Components are workflow-level, not per-step as detailed in customer spec"
     notes:
       - "Bo sung 19/08/2026: co dung_de_kiem_tra_trung_lap duoc pipeline trung lap ap dung that (LuongBoSungTests.Chi_Thanh_Phan_Duoc_Tick_Moi_Di_Vao_Kiem_Tra_Trung_Lap)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
+      - "Ra soat 20/08/2026: 5 endpoint CRUD rieng tung thanh phan khong co man hinh nao goi — TrangThanhPhanHoSo van luu bang PUT /so-do (gui lai ca so do). Nay man hinh chi gui dung nhung dong doi (POST/PUT/DELETE) va goi PUT .../sap-xep khi doi thu tu; them nut len/xuong doi thu tu checklist. Bang chung: ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Thu_Tu_Checklist + 4 test E2E REQ-13, trong do co test khang dinh luc Luu khong con PUT /so-do."
       - "Iteration-28: Verified — component CRUD (create, update, list, delete), duplicate ma returns 409, soKyTuToiThieu > soKyTuToiDa returns 422, component removed after deletion (ThanhPhanVaBoNhoDemTests 5/5). LuongNghiepVuTests verifies mandatory component enforcement at submission. All tests run against real PostgreSQL via Testcontainers."
 
   - id: REQ-14

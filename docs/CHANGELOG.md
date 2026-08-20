@@ -26,13 +26,32 @@ Rà soát lại theo đúng chiều của bản 1.5.0 — **cấu hình khai bá
 - Giao diện phòng họp mờ nút theo đúng hai lớp quyền trên để không bấm rồi mới ăn lỗi. Đây là
   cải thiện thao tác; chặn thật vẫn nằm ở máy chủ.
 
+### Chức năng 13 — màn hình thành phần hồ sơ nay dùng đúng API riêng của nó
+
+Năm endpoint CRUD riêng từng thành phần (`POST/PUT/DELETE /quy-trinh/{id}/thanh-phan-ho-so` và
+`PUT .../sap-xep`) đã có từ trước nhưng **không màn hình nào gọi** — đây là năm endpoint duy nhất
+trong toàn bộ API không có lời gọi từ giao diện. Màn hình vẫn lưu bằng `PUT /so-do`, tức gửi lại
+cả sơ đồ quy trình, nên hai người cùng mở một quy trình (một người sửa bước, một người thêm thành
+phần) sẽ ghi đè lên nhau — đúng thứ mà tài liệu ghi là đã tránh được.
+
+- Bấm Lưu nay chỉ gửi **những dòng thực sự đổi**: thêm dòng nào thì POST dòng đó, sửa dòng nào thì
+  PUT dòng đó, xoá dòng nào thì DELETE dòng đó.
+- Khối cảnh báo nói rõ sắp gửi gì ("1 dòng thêm mới, 2 dòng đã sửa, đổi thứ tự"), mỗi dòng có nhãn
+  *Mới* / *Đã sửa*; máy chủ từ chối dòng nào thì báo đúng tên dòng đó thay vì một câu lỗi chung.
+- **Đổi thứ tự thành phần** bằng nút lên/xuống — trước đây không có cách nào đổi, thứ tự này chính
+  là thứ tự checklist hiện ra cho tác giả lúc nộp hồ sơ.
+
 ### Kiểm thử
 
+- `ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Thu_Tu_Checklist`
+- `ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Hoi_Quyen_Cau_Hinh_Quy_Trinh`
+- 4 test E2E `REQ-13: Thành phần hồ sơ` — trong đó một test khẳng định lúc Lưu có
+  `POST .../thanh-phan-ho-so` và **không** có `PUT .../so-do`
 - `HoiDongTests.Phieu_Kin_Khong_Lo_Danh_Tinh_Nguoi_Bo_Phieu`
 - `HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Ket_Luan_Khong_Ket_Thuc_Duoc_Phien`
 - `HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Nhan_Xet_Khong_Ghi_Y_Kien_Duoc`
 
-225/225 kiểm thử tích hợp, 512/512 kiểm thử đơn vị, 22/22 E2E hội đồng đều đạt.
+227/227 kiểm thử tích hợp, 512/512 kiểm thử đơn vị, 405/405 E2E đều đạt.
 
 ---
 
