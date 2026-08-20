@@ -142,6 +142,9 @@ export const apiDonVi = {
     guiDuLieu<number>(`/api/v1/don-vi/${nguonId}/gop-vao/${dichId}`),
   ...taoApiDanhMuc<DonViChiTiet>('/api/v1/don-vi'),
   cay: () => layDuLieu<NutCay[]>('/api/v1/don-vi/cay'),
+  /** Chỉ đơn vị đã đánh dấu "là đơn vị phê duyệt" — dùng cho màn hình khai cấp phê duyệt. */
+  chonDonViPheDuyet: () =>
+    layDuLieu<DanhMucDto[]>('/api/v1/don-vi/chon', { params: { chiDonViPheDuyet: true } }),
 };
 
 // --- Sáng kiến -------------------------------------------------------------
@@ -1910,7 +1913,6 @@ export interface LienThongBuoc {
   /** KHI_VAO_BUOC | KHI_HOAN_THANH | KHI_PHE_DUYET */
   suKien: string;
   loaiDuLieu?: string | null;
-  dongBoHaiChieu: boolean;
   trangThai: number;
 }
 
@@ -1920,7 +1922,6 @@ export interface LuuLienThongBuoc {
   suKien: string;
   loaiDuLieu?: string | null;
   cauHinhMapping?: Record<string, string> | null;
-  dongBoHaiChieu: boolean;
   trangThai: number;
 }
 

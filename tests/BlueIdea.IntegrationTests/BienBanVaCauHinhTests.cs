@@ -140,7 +140,6 @@ public sealed class BienBanVaCauHinhTests
                     buocId = Guid.NewGuid(),
                     heThongTichHopId = heThongId,
                     suKien = "KHI_HOAN_THANH",
-                    dongBoHaiChieu = false,
                     trangThai = 1
                 });
 
@@ -169,7 +168,6 @@ public sealed class BienBanVaCauHinhTests
             heThongTichHopId = heThongId,
             suKien = "KHI_PHE_DUYET",
             loaiDuLieu = "SANG_KIEN_DUOC_CONG_NHAN",
-            dongBoHaiChieu = false,
             trangThai = 1
         });
 
@@ -199,7 +197,7 @@ public sealed class BienBanVaCauHinhTests
     {
         var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
 
-        var donVi = await LayMangAsync(admin, "/api/v1/don-vi/chon");
+        var donVi = await LayMangAsync(admin, "/api/v1/don-vi/chon?chiDonViPheDuyet=true");
         var donViId = donVi[0].GetProperty("id").GetGuid();
 
         var mot = await admin.PostAsJsonAsync("/api/v1/cap-phe-duyet", new
@@ -227,6 +225,41 @@ public sealed class BienBanVaCauHinhTests
         {
             await admin.DeleteAsync($"/api/v1/cap-phe-duyet/{id}");
         }
+    }
+
+    /// <summary>
+    /// O tick "La don vi phe duyet" tren ho so don vi phai co hieu luc: don vi khong bat o do thi
+    /// khong khai lam cap xet duoc, va danh sach chon cua man hinh cung khong bay no ra.
+    /// </summary>
+    [Fact]
+    public async Task Don_Vi_Chua_Danh_Dau_Phe_Duyet_Khong_Khai_Lam_Cap_Xet_Duoc()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+
+        var tatCa = await LayMangAsync(admin, "/api/v1/don-vi/chon");
+        var chiPheDuyet = await LayMangAsync(admin, "/api/v1/don-vi/chon?chiDonViPheDuyet=true");
+
+        var idPheDuyet = chiPheDuyet.Select(x => x.GetProperty("id").GetGuid()).ToHashSet();
+
+        idPheDuyet.Should().NotBeEmpty("dữ liệu mẫu phải có ít nhất một đơn vị phê duyệt");
+        chiPheDuyet.Count.Should().BeLessThan(tatCa.Count,
+            "danh sách lọc phải hẹp hơn danh sách đầy đủ, nếu bằng nhau thì bộ lọc không chạy");
+
+        var donViThuong = tatCa
+            .Select(x => x.GetProperty("id").GetGuid())
+            .First(x => !idPheDuyet.Contains(x));
+
+        var phanHoi = await admin.PostAsJsonAsync("/api/v1/cap-phe-duyet", new
+        {
+            donViPheDuyetId = donViThuong,
+            thuTuCap = 8,
+            ghiChu = "Đơn vị không có thẩm quyền ký"
+        });
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+
+        var loi = await phanHoi.Content.ReadFromJsonAsync<JsonElement>();
+        loi.GetProperty("thongBao").GetString().Should().Contain("chưa được đánh dấu");
     }
 
     // ---------------------------------------------------------------- Nhat ky loi

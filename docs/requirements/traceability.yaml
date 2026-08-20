@@ -129,6 +129,7 @@ requirements:
       - "Run-002-B17: Authorization gap closed — ChuyenCha/Gop now require DonViCauHinh at service + controller level"
       - "Iteration-28: BienBanVaCauHinhTests verifies duplicate thuTuCap within same approval scope returns 409 (uniqueness constraint)."
       - "Iteration-29: Verified — BienBanVaCauHinhTests: cap-phe-duyet CRUD and uniqueness constraint (8/8). ToChucVaMenuTests: cycle prevention (move into own subtree → 422), self-parent guard (→ 422), org merge (source soft-deleted, self-merge blocked) (5/5). All tests run against real PostgreSQL via Testcontainers."
+      - "Ra soat 20/08/2026: co la_don_vi_phe_duyet tren don vi chi hien thi, khong logic nao doc. Nay may chu tra 422 khi khai cap phe duyet tro vao don vi chua bat co do, va GET /don-vi/chon?chiDonViPheDuyet=true cap nguon cho o chon tren man hinh cap phe duyet. Bang chung: BienBanVaCauHinhTests.Don_Vi_Chua_Danh_Dau_Phe_Duyet_Khong_Khai_Lam_Cap_Xet_Duoc."
 
   - id: REQ-06
     source_number: 6
@@ -322,6 +323,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/NhanhTheoDuLieuTests.cs"
     gaps: []
     notes:
+      - "Ra soat 20/08/2026: co la_trang_thai_ket_thuc duoc luu va dua vao snapshot nhung may chay quy trinh khong doc — chi nhin co la_buoc_ket_thuc o cap BUOC. Nay truong hop gan trang thai co tick do thi ho so dung han: khong sang buoc ke tiep, khong dat han moi, ghi ngay hoan thanh. Bang chung: BoMayQuyTrinhTests.Trang_Thai_Ket_Thuc_Dung_Ho_So_Lai_Du_Con_Buoc_Ke_Tiep va Trang_Thai_Thuong_Van_Cho_Ho_So_Di_Tiep."
       - "Bo sung 19/08/2026: co hien_thi_cho_tac_gia duoc ap dung o timeline va chi tiet ho so cho nguoi CHI la tac gia."
       - "Status labels configurable."
       - "Iteration-27: Verified — trangThaiTong transitions verified at each step throughout full workflow lifecycle. Applications transition through submit/receive/review/score/branch steps with correct status at each stage (NhanhTheoDuLieuTests 3/3). All tests run against real PostgreSQL via Testcontainers."
@@ -369,6 +371,7 @@ requirements:
       - "Iteration-28: Verified — BienBanVaCauHinhTests: integration system creation, workflow-level integration link with KHI_PHE_DUYET event, read-back, cross-workflow buocId validation returns 422 (8/8). TichHopTests already covers integration CRUD and webhook dispatch. All tests run against real PostgreSQL via Testcontainers."
 
   # ── Nhom III: Tieu chi dong ────────────────────────────────────────
+      - "Ra soat 20/08/2026: co dong_bo_hai_chieu chi duoc luu, khong dich vu dong bo nao doc. Chieu nhan ve doi mot duong GHI tu he thong ngoai vao, ma /api/public/v1 co y chi cho DOC; mo duong ghi phai co dac ta that cua IOC/TDKT (REQ-41 BLOCKED_EXTERNAL). Da go khoi form va API, giu cot kem chu thich."
 
   - id: REQ-17
     source_number: 17
@@ -408,6 +411,7 @@ requirements:
       - "Iteration-27: Verified — per-criteria scoring with individual diemToiDa values, council members submit scores via /danh-gia/phieu/gui, score aggregation via /danh-gia/tong-hop produces tongDiem used in workflow branching (NhanhTheoDuLieuTests 3/3). All tests run against real PostgreSQL via Testcontainers."
 
   # ── Nhom IV: Hoi dong ──────────────────────────────────────────────
+      - "Ra soat 20/08/2026: co tu_dong_tong_hop duoc luu nhung khong noi vao dau — thu ky van phai bam Tong hop diem bang tay. Nay nguoi cuoi cung duoc phan cong gui phieu la he thong tong hop luon (khong ghi nguoi ket luan). Co loai_bo_diem_cao_thap co tac dung that trong cong thuc nhung khong co cho dat tren giao dien nen luon bi dua ve mac dinh — nay ca hai deu co tren form tao bo tieu chi. Co cho_phep_cham_doc_lap bi go khoi API vi khong co ngu nghia nao de hien thuc. Bang chung: LuongNghiepVuTests khang dinh diem len ho so truoc khi co ai bam Tong hop diem."
 
   - id: REQ-19
     source_number: 19
@@ -994,6 +998,7 @@ requirements:
     notes:
       - "Reconciliation correction: Requirement Auditor missed CauHinhMenuController.cs (searched HeThongController/XacThucController only). Release Auditor discovered full CRUD: GET, POST, PUT, DELETE, PUT/sap-xep — all protected by [Authorize(Policy = MaQuyen.CauHinhSua)]. Frontend TrangCauHinhMenu.tsx has query/mutation hooks for all endpoints."
       - "Iteration-27: Verified — WEB and MOBILE menu trees are independent (same ma allowed cross-type, conflict within same type returns 409), drag-drop reorder persists thuTu and menuChaId, deleting parent with children returns 422 (ToChucVaMenuTests 5/5). All tests run against real PostgreSQL via Testcontainers."
+      - "Ra soat 20/08/2026: co mo_tab_moi duoc luu va tra ve nhung BoCucChinh van dieu huong trong cung tab. Nay muc menu tick o do mo that o tab moi (window.open, noopener/noreferrer) va co tooltip noi ro."
 
   - id: REQ-49
     source_number: 49

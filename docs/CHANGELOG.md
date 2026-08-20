@@ -55,6 +55,49 @@ phần) sẽ ghi đè lên nhau — đúng thứ mà tài liệu ghi là đã tr
 
 ---
 
+## [1.7.0] — 2026-08-20
+
+Dọn nốt nhóm **cấu hình bật/tắt được nhưng không có tác dụng** (TD-011). Nguyên tắc áp dụng cho
+từng cờ: hoặc nối vào hành vi thật, hoặc bỏ khỏi giao diện và API — không để tồn tại một ô tick
+mà bật hay tắt cũng như nhau.
+
+### Nối vào hành vi thật
+
+- **Chức năng 14 — trạng thái kết thúc.** Trước đây máy chạy quy trình chỉ nhìn cờ *bước* kết
+  thúc; tick "là trạng thái kết thúc" trên một trạng thái không đổi gì cả. Nay trường hợp nào gán
+  trạng thái đó cho hồ sơ thì hồ sơ dừng hẳn: không sang bước kế tiếp, không đặt hạn xử lý mới,
+  ghi ngày hoàn thành. Trạng thái không tick thì đi tiếp y như cũ (có test chặn hồi quy).
+- **Chức năng 5 — đơn vị phê duyệt.** Máy chủ từ chối khai cấp phê duyệt trỏ vào đơn vị chưa bật
+  ô *Là đơn vị phê duyệt* (422), và ô chọn trên màn hình chỉ liệt kê đơn vị đã bật — không bày ra
+  những lựa chọn chắc chắn bị từ chối.
+- **Chức năng 18 — tự động tổng hợp điểm.** Người cuối cùng trong danh sách phân công gửi phiếu
+  là hệ thống tổng hợp ngay, thư ký không phải bấm nút nữa; điều kiện chuyển bước theo tổng điểm
+  nhờ đó dùng được luôn. Bản tổng hợp tự động **không** ghi "người kết luận" — máy làm thay, không
+  phải ai đó quyết định. Hai công tắc *Tự động tổng hợp* và *Loại điểm cao nhất/thấp nhất* nay có
+  trên form tạo bộ tiêu chí; riêng cái sau vốn có tác dụng thật trong công thức tính nhưng không
+  có chỗ đặt, nên bộ tiêu chí tạo từ màn hình luôn bị đưa về mặc định.
+- **Chức năng 48 — mở tab mới.** Mục menu khai "mở tab mới" nay mở thật ở tab mới.
+
+### Bỏ khỏi giao diện và API
+
+- **Đồng bộ hai chiều** (cấu hình liên thông theo bước): chiều nhận về đòi một đường GHI từ hệ
+  thống ngoài vào, mà `/api/public/v1` cố ý chỉ cho ĐỌC. Mở đường ghi phải có đặc tả thật của IOC
+  / Thi đua khen thưởng (REQ-41 đang chờ bên thành phố). Ô chọn cũ hứa một hành vi không tồn tại
+  nên đã gỡ; cột trong CSDL giữ lại kèm chú thích, không phải viết migration.
+- **Cho phép chấm độc lập** (bộ tiêu chí): hội đồng luôn chấm độc lập — điểm từng người chỉ lộ ra
+  sau khi gửi phiếu — nên vị trí "tắt" không có nghĩa gì để hiện thực. Đã bỏ khỏi API.
+
+### Kiểm thử
+
+- `BoMayQuyTrinhTests.Trang_Thai_Ket_Thuc_Dung_Ho_So_Lai_Du_Con_Buoc_Ke_Tiep`
+- `BoMayQuyTrinhTests.Trang_Thai_Thuong_Van_Cho_Ho_So_Di_Tiep`
+- `BienBanVaCauHinhTests.Don_Vi_Chua_Danh_Dau_Phe_Duyet_Khong_Khai_Lam_Cap_Xet_Duoc`
+- `LuongNghiepVuTests` — khẳng định điểm đã lên hồ sơ **trước** khi có ai bấm "Tổng hợp điểm"
+
+228/228 kiểm thử tích hợp, 514/514 kiểm thử đơn vị, 405/405 E2E đều đạt.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

@@ -44,28 +44,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Wire the vendor's browser plugin/local port once the unit picks a CA provider. No server change needed.
 **Priority**: Low (depends on external vendor choice)
 
-### TD-011: Remaining Config Flags With No Runtime Effect
-
-**Area**: Cross-cutting (same defect class as TD-009)
-**Description**: A sweep on 2026-08-20 found further admin-settable flags that are stored but never
-read at runtime. The council ones (`LaPhieuKin`, `QuyenNhanXet`, `QuyenKetLuan`) were fixed in
-v1.6.0; these remain:
-
-| Flag | Where it is set | What is missing |
-|---|---|---|
-| `quy_trinh_trang_thai.la_trang_thai_ket_thuc` | Workflow designer | Engine ends a case on the *step* flag `LaBuocKetThuc` (`BoMayQuyTrinh.cs:305`); the status-level flag is snapshotted but never read |
-| `quy_trinh_lien_thong_buoc.dong_bo_hai_chieu` | `/quan-tri/quy-trinh/:id/lien-thong` | Sync service never reads it — every sync is one-way |
-| `cau_hinh_menu.mo_tab_moi` | `/quan-tri/cau-hinh/menu` | `BoCucChinh.tsx` renders menu rows without `target="_blank"` |
-| `bo_tieu_chi.cho_phep_cham_doc_lap`, `bo_tieu_chi.tu_dong_tong_hop` | API only (no screen) | Accepted and stored by `QuyTrinhVaTieuChiController`, read by nothing |
-| `don_vi.la_don_vi_phe_duyet` | Unit form | Displayed only; approval levels are driven by `cau_hinh_cap_phe_duyet` |
-
-**Impact**: An administrator toggles the option, the system reports success, behaviour does not
-change. This is the most dangerous defect class at acceptance.
-**Resolution**: For each flag, either wire it to real behaviour or remove it from the UI/API so no
-one can set something inert.
-**Priority**: Medium (`la_trang_thai_ket_thuc` and `dong_bo_hai_chieu` first — both sit on
-configurable business behaviour)
-
 ### TD-013: Dead Application Code
 
 **Area**: Housekeeping
@@ -79,6 +57,22 @@ the real one.
 **Priority**: Low
 
 ## Resolved Items
+
+### TD-011: Remaining Config Flags With No Runtime Effect (RESOLVED)
+
+**Resolved by**: Rà soát 20/08/2026
+
+Five more admin-settable flags were stored but never read. Each was either wired to real behaviour
+or removed from the UI/API so nobody can set something inert:
+
+| Flag | Outcome |
+|---|---|
+| `quy_trinh_trang_thai.la_trang_thai_ket_thuc` | **Wired.** A transition that assigns a status marked "kết thúc" now ends the case: no next step, no deadline, `NgayHoanThanh` set. Previously the engine only looked at the step-level `LaBuocKetThuc`, so ticking the status changed nothing. Tests: `BoMayQuyTrinhTests.Trang_Thai_Ket_Thuc_Dung_Ho_So_Lai_Du_Con_Buoc_Ke_Tiep` + a regression test proving unticked statuses still flow on. |
+| `don_vi.la_don_vi_phe_duyet` | **Wired.** The server now rejects an approval level pointing at a unit that is not marked as an approving unit (422), and `GET /don-vi/chon?chiDonViPheDuyet=true` feeds the approval-level screen so the list cannot offer a unit that will be refused. Test: `BienBanVaCauHinhTests.Don_Vi_Chua_Danh_Dau_Phe_Duyet_Khong_Khai_Lam_Cap_Xet_Duoc`. |
+| `bo_tieu_chi.tu_dong_tong_hop` | **Wired.** When the last assigned evaluator submits their form, the score aggregation runs automatically (no `NguoiKetLuanId` recorded — nobody concluded, the system did). The aggregation core was split out of `TongHopDiemAsync` so the automatic path does not need the `DANH_GIA.TONG_HOP` permission the submitting member lacks. The flag is now settable on the criteria-set form, along with `loai_bo_diem_cao_thap` — which had real scoring effect but no UI, so creating a criteria set from the screen always reset it to the DTO default. Evidence: `LuongNghiepVuTests` asserts the score reaches the application *before* anyone presses "Tổng hợp điểm". |
+| `bo_tieu_chi.cho_phep_cham_doc_lap` | **Removed from the API.** Council members always score independently (individual scores stay hidden until the form is submitted), so the "off" position has no meaning to implement. The column stays with a comment pointing here; no migration. |
+| `quy_trinh_lien_thong_buoc.dong_bo_hai_chieu` | **Removed from UI and API.** Two-way sync needs an inbound write path; `/api/public/v1` is deliberately read-only, and opening a write path requires the city's real IOC / TĐKT spec (REQ-41, BLOCKED_EXTERNAL). The form previously promised a behaviour that did not exist. |
+| `cau_hinh_menu.mo_tab_moi` | **Wired.** A menu row marked "mở tab mới" now opens in a new tab (`window.open`, `noopener,noreferrer`) and says so in its tooltip. |
 
 ### TD-012: Per-Component CRUD API For Dossier Components Had No Caller (RESOLVED)
 

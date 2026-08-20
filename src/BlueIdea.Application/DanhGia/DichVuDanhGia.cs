@@ -447,7 +447,43 @@ public sealed class DichVuDanhGia
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        /*
+         * Co "tu dong tong hop" cua bo tieu chi phai co hieu luc that.
+         *
+         * Truoc day co nay duoc luu nhung khong noi vao dau: thu ky van phai bam "Tong hop diem"
+         * bang tay, bat hay tat khong khac gi nhau. Nay khi nguoi CUOI CUNG trong danh sach phan
+         * cong gui phieu, he thong tong hop luon — dieu kien chuyen buoc theo tong diem nho do
+         * dung ngay, khong cho mot thao tac thu cong nua.
+         */
+        if (guiChinhThuc
+            && boTieuChi.TuDongTongHop
+            && await TatCaPhanCongDaChamAsync(duLieu.SangKienId, duLieu.HoiDongId, ct)
+                .ConfigureAwait(false))
+        {
+            await ThucHienTongHopAsync(duLieu.SangKienId, duLieu.HoiDongId, null, true, ct)
+                .ConfigureAwait(false);
+        }
+
         return await LayPhieuChamAsync(duLieu.SangKienId, duLieu.HoiDongId, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Moi nguoi duoc phan cong cham ho so nay trong hoi dong nay deu da gui phieu chua.
+    ///
+    /// Chua phan cong ai thi tra ve false: tong hop khi khong co phieu nao chi tao ra mot ban ghi
+    /// ket qua rong.
+    /// </summary>
+    private async Task<bool> TatCaPhanCongDaChamAsync(
+        Guid sangKienId, Guid hoiDongId, CancellationToken ct)
+    {
+        var phanCong = await _db.SangKienPhanCong.AsNoTracking()
+            .Where(x => x.SangKienId == sangKienId && x.HoiDongId == hoiDongId)
+            .Select(x => x.TrangThaiPhanCong)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return phanCong.Count > 0 && phanCong.All(x => x == TrangThaiPhanCong.DaCham);
     }
 
     /// <summary>Thu ky mo lai phieu da gui de thanh vien sua.</summary>
@@ -483,6 +519,20 @@ public sealed class DichVuDanhGia
     {
         await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaTongHop, ct).ConfigureAwait(false);
 
+        return await ThucHienTongHopAsync(sangKienId, hoiDongId, phienHopId, false, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Loi tong hop diem, KHONG kiem quyen.
+    ///
+    /// Tach ra vi co hai duong goi toi: thu ky bam "Tong hop diem" (di qua TongHopDiemAsync, co
+    /// kiem quyen DANH_GIA.TONG_HOP), va duong tu dong khi bo tieu chi bat "tu dong tong hop" —
+    /// luc do nguoi dang dang nhap la thanh vien vua gui phieu, ho khong co quyen tong hop.
+    /// </summary>
+    private async Task<KetQuaTongHopDto> ThucHienTongHopAsync(
+        Guid sangKienId, Guid hoiDongId, Guid? phienHopId, bool tuDong, CancellationToken ct)
+    {
         var boTieuChi = await NapBoTieuChiAsync(sangKienId, hoiDongId, ct).ConfigureAwait(false);
 
         var phieus = await _db.PhieuDanhGia
@@ -521,7 +571,8 @@ public sealed class DichVuDanhGia
         ketQua.SoPhieuKhongDongY = soKhongDongY;
         ketQua.KetQua = tongHop.Dat ? KetQuaXetDuyetGiaTri.Dat : KetQuaXetDuyetGiaTri.KhongDat;
         ketQua.MucCongNhanId = tongHop.MucCongNhan?.Id;
-        ketQua.NguoiKetLuanId = _nguoiDung.Id;
+        // Tong hop tu dong khong co "nguoi ket luan": may lam thay, khong phai ai do quyet dinh.
+        ketQua.NguoiKetLuanId = tuDong ? ketQua.NguoiKetLuanId : _nguoiDung.Id;
         ketQua.NgayKetLuan = _dongHo.BayGio;
 
         // Cap nhat nguoc len ho so de dieu kien chuyen buoc su dung duoc.

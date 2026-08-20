@@ -19,8 +19,15 @@ public class BoTieuChi : ThucTheDanhMuc
     /// <summary>So chu so thap phan khi lam tron ket qua.</summary>
     public int LamTron { get; set; } = 2;
 
+    /// <summary>
+    /// KHONG DUOC DOC O DAU. Giu lai de khong phai viet migration xoa cot tren CSDL dang chay;
+    /// API khong con nhan gia tri nay va khong man hinh nao dat duoc no. Hoi dong luon cham doc
+    /// lap (diem tung nguoi chi lo ra sau khi gui phieu), nen co nay khong co trang thai "tat"
+    /// nao co nghia. Xem docs/audit/technical-debt.md muc TD-011.
+    /// </summary>
     public bool ChoPhepChamDocLap { get; set; } = true;
 
+    /// <summary>Tu dong tong hop diem khi nguoi cuoi cung duoc phan cong gui phieu.</summary>
     public bool TuDongTongHop { get; set; } = true;
 
     /// <summary>Loai 1 diem cao nhat + 1 thap nhat khi so phieu &gt;= 5.</summary>

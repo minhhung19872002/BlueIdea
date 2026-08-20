@@ -28,6 +28,8 @@ interface DongMenu {
   icon?: string | null;
   duongDan?: string | null;
   laTieuDeNhom: boolean;
+  /** Cấu hình menu cho phép khai một mục mở ở tab mới (chức năng 48). */
+  moTabMoi: boolean;
 }
 
 /**
@@ -125,7 +127,19 @@ export function BoCucChinh() {
               muc={m}
               dangChon={m.ma === maDangChon}
               onChon={() => {
-                if (m.duongDan) dieuHuong(m.duongDan);
+                if (!m.duongDan) return;
+
+                /*
+                 * Ô "Mở tab mới" ở màn hình cấu hình menu phải có tác dụng thật. Trước đây giá trị
+                 * này được lưu, được API trả về, nhưng ở đây vẫn điều hướng trong cùng tab — quản
+                 * trị viên tick xong không thấy gì đổi.
+                 */
+                if (m.moTabMoi) {
+                  window.open(m.duongDan, '_blank', 'noopener,noreferrer');
+                  return;
+                }
+
+                dieuHuong(m.duongDan);
                 setMoDrawer(false);
               }}
             />
@@ -301,6 +315,7 @@ function MucDieuHuong({
       role="link"
       tabIndex={0}
       aria-current={dangChon ? 'page' : undefined}
+      title={muc.moTabMoi ? `${muc.ten} — mở ở tab mới` : undefined}
       onClick={onChon}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -354,6 +369,7 @@ function lamPhangMenu(danhSach: MucMenu[]): DongMenu[] {
       icon: m.icon,
       duongDan: m.duongDan,
       laTieuDeNhom: laNhom,
+      moTabMoi: m.moTabMoi,
     });
 
     if (m.menuCon.length > 0) {

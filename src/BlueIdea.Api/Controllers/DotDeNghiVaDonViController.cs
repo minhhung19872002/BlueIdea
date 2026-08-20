@@ -245,9 +245,16 @@ public sealed class DonViController : ControllerBase
     public async Task<IActionResult> LayCayAsync(CancellationToken ct)
         => Ok(PhanHoiApi<IReadOnlyList<NutCay>>.Ok(await _dichVu.LayCayAsync(ct)));
 
+    /// <summary>
+    /// Danh sach don vi de chon. <paramref name="chiDonViPheDuyet"/> = true thi chi tra ve don vi
+    /// da danh dau "la don vi phe duyet" — dung cho man hinh khai cap phe duyet, de nguoi dung
+    /// khong chon nham mot don vi khong co tham quyen ky roi bi may chu tu choi.
+    /// </summary>
     [HttpGet("chon")]
-    public async Task<IActionResult> LayDanhSachChonAsync(CancellationToken ct)
-        => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(await _dichVu.LayDanhSachChonAsync(ct)));
+    public async Task<IActionResult> LayDanhSachChonAsync(
+        CancellationToken ct, [FromQuery] bool chiDonViPheDuyet = false)
+        => Ok(PhanHoiApi<IReadOnlyList<DanhMucDto>>.Ok(
+            await _dichVu.LayDanhSachChonAsync(ct, chiDonViPheDuyet)));
 
     [HttpGet("{id:guid}")]
     [Authorize(Policy = MaQuyen.DonViXem)]

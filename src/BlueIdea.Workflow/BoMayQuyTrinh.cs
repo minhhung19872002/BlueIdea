@@ -302,17 +302,26 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
             ? nguCanh.QuyTrinh.DanhSachBuoc.FirstOrDefault(b => !b.DaXoa && b.Id == truongHop.BuocTiepTheoId.Value)
             : null;
 
-        var ketThuc = buocTiep is null || buocTiep.LaBuocKetThuc;
+        // Trang thai duoc gan cho ho so co the TU NO ket thuc quy trinh.
+        //
+        // Quan tri vien tick "la trang thai ket thuc" tren mot trang thai (vi du "Tu choi" o buoc
+        // tham dinh) la mong ho so dung han o day. Neu chi nhin buoc ke tiep thi o tick do khong
+        // co tac dung gi: he thong bao luu thanh cong roi van day ho so di tiep.
+        var trangThaiGan = LayTrangThaiTheoId(nguCanh.QuyTrinh, truongHop.TrangThaiGanId);
+        var ketThucTheoTrangThai = trangThaiGan?.LaTrangThaiKetThuc == true;
+        var ketThuc = buocTiep is null || buocTiep.LaBuocKetThuc || ketThucTheoTrangThai;
 
-        hoSo.BuocHienTaiId = buocTiep?.Id;
+        // Ket thuc vi trang thai thi khong dat ho so vao buoc ke tiep nua — de nguyen o do thi ho
+        // so vua "da hoan thanh" vua nam cho tac nhan cua buoc sau xu ly.
+        hoSo.BuocHienTaiId = ketThucTheoTrangThai ? null : buocTiep?.Id;
         hoSo.TrangThaiHienTaiId = truongHop.TrangThaiGanId
                                   ?? LayTrangThaiMacDinh(nguCanh.QuyTrinh, buocTiep)?.Id;
         hoSo.PhienBan++;
 
-        if (buocTiep is not null && !buocTiep.LaBuocKetThuc)
+        if (!ketThuc)
         {
             hoSo.HanXuLyHienTai = _tinhHan.TinhHan(
-                thoiDiem, buocTiep.SoNgayXuLy, buocTiep.TinhTheoNgayLamViec);
+                thoiDiem, buocTiep!.SoNgayXuLy, buocTiep.TinhTheoNgayLamViec);
         }
         else
         {
@@ -343,8 +352,8 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
                 ? $"Hồ sơ đã hoàn thành quy trình với kết quả '{truongHop.Ten}'."
                 : $"Hồ sơ chuyển sang bước '{buocTiep!.Ten}'.",
             BuocTruocId = buocCu.Id,
-            BuocMoiId = buocTiep?.Id,
-            TenBuocMoi = buocTiep?.Ten,
+            BuocMoiId = hoSo.BuocHienTaiId,
+            TenBuocMoi = ketThucTheoTrangThai ? null : buocTiep?.Ten,
             TrangThaiMoiId = hoSo.TrangThaiHienTaiId,
             TrangThaiTongMoi = hoSo.TrangThaiTong,
             HanXuLyMoi = hoSo.HanXuLyHienTai,
@@ -390,6 +399,21 @@ public sealed class BoMayQuyTrinh : IBoMayQuyTrinh
             ? null
             : nguCanh.QuyTrinh.DanhSachBuoc
                 .FirstOrDefault(b => !b.DaXoa && b.Id == nguCanh.HoSo.BuocHienTaiId.Value);
+
+    /// <summary>Tim mot trang thai theo id, ke ca trang thai khai rieng cho tung buoc.</summary>
+    private static QuyTrinhTrangThai? LayTrangThaiTheoId(QuyTrinh quyTrinh, Guid? trangThaiId)
+    {
+        if (trangThaiId is not { } id)
+        {
+            return null;
+        }
+
+        return quyTrinh.TrangThaiToanCuc.FirstOrDefault(t => !t.DaXoa && t.Id == id)
+               ?? quyTrinh.DanhSachBuoc
+                   .Where(b => !b.DaXoa)
+                   .SelectMany(b => b.TrangThai)
+                   .FirstOrDefault(t => !t.DaXoa && t.Id == id);
+    }
 
     private static QuyTrinhTrangThai? LayTrangThaiMacDinh(QuyTrinh quyTrinh, QuyTrinhBuoc? buoc)
     {

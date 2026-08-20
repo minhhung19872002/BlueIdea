@@ -208,10 +208,10 @@ public sealed class LuuBoTieuChiDto : LuuDanhMucDto
 
     public int LamTron { get; set; } = 2;
 
-    public bool ChoPhepChamDocLap { get; set; } = true;
-
+    /// <summary>Tu dong tong hop diem khi nguoi cuoi cung trong danh sach phan cong gui phieu.</summary>
     public bool TuDongTongHop { get; set; } = true;
 
+    /// <summary>Loai 1 diem cao nhat + 1 thap nhat khi so phieu &gt;= 5.</summary>
     public bool LoaiBoDiemCaoThap { get; set; }
 }
 
@@ -297,7 +297,6 @@ public sealed class TieuChiController : ControllerBase
             DiemDatToiThieu = duLieu.DiemDatToiThieu,
             CachTinh = duLieu.CachTinh,
             LamTron = duLieu.LamTron,
-            ChoPhepChamDocLap = duLieu.ChoPhepChamDocLap,
             TuDongTongHop = duLieu.TuDongTongHop,
             LoaiBoDiemCaoThap = duLieu.LoaiBoDiemCaoThap
         }, ct);
@@ -323,7 +322,6 @@ public sealed class TieuChiController : ControllerBase
             x.DiemDatToiThieu = duLieu.DiemDatToiThieu;
             x.CachTinh = duLieu.CachTinh;
             x.LamTron = duLieu.LamTron;
-            x.ChoPhepChamDocLap = duLieu.ChoPhepChamDocLap;
             x.TuDongTongHop = duLieu.TuDongTongHop;
             x.LoaiBoDiemCaoThap = duLieu.LoaiBoDiemCaoThap;
         }, ct);

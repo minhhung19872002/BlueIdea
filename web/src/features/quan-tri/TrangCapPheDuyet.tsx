@@ -74,7 +74,14 @@ export default function TrangCapPheDuyet() {
 
   const { data: cacDot } = useQuery({ queryKey: ['dot-chon'], queryFn: apiDotDeNghi.chon });
   const { data: cacLinhVuc } = useQuery({ queryKey: ['linh-vuc-chon'], queryFn: apiLinhVuc.chon });
-  const { data: cacDonVi } = useQuery({ queryKey: ['don-vi-chon'], queryFn: apiDonVi.chon });
+  /*
+   * Chỉ liệt kê đơn vị đã bật ô "Là đơn vị phê duyệt": máy chủ từ chối gán cấp xét cho đơn vị
+   * không bật ô đó, nên bày cả danh sách ra đây chỉ tạo cơ hội chọn nhầm rồi ăn lỗi.
+   */
+  const { data: cacDonVi } = useQuery({
+    queryKey: ['don-vi-phe-duyet-chon'],
+    queryFn: apiDonVi.chonDonViPheDuyet,
+  });
 
   function lamMoi() {
     void queryClient.invalidateQueries({ queryKey: ['cap-phe-duyet'] });
