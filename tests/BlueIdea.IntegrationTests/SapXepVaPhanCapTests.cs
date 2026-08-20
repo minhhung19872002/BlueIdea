@@ -50,7 +50,9 @@ public sealed class SapXepVaPhanCapTests
         var coDiem = diem.TakeWhile(x => x.HasValue).ToList();
         var conLai = diem.Skip(coDiem.Count).ToList();
 
-        conLai.Should().OnlyContain(x => x == null, "hồ sơ chưa có điểm phải nằm cuối");
+        // Duoi rong (moi ho so trong trang deu da co diem) van thoa bat bien "NULL khong len dau" —
+        // OnlyContain tren tap rong lai bao hong, nen phai chan truoc.
+        conLai.Should().NotContain(x => x != null, "hồ sơ chưa có điểm phải nằm cuối");
         coDiem.Select(x => x!.Value).Should().BeInDescendingOrder();
     }
 

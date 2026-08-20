@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using BlueIdea.IntegrationTests.HaTang;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BlueIdea.IntegrationTests;
 
@@ -118,8 +120,7 @@ public sealed class HoiDongTests
             phienHopId = phienId,
             sangKienId,
             yKien = "DONG_Y",
-            ghiChu = "Đồng ý công nhận",
-            laPhieuKin = false
+            ghiChu = "Đồng ý công nhận"
         });
 
         boPhieu.EnsureSuccessStatusCode();
@@ -128,9 +129,16 @@ public sealed class HoiDongTests
             chuTich,
             $"/api/v1/hoi-dong/phien-hop/{phienId}/ket-qua-bo-phieu?sangKienId={sangKienId}");
 
-        ketQua.GetProperty("tongPhieu").GetInt32().Should().Be(1);
-        ketQua.GetProperty("dongY").GetInt32().Should().Be(1);
-        ketQua.GetProperty("tyLeDongY").GetDecimal().Should().Be(100m);
+        /*
+         * Quy trinh mau bat "Bo phieu kin" o buoc hop hoi dong, nen trong luc phien CON MO chi thay
+         * so nguoi da bo, khong thay ai bo gi. Thu ky van biet con ai chua bo de nhac, nhung khong
+         * ai nhin duoc bang diem roi bo theo.
+         */
+        ketQua.GetProperty("boPhieuKin").GetBoolean().Should().BeTrue();
+        ketQua.GetProperty("daChotPhien").GetBoolean().Should().BeFalse();
+        ketQua.GetProperty("tongPhieu").GetInt32().Should().Be(1, "vẫn đếm được số người đã bỏ");
+        ketQua.GetProperty("dongY").GetInt32().Should().Be(0, "số liệu kiểm phiếu chưa được lộ");
+        ketQua.GetProperty("tyLeDongY").GetDecimal().Should().Be(0m);
 
         // --- 4. Ket thuc phien ---------------------------------------------------
         var ketThuc = await chuTich.PostAsJsonAsync(
@@ -144,13 +152,21 @@ public sealed class HoiDongTests
         sauKetThuc.GetProperty("trangThaiPhien").GetString().Should().Be("DA_KET_THUC");
         sauKetThuc.GetProperty("ketLuan").GetString().Should().Contain("Thông qua");
 
+        // Chot phien roi thi so lieu kiem phieu moi lo ra.
+        var ketQuaSauChot = await LayMotAsync(
+            chuTich,
+            $"/api/v1/hoi-dong/phien-hop/{phienId}/ket-qua-bo-phieu?sangKienId={sangKienId}");
+
+        ketQuaSauChot.GetProperty("daChotPhien").GetBoolean().Should().BeTrue();
+        ketQuaSauChot.GetProperty("dongY").GetInt32().Should().Be(1);
+        ketQuaSauChot.GetProperty("tyLeDongY").GetDecimal().Should().Be(100m);
+
         // --- 5. Phien da ket thuc thi khoa bo phieu ------------------------------
         var boPhieuLai = await chuTich.PostAsJsonAsync("/api/v1/hoi-dong/phien-hop/bo-phieu", new
         {
             phienHopId = phienId,
             sangKienId,
-            yKien = "KHONG_DONG_Y",
-            laPhieuKin = false
+            yKien = "KHONG_DONG_Y"
         });
 
         boPhieuLai.IsSuccessStatusCode.Should().BeFalse();
@@ -186,8 +202,7 @@ public sealed class HoiDongTests
         {
             phienHopId = phienId,
             sangKienId,
-            yKien = "DONG_Y",
-            laPhieuKin = false
+            yKien = "DONG_Y"
         });
 
         boPhieu.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -247,8 +262,7 @@ public sealed class HoiDongTests
             phienHopId = phienId,
             sangKienId,
             yKien = "DONG_Y",
-            ghiChu = ghiChuRieng,
-            laPhieuKin = true
+            ghiChu = ghiChuRieng
         });
 
         boPhieu.EnsureSuccessStatusCode();
@@ -274,13 +288,83 @@ public sealed class HoiDongTests
         loGhiChu.Should().BeFalse("ghi chú kèm phiếu kín không được trả cho người khác");
         phieuAn.GetProperty("laPhieuKin").GetBoolean().Should().BeTrue();
 
-        // Tong hop van dung: an danh tinh khong duoc lam sai so lieu kiem phieu.
+        // --- Phien con mo: so lieu kiem phieu chua lo -------------------------
         var ketQua = await LayMotAsync(
             thanhVienKhac,
             $"/api/v1/hoi-dong/phien-hop/{phienId}/ket-qua-bo-phieu?sangKienId={sangKienId}");
 
-        ketQua.GetProperty("tongPhieu").GetInt32().Should().Be(1);
-        ketQua.GetProperty("dongY").GetInt32().Should().Be(1);
+        ketQua.GetProperty("tongPhieu").GetInt32().Should().Be(1, "vẫn đếm được số người đã bỏ");
+        ketQua.GetProperty("dongY").GetInt32().Should().Be(0);
+
+        // --- Chot phien: an danh tinh khong duoc lam sai so lieu kiem phieu -----
+        var ketThuc = await chuTich.PostAsJsonAsync(
+            $"/api/v1/hoi-dong/phien-hop/{phienId}/ket-thuc",
+            new { ketLuan = "Kết thúc phiên kiểm thử phiếu kín." });
+
+        ketThuc.EnsureSuccessStatusCode();
+
+        var ketQuaSauChot = await LayMotAsync(
+            thanhVienKhac,
+            $"/api/v1/hoi-dong/phien-hop/{phienId}/ket-qua-bo-phieu?sangKienId={sangKienId}");
+
+        ketQuaSauChot.GetProperty("tongPhieu").GetInt32().Should().Be(1);
+        ketQuaSauChot.GetProperty("dongY").GetInt32().Should().Be(1);
+
+        // Danh tinh thi KHONG lo lai sau khi chot: kin la kin vinh vien, chi so lieu moi mo ra.
+        var sauChot = await LayMotAsync(thanhVienKhac, $"/api/v1/hoi-dong/phien-hop/{phienId}");
+        var phieuVanAn = sauChot.GetProperty("phieuBoPhieu").EnumerateArray()
+            .Single(x => x.GetProperty("sangKienId").GetString() == sangKienId);
+
+        phieuVanAn.GetProperty("thanhVienId").GetString().Should().Be(Guid.Empty.ToString());
+    }
+
+    /// <summary>
+    /// Nguoi bo phieu KHONG tu quyet dinh duoc phieu cua minh kin hay ho.
+    ///
+    /// Truoc day <c>laPhieuKin</c> la mot truong cua than yeu cau, nen o tick "Bo phieu kin" ma
+    /// quan tri vien dat tren buoc quy trinh khong ep duoc ai — moi thanh vien mot kieu trong cung
+    /// mot phien hop. Nay may chu suy ra tu cau hinh buoc va bo qua moi thu may khach gui len.
+    /// </summary>
+    [Fact]
+    public async Task May_Khach_Khong_Tu_Dat_Duoc_Phieu_Kin_Hay_Ho()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var chuTich = await _ungDung.TaoClientDaDangNhapAsync("chutich");
+
+        var hoiDongId = await LayHoiDongMauAsync(admin);
+        var sangKienId = await LaySangKienBatKyAsync(admin);
+        var phienId = await TaoPhienHopAsync(
+            admin, hoiDongId, sangKienId, "Phiên kiểm thử máy khách ép phiếu hở");
+
+        // Co tinh gui laPhieuKin = false de doi phieu cong khai.
+        var boPhieu = await chuTich.PostAsJsonAsync("/api/v1/hoi-dong/phien-hop/bo-phieu", new
+        {
+            phienHopId = phienId,
+            sangKienId,
+            yKien = "DONG_Y",
+            ghiChu = "Cố tình xin phiếu hở",
+            laPhieuKin = false
+        });
+
+        boPhieu.EnsureSuccessStatusCode();
+
+        var ketQua = await LayMotAsync(
+            chuTich,
+            $"/api/v1/hoi-dong/phien-hop/{phienId}/ket-qua-bo-phieu?sangKienId={sangKienId}");
+
+        ketQua.GetProperty("boPhieuKin").GetBoolean().Should().BeTrue(
+            "cấu hình bước quyết định, không phải trường máy khách gửi lên");
+
+        using var pham = _ungDung.Services.CreateScope();
+        var db = pham.ServiceProvider.GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+        var laPhieuKin = await db.PhieuBoPhieu.AsNoTracking()
+            .Where(x => x.PhienHopId == Guid.Parse(phienId)
+                        && x.SangKienId == Guid.Parse(sangKienId))
+            .Select(x => x.LaPhieuKin)
+            .FirstAsync();
+
+        laPhieuKin.Should().BeTrue("lá phiếu phải được ghi là kín bất kể máy khách gửi gì");
     }
 
     /// <summary>
@@ -469,13 +553,29 @@ public sealed class HoiDongTests
         return noiDung.GetProperty("duLieu")[0].GetProperty("id").GetString()!;
     }
 
-    private static async Task<string> LaySangKienBatKyAsync(HttpClient client)
+    /// <summary>
+    /// Mot ho so DA NOP — tuc la co snapshot quy trinh.
+    ///
+    /// Truoc day ham nay lay ho so dau tien bat ky, va co luc trung phai mot ban NHAP do phep kiem
+    /// khac de lai. Ho so nhap chua co snapshot quy trinh, nen moi luat lay tu cau hinh buoc
+    /// (bo phieu kin, cham diem doc lap...) deu tra ve "khong bat" — phep kiem hong theo thu tu
+    /// chay chu khong theo hanh vi cua he thong.
+    /// </summary>
+    private async Task<string> LaySangKienBatKyAsync(HttpClient client)
     {
-        var phanHoi = await client.GetAsync("/api/v1/sang-kien?soDong=1");
-        phanHoi.EnsureSuccessStatusCode();
+        _ = client;
 
-        var noiDung = await phanHoi.Content.ReadFromJsonAsync<JsonElement>();
-        return noiDung.GetProperty("duLieu")[0].GetProperty("id").GetString()!;
+        using var pham = _ungDung.Services.CreateScope();
+        var db = pham.ServiceProvider
+            .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+        var id = await db.SangKien.AsNoTracking()
+            .Where(x => x.QuyTrinhSnapshot != null && x.NgayNop != null)
+            .OrderBy(x => x.NgayTao)
+            .Select(x => x.Id)
+            .FirstAsync();
+
+        return id.ToString();
     }
 
     private static async Task<JsonElement> LayMotAsync(HttpClient client, string duongDan)

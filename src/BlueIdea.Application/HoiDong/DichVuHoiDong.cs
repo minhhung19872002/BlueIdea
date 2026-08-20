@@ -13,16 +13,19 @@ namespace BlueIdea.Application.HoiDong;
 public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 {
     private readonly INguoiDungHienTai _nguoiDung;
+    private readonly XuLy.DichVuChucNangBuoc _chucNangBuoc;
     private readonly IBoDayRealtime? _realtime;
     private readonly IDichVuThongBao? _thongBao;
 
     public DichVuHoiDong(
         IAppDbContext db, IDichVuPhanQuyen phanQuyen, IDongHoHeThong dongHo,
-        INguoiDungHienTai nguoiDung, IBoDayRealtime? realtime = null,
+        INguoiDungHienTai nguoiDung, XuLy.DichVuChucNangBuoc chucNangBuoc,
+        IBoDayRealtime? realtime = null,
         IDichVuThongBao? thongBao = null)
         : base(db, phanQuyen, dongHo)
     {
         _nguoiDung = nguoiDung;
+        _chucNangBuoc = chucNangBuoc;
         _realtime = realtime;
         _thongBao = thongBao;
     }
@@ -418,7 +421,19 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
         phieu.YKien = duLieu.YKien;
         phieu.MucDeXuatId = duLieu.MucDeXuatId;
         phieu.GhiChu = duLieu.GhiChu;
-        phieu.LaPhieuKin = duLieu.LaPhieuKin;
+
+        /*
+         * Chuc nang 12 — kin hay ho la LUAT CUA BUOC, khong phai lua chon cua nguoi bo phieu.
+         *
+         * Truoc day truong nay lay thang tu than yeu cau, nen o tick "Bo phieu kin" ma quan tri vien
+         * dat tren buoc khong ep duoc ai: thanh vien gui laPhieuKin=false la phieu cua ho cong khai,
+         * gui true la kin — moi nguoi mot kieu trong cung mot phien hop. Nay doc tu cau hinh buoc
+         * trong snapshot quy trinh cua ho so.
+         */
+        phieu.LaPhieuKin = await _chucNangBuoc
+            .CoBatOBatKyBuocNaoAsync(duLieu.SangKienId, Domain.QuyTrinh.MaChucNangBoSung.BoPhieuKin, ct)
+            .ConfigureAwait(false);
+
         phieu.ThoiGian = DongHo.BayGio;
 
         await Db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -504,6 +519,30 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        /*
+         * Bo phieu kin: so lieu kiem phieu chi lo SAU KHI chot phien hop.
+         *
+         * Tra ve ty le dong y theo thoi gian thuc trong luc phien con mo la pha hong chinh muc dich
+         * cua bo phieu kin: nguoi bo sau nhin bang diem roi bo theo. Che danh tinh tung la phieu
+         * (AnDanhTinhPhieuKinAsync) khong du — dem so cung du de suy ra khi con it nguoi chua bo.
+         */
+        // Doc cau hinh chu khong doc cac la phieu da co: phien chua ai bo thi khong co la phieu nao
+        // de suy ra che do, ma man hinh van phai bao truoc cho nguoi bo phieu biet la phieu kin.
+        var boPhieuKin = await _chucNangBuoc
+            .CoBatOBatKyBuocNaoAsync(sangKienId, Domain.QuyTrinh.MaChucNangBoSung.BoPhieuKin, ct)
+            .ConfigureAwait(false);
+
+        var daChotPhien = await Db.PhienHop.AsNoTracking()
+            .AnyAsync(x => x.Id == phienHopId
+                           && x.TrangThaiPhien == TrangThaiPhienHop.DaKetThuc, ct)
+            .ConfigureAwait(false);
+
+        if ((boPhieuKin || phieus.Any(x => x.LaPhieuKin)) && !daChotPhien)
+        {
+            // Van tra tong so phieu da bo: thu ky can biet con ai chua bo de nhac.
+            return new KetQuaBoPhieuDto(phieus.Count, 0, 0, 0, 0m, true, false);
+        }
+
         var dongY = phieus.Count(x => x.YKien == YKienBoPhieu.DongY);
         var khongDongY = phieus.Count(x => x.YKien == YKienBoPhieu.KhongDongY);
         var yKienKhac = phieus.Count(x => x.YKien == YKienBoPhieu.YKienKhac);
@@ -511,7 +550,8 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 
         return new KetQuaBoPhieuDto(
             tong, dongY, khongDongY, yKienKhac,
-            tong == 0 ? 0m : Math.Round(dongY * 100m / tong, 2));
+            tong == 0 ? 0m : Math.Round(dongY * 100m / tong, 2),
+            boPhieuKin, daChotPhien);
     }
 
     /// <summary>Ket thuc phien hop va ghi ket luan.</summary>
@@ -687,9 +727,16 @@ public sealed class BoPhieuDto
     public Guid? MucDeXuatId { get; set; }
 
     public string? GhiChu { get; set; }
-
-    public bool LaPhieuKin { get; set; }
 }
 
+/// <param name="BoPhieuKin">
+/// Bước hiện tại của hồ sơ có bật "Bỏ phiếu kín" hay không. Màn hình bỏ phiếu dùng để hiển thị
+/// chế độ đang áp dụng — trước đây người bỏ phiếu tự tick nên cấu hình của quản trị viên vô nghĩa.
+/// </param>
+/// <param name="DaChotPhien">
+/// Phiên đã kết thúc chưa. Phiếu kín mà phiên còn mở thì số liệu kiểm phiếu trả về 0 — biết được
+/// điều đó nhờ cờ này, giao diện mới nói đúng "chưa lộ" thay vì "chưa ai bỏ phiếu".
+/// </param>
 public sealed record KetQuaBoPhieuDto(
-    int TongPhieu, int DongY, int KhongDongY, int YKienKhac, decimal TyLeDongY);
+    int TongPhieu, int DongY, int KhongDongY, int YKienKhac, decimal TyLeDongY,
+    bool BoPhieuKin = false, bool DaChotPhien = true);

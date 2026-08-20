@@ -5,6 +5,7 @@ using BlueIdea.Application.DanhMuc;
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhGia;
 using BlueIdea.Application.QuanTri;
+using BlueIdea.Application.XuLy;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Reporting;
 using BlueIdea.Shared.KetQua;
@@ -42,11 +43,14 @@ public sealed class NhapXuatController : ControllerBase
     private readonly DichVuXuatPhieuCham _xuatPhieu;
     private readonly DichVuBaoCaoTuyBien _baoCaoTuyBien;
     private readonly IDichVuCauHinh _cauHinh;
+    private readonly DichVuChucNangBuoc _chucNangBuoc;
 
     public NhapXuatController(
         DichVuNhapNguoiDung nhapNguoiDung, DichVuNhapDanhMuc nhapDanhMuc,
-        DichVuXuatPhieuCham xuatPhieu, DichVuBaoCaoTuyBien baoCaoTuyBien, IDichVuCauHinh cauHinh)
+        DichVuXuatPhieuCham xuatPhieu, DichVuBaoCaoTuyBien baoCaoTuyBien,
+        IDichVuCauHinh cauHinh, DichVuChucNangBuoc chucNangBuoc)
     {
+        _chucNangBuoc = chucNangBuoc;
         _nhapNguoiDung = nhapNguoiDung;
         _nhapDanhMuc = nhapDanhMuc;
         _xuatPhieu = xuatPhieu;
@@ -145,6 +149,8 @@ public sealed class NhapXuatController : ControllerBase
     public async Task<IActionResult> XuatPhieuChamTheoHoSoAsync(
         Guid sangKienId, [FromQuery] string? dinhDang, CancellationToken ct)
     {
+        await BatBuocDuocXuatBieuMauAsync(sangKienId, ct);
+
         var duLieu = await _xuatPhieu.TheoHoSoAsync(sangKienId, ct);
 
         if (LaWord(dinhDang))
@@ -446,6 +452,20 @@ public sealed class NhapXuatController : ControllerBase
 
     private static bool LaZip(string? dinhDang)
         => string.Equals(dinhDang, "ZIP", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Chuc nang 12 — o tick "Xuat bieu mau" tren buoc quy trinh.
+    ///
+    /// Quy trinh khong khai bao gi thi khong gioi han (xem <c>DuocXuatBieuMauAsync</c>).
+    /// </summary>
+    private async Task BatBuocDuocXuatBieuMauAsync(Guid sangKienId, CancellationToken ct)
+    {
+        if (!await _chucNangBuoc.DuocXuatBieuMauAsync(sangKienId, ct))
+        {
+            throw new NghiepVuException(MaLoiHeThong.KhongCoQuyen,
+                "Bước hiện tại của hồ sơ không được cấu hình cho phép xuất biểu mẫu.");
+        }
+    }
 
     private static bool LaWord(string? dinhDang)
         => string.Equals(dinhDang, "DOCX", StringComparison.OrdinalIgnoreCase)

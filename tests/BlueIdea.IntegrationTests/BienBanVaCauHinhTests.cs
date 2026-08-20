@@ -46,7 +46,7 @@ public sealed class BienBanVaCauHinhTests
             phienHopId = phienId,
             sangKienId,
             yKien = "DONG_Y",
-            laPhieuKin = false
+
         })).EnsureSuccessStatusCode();
 
         (await chuTich.PostAsJsonAsync($"/api/v1/hoi-dong/phien-hop/{phienId}/ket-thuc",
@@ -103,7 +103,7 @@ public sealed class BienBanVaCauHinhTests
             phienHopId = phienId,
             sangKienId,
             yKien = "DONG_Y",
-            laPhieuKin = false
+
         })).EnsureSuccessStatusCode();
 
         (await chuTich.PostAsJsonAsync($"/api/v1/hoi-dong/phien-hop/{phienId}/ket-thuc",

@@ -4,7 +4,56 @@
 
 ---
 
-## [2.4.0] — 2026-08-20
+## [2.6.0] — 2026-08-20
+
+Rà soát chín ô tick "chức năng bổ sung" của bước quy trình (chức năng 12). Sáu ô có tác dụng, **ba
+ô không dòng lệnh nào đọc tới** — quản trị viên tick, hệ thống lưu xuống CSDL, và không có gì xảy ra.
+
+### Sửa — `BO_PHIEU_KIN`: kín hay hở do người bỏ phiếu tự khai
+
+Nặng hơn "không có tác dụng". Trường `laPhieuKin` nằm trong **thân yêu cầu**, máy chủ gán thẳng vào
+bản ghi — nên mỗi thành viên tự quyết phiếu của mình, và ô tick "Bỏ phiếu kín" mà quản trị viên đặt
+trên bước không ép được ai. Gửi `laPhieuKin: false` là phiếu công khai.
+
+- Máy chủ suy ra từ cấu hình bước trong **snapshot quy trình** của hồ sơ (ADR 0002), bỏ qua mọi thứ
+  máy khách gửi lên. Trường này đã gỡ khỏi DTO.
+- Số liệu kiểm phiếu **chỉ lộ sau khi chốt phiên họp**, đúng như mô tả trên giao diện. Che danh tính
+  từng lá phiếu là chưa đủ: đếm số cũng suy ra được khi còn ít người chưa bỏ, và người bỏ sau nhìn
+  bảng điểm rồi bỏ theo. Vẫn trả tổng số người đã bỏ để thư ký biết còn ai để nhắc.
+- Danh tính **không** lộ lại sau khi chốt — kín là kín vĩnh viễn, chỉ số liệu mở ra.
+- Màn hình bỏ phiếu bỏ ô tick, thay bằng nhãn chỉ chế độ đang áp dụng.
+
+### Sửa — `CHAM_DIEM_DOC_LAP`: điểm lộ ngay khi từng người bấm gửi
+
+Đặc tả Mục 5 ghi: *"thành viên không thấy điểm của người khác cho đến khi Thư ký bấm Tổng hợp hoặc
+đủ 100% phiếu"*. Ma trận điểm trước đây chỉ kiểm "phiếu đã gửi", nên ai chưa chấm vẫn mở được ma
+trận và nhìn điểm những người đã chấm — đúng điều mà chấm độc lập sinh ra để ngăn. Chủ tịch hội đồng
+vừa có quyền tổng hợp vừa tự chấm điểm, nên đây không phải lỗ hổng lý thuyết.
+
+Nay giấu điểm (và các số tổng hợp suy ra được từ nó) tới khi **đã tổng hợp** hoặc **đủ 100% phiếu**.
+Trạng thái đã chấm / chưa chấm vẫn hiện — thư ký cần biết còn ai để nhắc.
+
+### Sửa — `XUAT_BIEU_MAU`
+
+Áp cho đường xuất phiếu chấm theo hồ sơ, theo quy ước **"không khai báo gì thì không giới hạn"**. Làm
+ngược lại — mặc định cấm, phải bật mọi chỗ — sẽ khoá cứng chức năng xuất trên mọi hệ thống đang chạy
+ngay khi bản mới lên, vì chưa quy trình nào khai ô tick này.
+
+### Khác
+
+- Quy trình mẫu bật `BO_PHIEU_KIN` ở bước họp hội đồng để dữ liệu mẫu thể hiện được tính năng.
+- `DichVuChucNangBuoc` — một nơi duy nhất trả lời "hồ sơ này có bật chức năng X không", đọc từ
+  snapshot. Trước đây chỉ `BoMayQuyTrinh` đọc bảng này, và chỉ để lọc hành động tự động.
+- Hai phép kiểm cũ phụ thuộc thứ tự chạy đã được sửa: `LaySangKienBatKyAsync` có lúc lấy phải hồ sơ
+  nháp do phép kiểm khác để lại (nháp chưa có snapshot nên mọi luật theo cấu hình bước đều trả
+  "không bật"); và phép kiểm sắp xếp theo điểm báo hỏng khi mọi hồ sơ trong trang đều đã có điểm.
+- Sửa số hiệu phiên bản trùng: mục thêm ở lần trước dùng lại `2.4.0` vốn đã có, nay đổi thành `2.5.0`.
+
+283/283 kiểm thử tích hợp (8 mới), 526/526 đơn vị, 86/86 E2E của ba màn hình bị đụng.
+
+---
+
+## [2.5.0] — 2026-08-20
 
 Cùng một dạng lỗi như các bản trước — **khai báo được nhưng không dòng logic nào đọc tới** — lần
 này soi vào chính ma trận phân quyền. Bảy quyền có tên trên màn hình phân quyền nhưng không

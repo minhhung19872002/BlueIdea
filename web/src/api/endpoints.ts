@@ -959,6 +959,10 @@ export interface KetQuaBoPhieu {
   khongDongY: number;
   yKienKhac: number;
   tyLeDongY: number;
+  /** Bước hiện tại có bật "Bỏ phiếu kín". Do cấu hình quy trình quyết định, không phải người bỏ phiếu. */
+  boPhieuKin: boolean;
+  /** Phiên đã chốt chưa — phiếu kín mà phiên còn mở thì số liệu kiểm phiếu trả về 0. */
+  daChotPhien: boolean;
 }
 
 export const apiHoiDong = {

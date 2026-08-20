@@ -911,6 +911,17 @@ public sealed partial class DuLieuMau
             BatBuoc = true
         });
 
+        // Hop hoi dong bo phieu kin: danh tinh nguoi bo phieu duoc che, va so lieu kiem phieu chi
+        // lo sau khi chot phien — de nguoi bo sau khong nhin bang diem roi bo theo.
+        quyTrinh.ChucNangBoSung.Add(new QuyTrinhChucNangBoSung
+        {
+            Id = Guid.NewGuid(),
+            QuyTrinhId = quyTrinh.Id,
+            BuocId = b5.Id,
+            MaChucNang = MaChucNangBoSung.BoPhieuKin,
+            BatBuoc = true
+        });
+
         quyTrinh.ChucNangBoSung.Add(new QuyTrinhChucNangBoSung
         {
             Id = Guid.NewGuid(),

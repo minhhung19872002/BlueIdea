@@ -25,6 +25,7 @@ import {
 import {
   DeleteOutlined,
   FilePdfOutlined,
+  LockOutlined,
   PlusOutlined,
   SaveOutlined,
   TeamOutlined,
@@ -1114,7 +1115,6 @@ function TheHoSoBoPhieu({
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [ghiChu, setGhiChu] = useState('');
-  const [phieuKin, setPhieuKin] = useState(false);
   const [ketLuanRieng, setKetLuanRieng] = useState(ketLuanRiengBanDau);
   const [ketQuaHoSo, setKetQuaHoSo] = useState<string | undefined>(ketQuaBanDau);
 
@@ -1130,7 +1130,7 @@ function TheHoSoBoPhieu({
 
   const boPhieu = useMutation({
     mutationFn: (yKien: string) =>
-      apiHoiDong.boPhieu({ phienHopId, sangKienId, yKien, ghiChu, laPhieuKin: phieuKin }),
+      apiHoiDong.boPhieu({ phienHopId, sangKienId, yKien, ghiChu }),
     onSuccess: () => {
       message.success('Đã ghi nhận phiếu');
       void queryClient.invalidateQueries({
@@ -1162,6 +1162,11 @@ function TheHoSoBoPhieu({
   const kq = ketQua.data;
   const datNguong = (kq?.tyLeDongY ?? 0) >= tyLeThongQua;
 
+  // Phiếu kín + phiên chưa chốt: máy chủ trả về 0 cho mọi ô đếm. Không nói rõ thì thư ký đọc
+  // thành "chưa ai bỏ phiếu" và đi nhắc nhầm người.
+  const phienKin = kq?.boPhieuKin === true;
+  const chuaLoSoLieu = phienKin && kq?.daChotPhien === false;
+
   return (
     <Card
       size="small"
@@ -1177,20 +1182,35 @@ function TheHoSoBoPhieu({
       <Row gutter={[12, 12]}>
         <Col xs={24} md={10}>
           <Space size="large">
-            <Statistic title="Tổng phiếu" value={kq?.tongPhieu ?? 0} />
-            <Statistic title="Đồng ý" value={kq?.dongY ?? 0} valueStyle={{ color: '#389e0d' }} />
-            <Statistic
-              title="Tỷ lệ đồng ý"
-              value={kq?.tyLeDongY ?? 0}
-              suffix="%"
-              valueStyle={{ color: datNguong ? '#389e0d' : '#cf1322' }}
-            />
+            <Statistic title="Đã bỏ phiếu" value={kq?.tongPhieu ?? 0} />
+            {!chuaLoSoLieu && (
+              <>
+                <Statistic
+                  title="Đồng ý"
+                  value={kq?.dongY ?? 0}
+                  valueStyle={{ color: '#389e0d' }}
+                />
+                <Statistic
+                  title="Tỷ lệ đồng ý"
+                  value={kq?.tyLeDongY ?? 0}
+                  suffix="%"
+                  valueStyle={{ color: datNguong ? '#389e0d' : '#cf1322' }}
+                />
+              </>
+            )}
           </Space>
           <div style={{ marginTop: 4 }}>
-            {kq && kq.tongPhieu > 0 && (
-              <Tag color={datNguong ? 'success' : 'error'}>
-                {datNguong ? 'Đạt' : 'Chưa đạt'} ngưỡng thông qua {tyLeThongQua}%
+            {chuaLoSoLieu ? (
+              <Tag color="purple" icon={<LockOutlined />}>
+                Kết quả kiểm phiếu chỉ lộ sau khi chốt phiên họp
               </Tag>
+            ) : (
+              kq &&
+              kq.tongPhieu > 0 && (
+                <Tag color={datNguong ? 'success' : 'error'}>
+                  {datNguong ? 'Đạt' : 'Chưa đạt'} ngưỡng thông qua {tyLeThongQua}%
+                </Tag>
+              )
             )}
           </div>
         </Col>
@@ -1205,13 +1225,16 @@ function TheHoSoBoPhieu({
             style={{ marginBottom: 8 }}
           />
           <Space wrap>
-            <Checkbox
-              checked={phieuKin}
-              disabled={!duocBoPhieu}
-              onChange={(e) => setPhieuKin(e.target.checked)}
-            >
-              Phiếu kín
-            </Checkbox>
+            {/*
+              Kín hay hở là luật của bước quy trình, không phải lựa chọn của người bỏ phiếu — trước
+              đây ô tick ở đây cho mỗi người tự quyết, nên cấu hình "Bỏ phiếu kín" của quản trị viên
+              không ép được ai. Nay chỉ hiển thị chế độ đang áp dụng.
+            */}
+            {phienKin && (
+              <Tag color="purple" icon={<LockOutlined />}>
+                Phiếu kín — danh tính được che, số liệu kiểm phiếu lộ sau khi chốt phiên
+              </Tag>
+            )}
             <Button
               type="primary"
               disabled={!duocBoPhieu}

@@ -71,6 +71,7 @@ public static class DangKyDichVuUngDung
         services.AddScoped<DichVuTruyVanSangKien>();
         services.AddScoped<DichVuKiemTraTrungLap>();
         services.AddScoped<DichVuBaoCao>();
+        services.AddScoped<XuLy.DichVuChucNangBuoc>();
         services.AddScoped<DichVuHoiDong>();
         services.AddScoped<HoiDong.DichVuBienBanHop>();
         services.AddScoped<BaoCao.DichVuSinhBieuMau>();
