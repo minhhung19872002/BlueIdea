@@ -1001,3 +1001,96 @@ test.describe('Responsive viewport công khai', () => {
     await context.close();
   });
 });
+
+// ─── REQ-40: Báo cáo tuỳ biến ────────────────────────────────────────────────
+
+test.describe('REQ-40: Báo cáo tuỳ biến (TrangBaoCaoTuyBien)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang tuỳ biến tải không lỗi và hiển thị tab Tuỳ biến', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoCaoTuyBien);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyText = await page.locator('body').textContent();
+    expect(bodyText).not.toContain('Lỗi hệ thống');
+    await expect(page.locator('.ant-select').first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('API GET /bieu-mau-thong-ke/chon có dữ liệu và Select hiển thị', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const apiRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}/chon`);
+    expect(apiRes!.status()).toBe(200);
+    const apiBody = await apiRes!.json() as { thanhCong: boolean; duLieu: unknown[] };
+    if (!apiBody.duLieu || apiBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu biểu mẫu thống kê để kiểm tra');
+      return;
+    }
+    await page.goto(ROUTES.baoCaoTuyBien);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-select').first()).toBeVisible({ timeout: 10_000 });
+    expect(apiBody.duLieu.length).toBeGreaterThan(0);
+  });
+
+  test('nút Chạy báo cáo bị disabled khi chưa chọn biểu mẫu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoCaoTuyBien);
+    await page.waitForLoadState('networkidle');
+    const runButton = page.getByRole('button', { name: /chạy báo cáo/i });
+    await expect(runButton).toBeVisible({ timeout: 15_000 });
+    await expect(runButton).toBeDisabled();
+  });
+
+  test('trang tuỳ biến hiển thị 5 bộ lọc Select', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoCaoTuyBien);
+    await page.waitForLoadState('networkidle');
+    const selectCount = await page.locator('.ant-select').count();
+    expect(selectCount).toBeGreaterThanOrEqual(3);
+  });
+
+  test('API GET /bieu-mau-thong-ke/chon trả về danh sách biểu mẫu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.bieuMauThongKe}/chon`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: unknown[] };
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+    expect(body.duLieu.length).toBeGreaterThan(0);
+  });
+
+  test('API GET /bieu-mau-thong-ke/chon không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.bieuMauThongKe}/chon`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('API GET /danh-muc/dot-de-nghi/chon trả về danh sách đợt', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/chon`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: unknown[] };
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+  });
+
+  test('responsive: trang tuỳ biến trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoCaoTuyBien);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+});

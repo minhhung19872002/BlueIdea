@@ -436,3 +436,136 @@ test.describe('REQ-35: Tổng hợp và ma trận điểm', () => {
     });
   });
 });
+
+// ─── REQ-34: Trang chấm điểm chi tiết (TrangChamDiem) ──────────────────────
+
+test.describe('REQ-34: Trang chấm điểm chi tiết (TrangChamDiem)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang chấm điểm tải không crash với sangKienId và hoiDongId hợp lệ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const skBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (skBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const sangKienId: string = skBody.duLieu[0].id;
+    const hdBody = await (await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`))!.json();
+    if (hdBody.duLieu.length === 0) { test.skip(true, 'Không có hội đồng'); return; }
+    const hoiDongId: string = hdBody.duLieu[0].id;
+    await page.goto(`${ROUTES.danhGia}/${sangKienId}/cham-diem?hoiDongId=${hoiDongId}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+
+  test('hiển thị panel nội dung sáng kiến bên trái', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const skBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (skBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const sangKienId: string = skBody.duLieu[0].id;
+    const hdBody = await (await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`))!.json();
+    if (hdBody.duLieu.length === 0) { test.skip(true, 'Không có hội đồng'); return; }
+    const hoiDongId: string = hdBody.duLieu[0].id;
+    await page.goto(`${ROUTES.danhGia}/${sangKienId}/cham-diem?hoiDongId=${hoiDongId}`);
+    await page.waitForLoadState('networkidle');
+    const hasContentPanel =
+      (await page.getByText(/nội dung sáng kiến/i).count()) > 0 ||
+      (await page.locator('.ant-card').count()) > 0;
+    expect(hasContentPanel).toBe(true);
+  });
+
+  test('hiển thị form chấm điểm hoặc cảnh báo chưa cấu hình', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const skBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (skBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const sangKienId: string = skBody.duLieu[0].id;
+    const hdBody = await (await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`))!.json();
+    if (hdBody.duLieu.length === 0) { test.skip(true, 'Không có hội đồng'); return; }
+    const hoiDongId: string = hdBody.duLieu[0].id;
+    await page.goto(`${ROUTES.danhGia}/${sangKienId}/cham-diem?hoiDongId=${hoiDongId}`);
+    await page.waitForLoadState('networkidle');
+    const hasForm =
+      (await page.locator('.ant-slider').count()) > 0 ||
+      (await page.locator('.ant-radio').count()) > 0 ||
+      (await page.locator('.ant-input-number').count()) > 0 ||
+      (await page.getByText(/chưa cấu hình/i).count()) > 0 ||
+      (await page.locator('.ant-alert').count()) > 0;
+    expect(hasForm).toBe(true);
+  });
+
+  test('API GET /sang-kien/{id} trả về thông tin sáng kiến', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const skBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (skBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const sangKienId: string = skBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${sangKienId}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+    expect(body.duLieu.id).toBe(sangKienId);
+  });
+
+  test('API GET /danh-gia/phieu với tham số hợp lệ trả về 200 hoặc lỗi xác định', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const skBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (skBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const sangKienId: string = skBody.duLieu[0].id;
+    const hdBody = await (await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`))!.json();
+    if (hdBody.duLieu.length === 0) { test.skip(true, 'Không có hội đồng'); return; }
+    const hoiDongId: string = hdBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.danhGia}/phieu?sangKienId=${sangKienId}&hoiDongId=${hoiDongId}`);
+    expect([200, 400, 404]).toContain(res!.status());
+  });
+
+  test('API POST /danh-gia/phieu/luu-nhap với body rỗng → validation error', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const res = await apiRequest(page, 'POST', `${API.danhGia}/phieu/luu-nhap`, {});
+    expect(res!.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('API POST /danh-gia/phieu/gui với body rỗng → validation error', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const res = await apiRequest(page, 'POST', `${API.danhGia}/phieu/gui`, {});
+    expect(res!.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('không xác thực truy cập trang chấm điểm → chuyển hướng đăng nhập', async ({ page }) => {
+    await page.goto('/danh-gia/fake-uuid/cham-diem');
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveURL(/dang-nhap/, { timeout: 10_000 });
+  });
+
+  test('tác giả không có quyền GET /danh-gia/phieu → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await apiRequest(page, 'GET', `${API.danhGia}/phieu?sangKienId=${fakeId}&hoiDongId=${fakeId}`);
+    expect(res!.status()).toBe(403);
+  });
+
+  test('responsive: trang chấm điểm trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const skBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (skBody.duLieu.length === 0) { await context.close(); test.skip(true, 'Không có sáng kiến'); return; }
+    const sangKienId: string = skBody.duLieu[0].id;
+    const hdBody = await (await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`))!.json();
+    if (hdBody.duLieu.length === 0) { await context.close(); test.skip(true, 'Không có hội đồng'); return; }
+    const hoiDongId: string = hdBody.duLieu[0].id;
+    await page.goto(`${ROUTES.danhGia}/${sangKienId}/cham-diem?hoiDongId=${hoiDongId}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+});

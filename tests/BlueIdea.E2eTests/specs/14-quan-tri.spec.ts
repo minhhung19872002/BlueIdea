@@ -1218,7 +1218,7 @@ test.describe('REQ-46: Sao lưu hệ thống', () => {
     await page.goto('/');
     await loginViaAPI(page, 'admin');
     await page.goto(ROUTES.saoLuu);
-    await expect(page.getByText('Cấu hình hệ thống')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('main').getByText('Cấu hình hệ thống')).toBeVisible({ timeout: 15_000 });
   });
 
   test('API: GET sao-luu — 200 với các trường bắt buộc', async ({ page }) => {

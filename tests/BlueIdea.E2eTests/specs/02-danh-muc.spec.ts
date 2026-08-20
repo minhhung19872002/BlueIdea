@@ -1238,3 +1238,136 @@ test.describe('REQ-01 đến REQ-08: Danh mục hệ thống', () => {
     });
   });
 });
+
+// ─── REQ-03: Chi tiết đợt đề nghị ────────────────────────────────────────────
+
+test.describe('REQ-03: Chi tiết đợt đề nghị (TrangChiTietDot)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang chi tiết đợt tải không crash', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await page.goto(`${ROUTES.dotDeNghi}/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyText = await page.locator('body').textContent();
+    expect(bodyText).not.toContain('Lỗi hệ thống');
+  });
+
+  test('hiển thị thẻ thống kê (Tổng, Đang xử lý, Công nhận, Không đạt)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await page.goto(`${ROUTES.dotDeNghi}/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-card').first()).toBeVisible({ timeout: 15_000 });
+    const statsElements = page.locator('.ant-statistic, .ant-card');
+    const count = await statsElements.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('hiển thị tab thông tin chung mặc định', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await page.goto(`${ROUTES.dotDeNghi}/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-descriptions').first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('click tab hồ sơ hiển thị bảng sáng kiến', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await page.goto(`${ROUTES.dotDeNghi}/${id}`);
+    await page.waitForLoadState('networkidle');
+    const hoSoTab = page.getByRole('tab', { name: /hồ sơ/i });
+    await expect(hoSoTab).toBeVisible({ timeout: 10_000 });
+    await hoSoTab.click();
+    await page.waitForTimeout(2000);
+    const tableOrEmpty = page.locator('.ant-table, .ant-empty');
+    await expect(tableOrEmpty.first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('API GET /dot-de-nghi/{id}/tong-quan trả về thống kê', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào để kiểm tra API');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/${id}/tong-quan`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: Record<string, unknown> };
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+    expect(body.duLieu).toHaveProperty('tongHoSo');
+  });
+
+  test('API GET /dot-de-nghi/{id}/tong-quan không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await page.request.get(`${API.dotDeNghi}/${fakeId}/tong-quan`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('tác giả xem đợt đề nghị → 200, nhưng sửa → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await loginViaAPI(page, 'tacgia1');
+    const readRes = await apiRequest(page, 'GET', `${API.dotDeNghi}/${id}/tong-quan`);
+    expect(readRes!.status()).toBe(200);
+    const writeRes = await apiRequest(page, 'PUT', `${API.dotDeNghi}/${id}`, { ten: 'test' });
+    expect([403, 422]).toContain(writeRes!.status());
+  });
+
+  test('hiển thị trạng thái đợt dưới dạng Tag', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await page.goto(`${ROUTES.dotDeNghi}/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-tag').first()).toBeVisible({ timeout: 15_000 });
+  });
+});

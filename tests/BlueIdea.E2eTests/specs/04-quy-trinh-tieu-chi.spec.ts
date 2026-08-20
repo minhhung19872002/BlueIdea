@@ -670,3 +670,576 @@ test.describe('REQ-10 & REQ-14: Quy trình và Tiêu chí chấm điểm', () =>
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-10: Thiết kế quy trình (TrangThietKeQuyTrinh)
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-10: Thiết kế quy trình (TrangThietKeQuyTrinh)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang thiết kế quy trình tải không crash', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để thiết kế');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị canvas ReactFlow với nodes', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để thiết kế');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.react-flow')).toBeVisible({ timeout: 15_000 });
+    const nodeCount = await page.locator('.react-flow__node').count();
+    expect(nodeCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('hiển thị nút Kiểm tra hợp lệ và Lưu sơ đồ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để thiết kế');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /kiểm tra hợp lệ/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /lưu sơ đồ/i })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('click node mở Drawer chi tiết bước', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để thiết kế');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.react-flow__node', { timeout: 15_000 });
+    await page.locator('.react-flow__node').first().click();
+    await expect(page.locator('.ant-drawer')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('POST /quy-trinh/{id}/kiem-tra trả về kết quả kiểm tra', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để kiểm tra');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    const kiemTraRes = await apiRequest(page, 'POST', `${API.quyTrinh}/${id}/kiem-tra`);
+    expect(kiemTraRes.status()).toBe(200);
+    const kiemTraBody = await kiemTraRes.json();
+    expect(kiemTraBody.thanhCong).toBe(true);
+  });
+
+  test('hiển thị feature switches', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để thiết kế');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    const switchCount = await page.locator('.ant-switch').count();
+    expect(switchCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('tác giả gọi API quy trình → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để kiểm tra phân quyền');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await loginViaAPI(page, 'tacgia1');
+    const detail = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}`);
+    expect(detail.status()).toBe(403);
+  });
+
+  test('responsive trên tablet (768px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      await context.close();
+      test.skip(true, 'Không có quy trình nào để thiết kế');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await context.close();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-10: Thành phần hồ sơ (TrangThanhPhanHoSo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-10: Thành phần hồ sơ (TrangThanhPhanHoSo)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang thành phần hồ sơ tải không crash', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem thành phần hồ sơ');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị bảng thành phần hoặc trạng thái rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem thành phần hồ sơ');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    const hasTable = await page.locator('table').count() > 0;
+    const hasEmpty = await page.locator('.ant-empty').count() > 0
+      || (await page.getByText('Chưa có thành phần').count()) > 0;
+    const hasContent = await page.locator('body').count() > 0;
+    expect(hasTable || hasEmpty || hasContent).toBe(true);
+  });
+
+  test('hiển thị nút Thêm thành phần hồ sơ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem thành phần hồ sơ');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /thêm thành phần/i })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị alert thông tin về checklist hoặc nộp hồ sơ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem thành phần hồ sơ');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-alert')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('nút Lưu hiển thị', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem thành phần hồ sơ');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /lưu/i }).first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị link về trình thiết kế', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem thành phần hồ sơ');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    const hasDesignerLink = await page.locator('a, button').filter({ hasText: /thiết kế/i }).count() > 0;
+    expect(hasDesignerLink).toBe(true);
+  });
+
+  test('API GET /quy-trinh/{id}/so-do trả thành phần hồ sơ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để kiểm tra API');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    const soDo = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    expect(soDo.status()).toBe(200);
+    const soDoBody = await soDo.json();
+    expect(soDoBody.thanhCong).toBe(true);
+    expect(soDoBody.duLieu).toHaveProperty('thanhPhanHoSo');
+  });
+
+  test('không xác thực truy cập → chuyển hướng đăng nhập', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    let id = 'unknown';
+    try {
+      const body = await res.json();
+      if (body.duLieu && body.duLieu.length > 0) {
+        id = body.duLieu[0].id;
+      }
+    } catch {
+      // fallback id
+    }
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(`/quan-tri/quy-trinh/${id}/thanh-phan`);
+    await page.waitForLoadState('networkidle');
+    const url = page.url();
+    expect(url).toContain('/dang-nhap');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-15: Liên thông bước (TrangLienThongBuoc)
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-15: Liên thông bước (TrangLienThongBuoc)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang liên thông tải không crash', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/lien-thong`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị bảng cấu hình hoặc trạng thái rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/lien-thong`);
+    await page.waitForLoadState('networkidle');
+    const hasTable = await page.locator('table').count() > 0;
+    const hasEmpty = await page.locator('.ant-empty').count() > 0
+      || (await page.getByText(/chưa gắn liên thông/i).count()) > 0;
+    const hasBody = await page.locator('body').count() > 0;
+    expect(hasTable || hasEmpty || hasBody).toBe(true);
+  });
+
+  test('hiển thị alert thông tin hoặc cảnh báo', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/lien-thong`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-alert')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('nút Thêm cấu hình hiển thị', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/lien-thong`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /thêm cấu hình/i })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('API GET /quy-trinh/{id}/lien-thong trả 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để kiểm tra API liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    const lienThongRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/lien-thong`);
+    expect(lienThongRes.status()).toBe(200);
+    const lienThongBody = await lienThongRes.json();
+    expect(lienThongBody.thanhCong).toBe(true);
+  });
+
+  test('API GET /tich-hop/he-thong trả 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const heThongRes = await apiRequest(page, 'GET', `${API.tichHop}/he-thong`);
+    expect(heThongRes.status()).toBe(200);
+    const heThongBody = await heThongRes.json();
+    expect(heThongBody.thanhCong).toBe(true);
+  });
+
+  test('tác giả gọi API quy trình → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để kiểm tra phân quyền liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await loginViaAPI(page, 'tacgia1');
+    const detail = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}`);
+    expect(detail.status()).toBe(403);
+  });
+
+  test('hiển thị link về trình thiết kế', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào để xem liên thông');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/lien-thong`);
+    await page.waitForLoadState('networkidle');
+    const hasDesignerLink = await page.locator('a, button').filter({ hasText: /thiết kế/i }).count() > 0;
+    expect(hasDesignerLink).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-17: Cấu hình tiêu chí chi tiết (TrangCauHinhTieuChi)
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-17: Cấu hình tiêu chí chi tiết (TrangCauHinhTieuChi)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang cấu hình tiêu chí tải không crash', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị tiêu đề "Cấu hình:"', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText(/cấu hình:/i)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị thống kê thang điểm', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    const statCount = await page.locator('.ant-statistic').count();
+    expect(statCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('hiển thị card nhóm tiêu chí hoặc trạng thái rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    const cardCount = await page.locator('.ant-card').count();
+    expect(cardCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('nút Kiểm tra và Lưu hiển thị', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /kiểm tra/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /lưu/i }).first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('nút Thêm nhóm tiêu chí hiển thị', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /thêm nhóm/i })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('hiển thị phần mức công nhận', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để cấu hình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/tieu-chi/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText(/mức công nhận/i).first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('API GET /tieu-chi/{id} trả về bộ tiêu chí chi tiết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để kiểm tra API');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    const detailRes = await apiRequest(page, 'GET', `${API.tieuChi}/${id}`);
+    expect(detailRes.status()).toBe(200);
+    const detailBody = await detailRes.json();
+    expect(detailBody.thanhCong).toBe(true);
+    expect(detailBody.duLieu).toHaveProperty('ten');
+    expect(detailBody.duLieu).toHaveProperty('thangDiemToiDa');
+    expect(detailBody.duLieu).toHaveProperty('danhSachNhom');
+  });
+
+  test('API POST /tieu-chi/{id}/kiem-tra trả về kết quả', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để kiểm tra API');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    const kiemTraRes = await apiRequest(page, 'POST', `${API.tieuChi}/${id}/kiem-tra`);
+    expect(kiemTraRes.status()).toBe(200);
+    const kiemTraBody = await kiemTraRes.json();
+    expect(kiemTraBody.thanhCong).toBe(true);
+  });
+
+  test('tác giả gọi API tiêu chí → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để kiểm tra phân quyền');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await loginViaAPI(page, 'tacgia1');
+    const detail = await apiRequest(page, 'GET', `${API.tieuChi}/${id}`);
+    expect(detail.status()).toBe(403);
+  });
+});

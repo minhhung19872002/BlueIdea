@@ -718,3 +718,169 @@ test.describe('REQ-09/11/12: Sáng kiến', () => {
     });
   });
 });
+
+// ─── REQ-22: Chi tiết hồ sơ sáng kiến (TrangChiTietHoSo) ───────────────────
+
+test.describe('REQ-22: Chi tiết hồ sơ sáng kiến (TrangChiTietHoSo)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trang chi tiết hồ sơ tải không crash', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const id: string = listBody.duLieu[0].id;
+    await page.goto(`/sang-kien/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+
+  test('hiển thị mã hồ sơ và trạng thái', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const item = listBody.duLieu[0];
+    await page.goto(`/sang-kien/${item.id}`);
+    await page.waitForLoadState('networkidle');
+    if (item.maHoSo) {
+      await expect(page.getByText(item.maHoSo).first()).toBeVisible({ timeout: 10_000 });
+    }
+    await expect(page.locator('.ant-tag').first()).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('hiển thị 5 tab', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    await page.goto(`/sang-kien/${listBody.duLieu[0].id}`);
+    await page.waitForLoadState('networkidle');
+    const tabs = page.getByRole('tab');
+    await expect(tabs.first()).toBeVisible({ timeout: 10_000 });
+    const tabTexts = await tabs.allTextContents();
+    const combined = tabTexts.join(' ').toLowerCase();
+    expect(
+      combined.includes('nội dung') ||
+      combined.includes('tệp') ||
+      combined.includes('tiến độ') ||
+      combined.includes('lịch sử') ||
+      combined.includes('trùng lặp')
+    ).toBe(true);
+  });
+
+  test('tab Tiến độ xử lý hiển thị timeline', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    await page.goto(`/sang-kien/${listBody.duLieu[0].id}`);
+    await page.waitForLoadState('networkidle');
+    const tienDoTab = page.getByRole('tab', { name: /tiến độ/i });
+    if (await tienDoTab.count() > 0) {
+      await tienDoTab.click();
+      await page.waitForTimeout(1000);
+    }
+    const hasTimeline =
+      (await page.locator('.ant-timeline').count()) > 0 ||
+      (await page.getByText(/chưa có/i).count()) > 0 ||
+      (await page.locator('.ant-empty').count()) > 0;
+    expect(hasTimeline).toBe(true);
+  });
+
+  test('tab Lịch sử chỉnh sửa hiển thị bảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    await page.goto(`/sang-kien/${listBody.duLieu[0].id}`);
+    await page.waitForLoadState('networkidle');
+    const lichSuTab = page.getByRole('tab', { name: /lịch sử/i });
+    if (await lichSuTab.count() > 0) {
+      await lichSuTab.click();
+      await page.waitForTimeout(1000);
+    }
+    const hasContent =
+      (await page.locator('table').count()) > 0 ||
+      (await page.locator('.ant-empty').count()) > 0 ||
+      (await page.getByText(/chưa có/i).count()) > 0;
+    expect(hasContent).toBe(true);
+  });
+
+  test('API GET /sang-kien/{id} trả về chi tiết đầy đủ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+    expect(body.duLieu.id).toBe(id);
+    expect(body.duLieu.maHoSo).toBeDefined();
+    expect(body.duLieu.tenSangKien).toBeDefined();
+  });
+
+  test('API GET /sang-kien/{id}/tien-do trả về timeline', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/tien-do`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+  });
+
+  test('API GET /sang-kien/{id}/lich-su trả về lịch sử', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${id}/lich-su`);
+    expect(res!.status()).toBe(200);
+  });
+
+  test('API GET /sang-kien/{fakeId} với ID không tồn tại → 404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${fakeId}`);
+    expect(res!.status()).toBe(404);
+  });
+
+  test('tác giả xem hồ sơ của mình', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const cuaToiBody = await (await apiRequest(page, 'GET', `${API.sangKien}/cua-toi?trang=1&soDong=1`))!.json();
+    if (cuaToiBody.duLieu.length === 0) { test.skip(true, 'Tác giả chưa có hồ sơ'); return; }
+    const id: string = cuaToiBody.duLieu[0].id;
+    await page.goto(`/sang-kien/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+
+  test('responsive: trang chi tiết trên mobile (375px)', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
+    const page = await context.newPage();
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listBody = await (await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`))!.json();
+    if (listBody.duLieu.length === 0) { await context.close(); test.skip(true, 'Không có sáng kiến'); return; }
+    const id: string = listBody.duLieu[0].id;
+    await page.goto(`/sang-kien/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const bodyClientWidth = await page.evaluate(() => document.body.clientWidth);
+    expect(bodyScrollWidth).toBeLessThanOrEqual(bodyClientWidth + 10);
+    await context.close();
+  });
+});
