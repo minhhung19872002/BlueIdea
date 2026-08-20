@@ -79,6 +79,61 @@ public sealed class LuongBoSungTests
         System.Text.Encoding.ASCII.GetString(noiDung, 0, 4).Should().Be("%PDF");
     }
 
+    /// <summary>
+    /// Cong viec nen don CAPTCHA / OTP het han: chi xoa ban ghi da qua han, giu nguyen ban ghi
+    /// con hieu luc. Truoc day ham don da co san nhung khong lich nao goi, nen bang chi phinh ra.
+    /// </summary>
+    [Fact]
+    public async Task Cong_Viec_Don_Ma_Xac_Thuc_Chi_Xoa_Ban_Ghi_Het_Han()
+    {
+        var khoaHetHan = $"kt-het-han-{Guid.NewGuid():N}";
+        var khoaConHan = $"kt-con-han-{Guid.NewGuid():N}";
+
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            var db = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+            db.MaXacThucTam.AddRange(
+                new Domain.QuanTri.MaXacThucTam
+                {
+                    Loai = Domain.QuanTri.LoaiMaXacThucTam.Captcha,
+                    Khoa = khoaHetHan,
+                    MaBam = "BAM",
+                    HetHan = DateTimeOffset.UtcNow.AddHours(-2)
+                },
+                new Domain.QuanTri.MaXacThucTam
+                {
+                    Loai = Domain.QuanTri.LoaiMaXacThucTam.Captcha,
+                    Khoa = khoaConHan,
+                    MaBam = "BAM",
+                    HetHan = DateTimeOffset.UtcNow.AddHours(2)
+                });
+
+            await db.SaveChangesAsync();
+        }
+
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            var congViec = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.CongViecNen.CongViecDonMaXacThucTam>();
+
+            await congViec.ChayAsync();
+        }
+
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            var db = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+            (await db.MaXacThucTam.AnyAsync(x => x.Khoa == khoaHetHan))
+                .Should().BeFalse("bản ghi hết hạn phải bị dọn");
+
+            (await db.MaXacThucTam.AnyAsync(x => x.Khoa == khoaConHan))
+                .Should().BeTrue("bản ghi còn hiệu lực không được đụng tới");
+        }
+    }
+
     [Fact]
     public async Task Chi_Thanh_Phan_Duoc_Tick_Moi_Di_Vao_Kiem_Tra_Trung_Lap()
     {

@@ -44,19 +44,26 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Wire the vendor's browser plugin/local port once the unit picks a CA provider. No server change needed.
 **Priority**: Low (depends on external vendor choice)
 
-### TD-013: Dead Application Code
-
-**Area**: Housekeeping
-**Description**: Three public service methods are never called: `DichVuWorkflow.KhoiTaoAsync`
-(duplicates the submission path in `SangKienCommands.cs:402`), `DichVuCaptcha.DonDepAsync` (no job
-schedules it, so captcha rows are never purged), and
-`DichVuKiemTraTrungLap.DanhDauDaXemXetAsync` (only the `...TheoSangKienAsync` variant is wired).
-**Impact**: Captcha table grows without bound; the duplicate workflow entry point can drift from
-the real one.
-**Resolution**: Schedule the captcha cleanup, delete the two unused methods.
-**Priority**: Low
-
 ## Resolved Items
+
+### TD-013: Dead Application Code (RESOLVED)
+
+**Resolved by**: Rà soát 20/08/2026
+**Resolution**:
+- `DichVuCaptcha.DonDepAsync` existed but no schedule called it, so `ma_xac_thuc_tam` (CAPTCHA
+  challenges *and* password-reset OTPs — both types share the table) grew without bound. Now a
+  recurring job `don-ma-xac-thuc-tam` runs at 03:00 daily, cron overridable via
+  `CongViecNen:Lich:DonMaXacThuc`. Test:
+  `LuongBoSungTests.Cong_Viec_Don_Ma_Xac_Thuc_Chi_Xoa_Ban_Ghi_Het_Han` — expired rows go, valid
+  rows stay.
+- `DichVuWorkflow.KhoiTaoAsync` (and its `IWorkflowEngine` contract member) duplicated the
+  submission path in `SangKienCommands`. It was a footgun, not just dead weight: it starts a case
+  without the component checklist validation and follow-up scheduling the real path performs.
+  Deleted from both the interface and the implementation.
+- `DichVuKiemTraTrungLap.DanhDauDaXemXetAsync` (by check id) was never wired; only the
+  `...TheoSangKienAsync` variant is reachable from the UI. Deleted.
+
+
 
 ### TD-011: Remaining Config Flags With No Runtime Effect (RESOLVED)
 

@@ -351,21 +351,6 @@ public sealed class DichVuKiemTraTrungLap
         return await GhiYKienAsync(banGhi, yKien, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Danh dau "Đã xem xét" kem y kien hoi dong theo dung mot lan kiem tra.</summary>
-    public async Task<EntityKiemTra> DanhDauDaXemXetAsync(
-        Guid kiemTraId, string? yKien, CancellationToken ct = default)
-    {
-        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TrungLapXemXet, ct: ct).ConfigureAwait(false);
-
-        var banGhi = await _db.KiemTraTrungLap
-            .FirstOrDefaultAsync(x => x.Id == kiemTraId, ct)
-            .ConfigureAwait(false) ?? throw new KhongTimThayException("kết quả kiểm tra trùng lặp", kiemTraId);
-
-        await BatBuocTrongPhamViSangKienAsync(banGhi.SangKienId, ct).ConfigureAwait(false);
-
-        return await GhiYKienAsync(banGhi, yKien, ct).ConfigureAwait(false);
-    }
-
     private async Task<EntityKiemTra> GhiYKienAsync(
         EntityKiemTra banGhi, string? yKien, CancellationToken ct)
     {

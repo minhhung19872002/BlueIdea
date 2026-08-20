@@ -186,6 +186,7 @@ chỉ vai trò Quản trị hệ thống mở được. Tắt hoàn toàn bằng
 | `dong-dot-het-han` | mỗi giờ | Tự đóng đợt đề nghị đã qua hạn nộp (chỉ đợt bật `tự động khoá`) |
 | `gui-hang-doi` | mỗi 5 phút | Rút hàng đợi email/SMS và gửi thật |
 | `quet-trung-lap-con-thieu` | mỗi 15 phút | Quét bù hồ sơ đã nộp nhưng chưa kiểm tra trùng lặp |
+| `don-ma-xac-thuc-tam` | 3h hằng ngày | Xoá CAPTCHA và OTP quên mật khẩu đã hết hạn |
 
 Ngoài ra hai công việc chạy theo sự kiện: trích xuất văn bản (OCR) khi tải tệp lên, và kiểm tra
 trùng lặp khi nộp hồ sơ.

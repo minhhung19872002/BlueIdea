@@ -98,6 +98,24 @@ mà bật hay tắt cũng như nhau.
 
 ---
 
+## [1.7.1] — 2026-08-20
+
+Dọn mã chết (TD-013). Ba mục, một trong đó có hại thật sự.
+
+- **Bảng `ma_xac_thuc_tam` không bao giờ được dọn.** Hàm dọn đã có sẵn nhưng không lịch nào gọi,
+  nên mỗi lần ai đó nhập sai mật khẩu 3 lần (sinh CAPTCHA) hoặc bấm quên mật khẩu (sinh OTP) là
+  bảng dài thêm một dòng, vĩnh viễn. Nay có công việc nền `don-ma-xac-thuc-tam` chạy 3h sáng hằng
+  ngày, đổi tần suất bằng `CongViecNen:Lich:DonMaXacThuc` không phải build lại.
+- **Xoá `DichVuWorkflow.KhoiTaoAsync`** (và bỏ luôn khỏi hợp đồng `IWorkflowEngine`). Nó trùng lặp
+  với đường nộp hồ sơ thật nhưng **bỏ qua** kiểm tra thành phần hồ sơ bắt buộc và các việc nền đi
+  kèm — ai gọi nhầm sẽ tạo ra hồ sơ chạy quy trình mà chưa qua kiểm tra nào.
+- **Xoá `DichVuKiemTraTrungLap.DanhDauDaXemXetAsync`** (bản theo id lần kiểm tra) — không lối vào
+  nào gọi tới; giao diện dùng bản theo hồ sơ.
+
+229/229 kiểm thử tích hợp, 514/514 đơn vị, 405/405 E2E.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

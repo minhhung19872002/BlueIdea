@@ -34,30 +34,6 @@ public sealed class DichVuWorkflow : IWorkflowEngine
         _nguoiDungHienTai = nguoiDungHienTai;
     }
 
-    public async Task<WorkflowInstance> KhoiTaoAsync(Guid sangKienId, Guid quyTrinhId, CancellationToken ct)
-    {
-        var hoSo = await _db.SangKien.FirstOrDefaultAsync(x => x.Id == sangKienId, ct).ConfigureAwait(false)
-                   ?? throw new KhongTimThayException("hồ sơ sáng kiến", sangKienId);
-
-        var quyTrinh = await NapQuyTrinhTuDbAsync(quyTrinhId, ct).ConfigureAwait(false);
-
-        hoSo.QuyTrinhSnapshot = _snapshot.TaoSnapshot(quyTrinh);
-        var ketQua = _boMay.KhoiTao(hoSo, quyTrinh, _dongHo.BayGio, out var banGhi);
-
-        if (!ketQua.ThanhCong)
-        {
-            throw new NghiepVuException(ketQua.MaLoi ?? MaLoiHeThong.QuyTrinhKhongHopLe, ketQua.ThongBao);
-        }
-
-        if (banGhi is not null)
-        {
-            _db.SangKienXuLy.Add(banGhi);
-        }
-
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-        return await TaoWorkflowInstanceAsync(hoSo, quyTrinh, ct).ConfigureAwait(false);
-    }
-
     public async Task<IReadOnlyList<HanhDongKhaDung>> LayHanhDongKhaDungAsync(
         Guid sangKienId, Guid nguoiDungId, CancellationToken ct)
     {

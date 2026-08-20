@@ -502,6 +502,13 @@ static void DangKyCongViecDinhKy(WebApplication app)
         x => x.ChayAsync(CancellationToken.None),
         Lich("QuetTrungLap", "*/15 * * * *"),
         new RecurringJobOptions { TimeZone = muiGio });
+
+    // Don CAPTCHA va OTP het han - 3h sang moi ngay (gio thap diem).
+    quanLy.AddOrUpdate<CongViecDonMaXacThucTam>(
+        "don-ma-xac-thuc-tam",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("DonMaXacThuc", "0 3 * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
 }
 
 /// <summary>

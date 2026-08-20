@@ -92,7 +92,10 @@ public sealed class DichVuCaptcha
         return dung;
     }
 
-    /// <summary>Don dep ma het han — goi tu cong viec nen dinh ky.</summary>
+    /// <summary>
+    /// Xoa moi ma xac thuc tam da het han — ca CAPTCHA lan OTP quen mat khau, vi hai loai dung
+    /// chung bang. Goi tu cong viec nen <c>don-ma-xac-thuc-tam</c> (3h sang moi ngay).
+    /// </summary>
     public async Task<int> DonDepAsync(CancellationToken ct = default)
     {
         var het = await _db.MaXacThucTam

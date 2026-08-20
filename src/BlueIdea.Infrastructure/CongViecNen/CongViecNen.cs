@@ -1,6 +1,7 @@
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.HoiDong;
 using BlueIdea.Application.TrungLap;
+using BlueIdea.Application.XacThuc;
 using BlueIdea.Domain.Ai;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.HoiDong;
@@ -12,6 +13,37 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BlueIdea.Infrastructure.CongViecNen;
+
+/// <summary>
+/// Don bang <c>ma_xac_thuc_tam</c>: xoa cac ma CAPTCHA va OTP quen mat khau da het han.
+///
+/// Moi lan tai trang dang nhap sai 3 lan la sinh them mot ban ghi CAPTCHA, moi lan quen mat khau
+/// la them mot OTP. Khong co viec don thi bang chi phinh ra: ban ghi het han khong con tac dung
+/// gi nhung van nam do mai mai.
+/// </summary>
+public sealed class CongViecDonMaXacThucTam
+{
+    private readonly DichVuCaptcha _captcha;
+    private readonly ILogger<CongViecDonMaXacThucTam> _logger;
+
+    public CongViecDonMaXacThucTam(DichVuCaptcha captcha, ILogger<CongViecDonMaXacThucTam> logger)
+    {
+        _captcha = captcha;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task ChayAsync(CancellationToken ct = default)
+    {
+        var soDaXoa = await _captcha.DonDepAsync(ct).ConfigureAwait(false);
+
+        if (soDaXoa > 0)
+        {
+            _logger.LogInformation(
+                "Đã dọn {SoBanGhi} mã xác thực tạm hết hạn (CAPTCHA và OTP).", soDaXoa);
+        }
+    }
+}
 
 /// <summary>
 /// Chuc nang 26 - Trich xuat van ban cho tep vua tai len roi luu vao <c>noi_dung_trich_xuat</c>.
