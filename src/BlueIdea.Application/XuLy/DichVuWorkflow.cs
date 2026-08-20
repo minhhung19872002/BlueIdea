@@ -377,6 +377,31 @@ public sealed class DichVuWorkflow : IWorkflowEngine
                     await ThemNguoiAsync(ketQua, ids, ct).ConfigureAwait(false);
                     break;
                 }
+
+                /*
+                 * Hai loai duoi day truoc kia thieu o day, trong khi BoMayQuyTrinh van cho ho XU LY.
+                 *
+                 * Hau qua khong phai la chan duong, ma la im lang: buoc chi giao cho "Chu tich hoi
+                 * dong" thi khong ai duoc bao la den luot minh, hop thoai "Xu ly thay cho" khong
+                 * liet ke ho, va quy tac TAT_CA dem nham thanh 1.
+                 */
+                case LoaiTacNhan.ChucDanhHoiDong when !string.IsNullOrEmpty(tn.ThamChieuMa):
+                {
+                    var ids = await LayThanhVienTheoChucDanhAsync(
+                        buoc.HoiDongId, tn.ThamChieuMa!, ct).ConfigureAwait(false);
+
+                    await ThemNguoiAsync(ketQua, ids, ct).ConfigureAwait(false);
+                    break;
+                }
+
+                case LoaiTacNhan.LanhDaoDonViTacGia when hoSo.DonViId.HasValue:
+                {
+                    var ids = await LayLanhDaoDonViAsync(hoSo.DonViId.Value, ct)
+                        .ConfigureAwait(false);
+
+                    await ThemNguoiAsync(ketQua, ids, ct).ConfigureAwait(false);
+                    break;
+                }
             }
         }
 
@@ -444,11 +469,118 @@ public sealed class DichVuWorkflow : IWorkflowEngine
                         .ConfigureAwait(false),
                 LoaiTacNhan.VaiTro when !string.IsNullOrEmpty(tn.ThamChieuMa) =>
                     await DemNguoiTheoVaiTroAsync(tn.ThamChieuMa, ct).ConfigureAwait(false),
+
+                LoaiTacNhan.ChucDanhHoiDong when !string.IsNullOrEmpty(tn.ThamChieuMa) =>
+                    Math.Max(
+                        (await LayThanhVienTheoChucDanhAsync(buoc.HoiDongId, tn.ThamChieuMa!, ct)
+                            .ConfigureAwait(false)).Count,
+                        1),
+
+                LoaiTacNhan.LanhDaoDonViTacGia when hoSo.DonViId.HasValue =>
+                    Math.Max(
+                        (await LayLanhDaoDonViAsync(hoSo.DonViId.Value, ct)
+                            .ConfigureAwait(false)).Count,
+                        1),
+
                 _ => 1
             };
         }
 
         return Math.Max(tong, 1);
+    }
+
+    /// <summary>
+    /// Thanh vien hoi dong mang mot chuc danh cu the.
+    ///
+    /// Uu tien hoi dong gan tren buoc; buoc khong gan hoi dong nao thi xet moi hoi dong dang hoat
+    /// dong — khop voi cach <c>BoMayQuyTrinh.KhopChucDanhHoiDong</c> quyet dinh ai duoc xu ly.
+    /// Hai cho nay PHAI cung mot dinh nghia, lech nhau la nguoi xu ly duoc thi khong duoc bao,
+    /// hoac nguoc lai.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> LayThanhVienTheoChucDanhAsync(
+        Guid? hoiDongId, string chucDanh, CancellationToken ct)
+    {
+        var truyVan = _db.HoiDongThanhVien.AsNoTracking()
+            .Where(x => x.NguoiDungId != null
+                        && x.TrangThai == TrangThaiDanhMuc.HoatDong
+                        && x.ChucDanh.ToUpper() == chucDanh.ToUpper());
+
+        if (hoiDongId.HasValue)
+        {
+            truyVan = truyVan.Where(x => x.HoiDongId == hoiDongId.Value);
+        }
+
+        return await truyVan
+            .Select(x => x.NguoiDungId!.Value)
+            .Distinct()
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lanh dao cua don vi tac gia.
+    ///
+    /// Dinh nghia phai TRUNG KHIT voi cach <c>TaoNguCanhAsync</c> tinh
+    /// <c>LaLanhDaoDonViTacGia</c>: mang vai tro LANH_DAO_PHE_DUYET, va don vi cua tac gia nam
+    /// trong don vi cua nguoi do hoac cap duoi (so theo duong dan cay). Lech nhau la sinh ra
+    /// nghich ly: nguoi xu ly duoc nhung khong duoc bao, hoac duoc bao ma bam vao thi bi tu choi.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> LayLanhDaoDonViAsync(Guid donViId, CancellationToken ct)
+    {
+        var duongDanTacGia = await _db.DonVi.AsNoTracking()
+            .Where(x => x.Id == donViId)
+            .Select(x => x.Path)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrEmpty(duongDanTacGia))
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var vaiTroId = await _db.VaiTro.AsNoTracking()
+            .Where(x => x.Ma == MaVaiTro.LanhDaoPheDuyet)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (vaiTroId is null)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        // Danh sach lanh dao von nho (vai nguoi), nen loc doan duong dan trong bo nho cho ro rang
+        // thay vi ep EF dich mot phep so sanh tien to nguoc.
+        var ungVien = await _db.NguoiDungVaiTro.AsNoTracking()
+            .Where(x => x.VaiTroId == vaiTroId.Value)
+            .Join(_db.NguoiDung.AsNoTracking(),
+                nv => nv.NguoiDungId,
+                nd => nd.Id,
+                (nv, nd) => new { nd.Id, nd.DonViId, nd.TrangThaiTaiKhoan })
+            .Where(x => x.TrangThaiTaiKhoan == TrangThaiNguoiDung.HoatDong && x.DonViId != null)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (ungVien.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var donViIds = ungVien.Select(x => x.DonViId!.Value).Distinct().ToList();
+
+        var duongDanTheoDonVi = await _db.DonVi.AsNoTracking()
+            .Where(x => donViIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.Path })
+            .ToDictionaryAsync(x => x.Id, x => x.Path, ct)
+            .ConfigureAwait(false);
+
+        return ungVien
+            .Where(x => duongDanTheoDonVi.TryGetValue(x.DonViId!.Value, out var duongDan)
+                        && !string.IsNullOrEmpty(duongDan)
+                        && duongDanTacGia.StartsWith(duongDan, StringComparison.Ordinal))
+            .Select(x => x.Id)
+            .Distinct()
+            .ToList();
     }
 
     private async Task<int> DemNguoiTheoVaiTroAsync(string maVaiTro, CancellationToken ct)

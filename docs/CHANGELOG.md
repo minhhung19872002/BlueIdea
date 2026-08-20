@@ -365,6 +365,32 @@ nghĩa ở mức ba nghìn. Runbook trong kịch bản ghi mốc nên chạy: kh
 
 ---
 
+## [2.4.0] — 2026-08-20
+
+Hai trong bảy loại tác nhân được đối xử đầy đủ (REQ-15).
+
+Trình thiết kế cho khai 7 loại tác nhân, nhưng lúc chạy chỉ 5 loại đầy đủ. **CHỨC_DANH_HỘI_ĐỒNG**
+và **LÃNH_ĐẠO_ĐƠN_VỊ_TÁC_GIẢ** khớp quyền được — người đó bấm xử lý vẫn qua — nhưng vắng mặt ở hai
+chỗ khác, và cả hai đều hỏng im lặng:
+
+- **Không được liệt kê** (`LayTacNhanBuocHienTaiAsync`): một bước mà tác nhân duy nhất là *"Chủ
+  tịch hội đồng"* thì **không ai được báo** là đến lượt mình, và hộp thoại *"Xử lý thay cho"*
+  không liệt kê họ nên không uỷ quyền được. Hồ sơ nằm chờ, không dấu hiệu gì.
+- **Không được đếm** (`DemTacNhanDuKienAsync` rơi vào nhánh mặc định `= 1`): bước khai quy tắc
+  **TẤT_CẢ** với tác nhân chức danh hội đồng sẽ chuyển bước ngay sau **người đầu tiên** xử lý,
+  thay vì chờ đủ.
+
+Nay cả hai được liệt kê và đếm đúng. Định nghĩa được viết để **trùng khít** với cách
+`BoMayQuyTrinh` quyết định ai được xử lý — lệch nhau là sinh nghịch lý: người xử lý được nhưng
+không được báo, hoặc được báo mà bấm vào thì bị từ chối.
+
+`TacNhanBuocDayDuTests` (3 test): chủ tịch hội đồng được liệt kê, lãnh đạo đơn vị tác giả được
+liệt kê, và quy tắc TẤT_CẢ đếm đúng số uỷ viên thay vì 1. **7/7 loại tác nhân nay đều có kiểm thử.**
+
+267/267 kiểm thử tích hợp, 524/524 đơn vị.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

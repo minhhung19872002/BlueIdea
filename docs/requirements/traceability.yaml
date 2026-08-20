@@ -341,8 +341,8 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
         - "tests/BlueIdea.UnitTests/Workflow/BoMayQuyTrinhTests.cs"
     gaps:
-      - "3 of 7 actor types not yet covered by integration tests (remaining types tested via unit tests only)"
     notes:
+      - "Ra soat 20/08/2026: hai loai tac nhan CHUC_DANH_HOI_DONG va LANH_DAO_DON_VI_TAC_GIA khop quyen duoc nhung KHONG duoc liet ke trong LayTacNhanBuocHienTaiAsync va KHONG duoc dem trong DemTacNhanDuKienAsync (roi vao nhanh mac dinh = 1). Hau qua im lang: buoc chi giao cho chuc danh hoi dong thi khong ai duoc bao, khong uy quyen cho ho duoc, va quy tac TAT_CA chuyen buoc ngay sau nguoi dau tien. Nay ca hai duoc liet ke va dem dung, dinh nghia trung khit voi BoMayQuyTrinh. Bang chung: TacNhanBuocDayDuTests (3 test) — 7/7 loai tac nhan da co kiem thu."
       - "Iteration-22: CHU_TICH_QUYET_DINH processing rule fixed — was identical to MOT_NGUOI (any actor could advance). Now only actors with QuyTacXuLy=ChuTichQuyetDinh can advance the step; other actors' opinions are recorded but step stays. 3 unit tests added. KhopTacNhan extracted from LaTacNhanCuaBuoc for reuse."
       - "Iteration-28: Verified — NhanhXuLyPhuTests Theory verifies 4 processing roles (tiepnhan, thuky, chutich, lanhdao) see cross-org applications. LuongNghiepVuTests exercises TAC_GIA and CAN_BO_TIEP_NHAN actors in workflow. All tests run against real PostgreSQL via Testcontainers."
 
