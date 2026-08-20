@@ -517,6 +517,14 @@ static void DangKyCongViecDinhKy(WebApplication app)
         Lich("NhungLaiDoanVan", "*/10 * * * *"),
         new RecurringJobOptions { TimeZone = muiGio });
 
+    // Tao truoc phan vung thang cho bang nhat ky - 2h sang moi ngay.
+    // Bang chua phan vung thi khong lam gi, nen bat san o moi ban trien khai deu an toan.
+    quanLy.AddOrUpdate<CongViecTaoPhanVungThang>(
+        "tao-phan-vung-thang",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("TaoPhanVung", "0 2 * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
+
     // Don CAPTCHA va OTP het han - 3h sang moi ngay (gio thap diem).
     quanLy.AddOrUpdate<CongViecDonMaXacThucTam>(
         "don-ma-xac-thuc-tam",

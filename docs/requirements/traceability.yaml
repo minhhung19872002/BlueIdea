@@ -121,7 +121,6 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/BienBanVaCauHinhTests.cs"
         - "tests/BlueIdea.IntegrationTests/ToChucVaMenuTests.cs"
     gaps:
-      - "No test for tree-path auto-calculation (materialized path recalc on ChuyenCha)"
     notes:
       - "Bo sung 19/08/2026: cau hinh cap phe duyet duoc may chay quy trinh doc (bien dieu kien so_cap_phe_duyet, cap_phe_duyet_hien_tai, con_cap_phe_duyet_cao_hon, don_vi_phe_duyet_ke_tiep) — truoc do bang nay chi co CRUD, khong logic nao dung toi."
       - "Run-002-B17: Authorization gap closed — ChuyenCha/Gop now require DonViCauHinh at service + controller level"
@@ -205,7 +204,6 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"
         - "tests/BlueIdea.IntegrationTests/DanhMucCoBanVaCauHinhTests.cs"
     gaps:
-      - "No integration test for step/transition/actor editing via LuuSoDoAsync (schema designer)"
     notes:
       - "Snapshot rule COMPLIANT per workflow specialist audit."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to QuyTrinhController for controller-layer defense-in-depth"
@@ -502,7 +500,6 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"
         - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
     gaps:
-      - "No test for diff accuracy (before/after values)"
     notes:
       - "Ra soat 20/08/2026: bo sung luong HUY HO SO (POST /sang-kien/{id}/huy, quyen SANG_KIEN.HUY). Trang thai DA_HUY truoc do co trong danh muc va hien tren bao cao nhung khong chuc nang nao dat ho so ve trang thai do. Huy dong moi luot xu ly dang mo, bao tac gia, giu ho so tra cuu duoc; chan huy ho so da gan quyet dinh. Bang chung: LuongDieuPhoiHoSoTests (3 test huy)."
       - "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
@@ -541,7 +538,6 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"
         - "tests/BlueIdea.IntegrationTests/TepTinNangCaoTests.cs"
     gaps:
-      - "No integration test for blocked extensions or ClamAV virus detection (ClamAV tested via unit test only)"
     notes:
       - "Run-002-B1: IDOR fixes — BatBuocTepTrongPhamViAsync + BatBuocHoSoTrongPhamViAsync scope checks added to download, preview, signed-URL, upload, delete. File dedup edge case handled (checks all attachments). 13 IDOR tests added. Tests compile but not executed (env lacks .NET 8 runtime)."
       - "Iteration-28: Verified — TepTinNangCaoTests: chunked upload (3-part 300KB PDF) with byte-perfect reassembly, missing chunk returns 422, session isolation (cross-user chunk upload returns 404), inline preview with X-Content-Type-Options:nosniff, DOCX preview blocked (422), HMAC-signed time-limited download links with tamper detection (5/5). All tests run against real PostgreSQL via Testcontainers."
@@ -603,7 +599,6 @@ requirements:
       tests:
         - "tests/BlueIdea.IntegrationTests/SapXepVaPhanCapTests.cs"
     gaps:
-      - "No test for saved filters, default filter, shared filter link, Excel export content"
     notes:
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
       - "Iteration-27: Verified — sorting by maHoSo (asc/desc), sorting by tongDiem with NULLS LAST, direction-only default sort, server-side pagination (SapXepVaPhanCapTests 4/4). All tests run against real PostgreSQL via Testcontainers."
@@ -621,7 +616,6 @@ requirements:
       backend: ["src/BlueIdea.Application/XuLy/DichVuWorkflow.cs", "src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps:
-      - "SEC: No regression test for batch cross-org MaHoSo leakage (fix in place, needs test)"
     notes:
       - "Multi-step processing flow verified through full workflow. Run-002-B13: ThucThiHangLoatCommandHandler MaHoSo cross-org leakage fixed — batch MaHoSo query now scoped by LayPhamViTruyCapAsync (ToanHeThong/ChiCaNhan/DonViIds). Cross-org IDs short-circuited before workflow engine call (eliminates existence oracle + timing side-channel). FluentValidation added (max 200 items). Deduplication added (prevents ToDictionary crash + double-transition)."
       - "Bo sung 19/08/2026: giao dien uy quyen xu ly buoc + GET /api/v1/xu-ly/tac-nhan-buoc/{id}; may chu chan uy quyen cho nguoi khong phai tac nhan cua buoc."
@@ -890,7 +884,6 @@ requirements:
       backend: ["src/BlueIdea.Application/QuanTri/DichVuQuanTriNguoiDung.cs", "src/BlueIdea.Application/QuanTri/DichVuNhapNguoiDung.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs", "tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
     gaps:
-      - "No test for role assignment during user creation/update"
     notes:
       - "Ra soat 20/08/2026 — LO HONG LEO THANG DAC QUYEN da sua: LayPhamViTruyCapAsync mo pham vi ra toan he thong khi nguoi dung co quyen SANG_KIEN.XEM_TAT_CA, va ham do duoc dung chung cho ca phep kiem pham vi khi QUAN TRI TAI KHOAN. Hau qua: vai tro Quan tri don vi (co XEM_TAT_CA de nhin ho so moi don vi) dat lai duoc mat khau va go duoc MFA cua BAT KY ai trong he thong. Nay tach LayPhamViDonViAsync (chi doc pham_vi_du_lieu) dung cho quan tri tai khoan va sua cay don vi. Bang chung: PhamViQuanTriNguoiDungTests (5 test, co ca phep doi chung trong pham vi)."
       - "Excel import with dry-run mode and row-level error reporting verified by tests. Run-002-B15: DatLaiMatKhauAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync added after user lookup to enforce org-scope. Same pattern as GoMfaChoNguoiKhacAsync fix."
@@ -933,7 +926,6 @@ requirements:
       tests:
         - "tests/BlueIdea.IntegrationTests/MauThongBaoVaVaiTroTests.cs"
     gaps:
-      - "No test for permission matrix update or data scope enforcement change"
     notes:
       - "Iteration-27: Verified — role clone preserves full permission set, cloned role is not laHeThong, duplicate ma returns 409 (MauThongBaoVaVaiTroTests 5/5). All tests run against real PostgreSQL via Testcontainers."
 

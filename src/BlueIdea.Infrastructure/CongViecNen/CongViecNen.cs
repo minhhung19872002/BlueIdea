@@ -225,6 +225,132 @@ public sealed class CongViecNhungLaiDoanVan
 }
 
 /// <summary>
+/// Tao truoc phan vung thang cho cac bang nhat ky da phan vung (TD-004).
+///
+/// Bang phan vung ma thieu phan vung cho thang toi thi ban ghi moi roi vao phan vung DEFAULT —
+/// van ghi duoc, nhung phan vung DEFAULT phinh dan va toan bo loi ich cua phan vung mat sach.
+/// Viec nen nay tao truoc vai thang de dieu do khong xay ra.
+///
+/// Bang CHUA phan vung thi khong lam gi: he thong chi phan vung khi du lieu du lon, xem
+/// deploy/phan-vung-nhat-ky.sql. Nho vay viec nen nay bat san duoc o moi ban trien khai.
+/// </summary>
+public sealed class CongViecTaoPhanVungThang
+{
+    /// <summary>Tao truoc bao nhieu thang. 3 thang du de mot lan viec nen chet khong gay hau qua.</summary>
+    private const int SoThangTaoTruoc = 3;
+
+    private static readonly (string Bang, string CotThoiGian)[] CacBang =
+    {
+        ("nhat_ky_he_thong", "thoi_gian"),
+        ("nhat_ky_dang_nhap", "thoi_gian"),
+        ("thong_bao", "thoi_gian")
+    };
+
+    private readonly Persistence.AppDbContext _db;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly ILogger<CongViecTaoPhanVungThang> _logger;
+
+    public CongViecTaoPhanVungThang(
+        Persistence.AppDbContext db, IDongHoHeThong dongHo,
+        ILogger<CongViecTaoPhanVungThang> logger)
+    {
+        _db = db;
+        _dongHo = dongHo;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task<int> ChayAsync(CancellationToken ct = default)
+    {
+        var tong = 0;
+
+        foreach (var (bang, cot) in CacBang)
+        {
+            tong += await TaoPhanVungAsync(bang, cot, ct).ConfigureAwait(false);
+        }
+
+        return tong;
+    }
+
+    /// <summary>
+    /// Bao dam co phan vung cho thang nay va <see cref="SoThangTaoTruoc"/> thang ke tiep.
+    /// Tra ve so phan vung vua tao (0 neu bang chua phan vung hoac da du).
+    /// </summary>
+    public async Task<int> TaoPhanVungAsync(
+        string tenBang, string cotThoiGian, CancellationToken ct = default)
+    {
+        if (!await LaBangPhanVungAsync(tenBang, ct).ConfigureAwait(false))
+        {
+            return 0;
+        }
+
+        var daTao = 0;
+        var moc = new DateTime(_dongHo.BayGio.Year, _dongHo.BayGio.Month, 1);
+
+        for (var i = 0; i <= SoThangTaoTruoc; i++)
+        {
+            var dau = moc.AddMonths(i);
+            var cuoi = dau.AddMonths(1);
+            var tenPhanVung = $"{tenBang}_p{dau:yyyyMM}";
+
+            if (await PhanVungDaCoAsync(tenPhanVung, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            // Ten bang va cot do CHINH ma nguon quyet dinh (hang so CacBang), khong tu dau vao
+            // nguoi dung — nhung van boc qua quote_ident de khong bao gio co duong noi chuoi tho.
+            var sql = $"""
+                CREATE TABLE IF NOT EXISTS {Ten(tenPhanVung)}
+                PARTITION OF {Ten(tenBang)}
+                FOR VALUES FROM ('{dau:yyyy-MM-dd}') TO ('{cuoi:yyyy-MM-dd}')
+                """;
+
+            await _db.Database.ExecuteSqlRawAsync(sql, ct).ConfigureAwait(false);
+
+            daTao++;
+
+            _logger.LogInformation(
+                "Đã tạo phân vùng {PhanVung} cho {Dau:MM/yyyy}.", tenPhanVung, dau);
+        }
+
+        return daTao;
+    }
+
+    private async Task<bool> LaBangPhanVungAsync(string tenBang, CancellationToken ct)
+    {
+        var so = await _db.Database
+            .SqlQuery<int>($"""
+                SELECT count(*)::int AS "Value"
+                FROM pg_partitioned_table pt
+                JOIN pg_class c ON c.oid = pt.partrelid
+                WHERE c.relname = {tenBang}
+                """)
+            .FirstAsync(ct)
+            .ConfigureAwait(false);
+
+        return so > 0;
+    }
+
+    private async Task<bool> PhanVungDaCoAsync(string tenPhanVung, CancellationToken ct)
+    {
+        var so = await _db.Database
+            .SqlQuery<int>($"""
+                SELECT count(*)::int AS "Value"
+                FROM pg_class WHERE relname = {tenPhanVung}
+                """)
+            .FirstAsync(ct)
+            .ConfigureAwait(false);
+
+        return so > 0;
+    }
+
+    /// <summary>Boc dinh danh theo dung cach cua PostgreSQL.</summary>
+    private static string Ten(string dinhDanh)
+        => "\"" + dinhDanh.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+}
+
+/// <summary>
 /// Don bang <c>ma_xac_thuc_tam</c>: xoa cac ma CAPTCHA va OTP quen mat khau da het han.
 ///
 /// Moi lan tai trang dang nhap sai 3 lan la sinh them mot ban ghi CAPTCHA, moi lan quen mat khau

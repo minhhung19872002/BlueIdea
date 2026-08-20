@@ -260,6 +260,7 @@ public static class DangKyHaTang
         services.AddScoped<CongViecCanhBaoSucKhoe>();
         services.AddScoped<CongViecTaoQuyetDinh>();
         services.AddScoped<CongViecYeuCauKySo>();
+        services.AddScoped<CongViecTaoPhanVungThang>();
 
         if (!cauHinh.GetValue("CongViecNen:BatHangfire", true))
         {

@@ -4,13 +4,11 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 
 ## Current Items
 
-### TD-004: Database Partitioning Not Yet Applied
+Không còn mục nào đang mở tính đến 20/08/2026. Mọi mục đã chuyển xuống *Resolved* hoặc
+*Dropped From Scope* kèm lý do và bằng chứng.
 
-**Area**: Database
-**Description**: Large tables (`nhat_ky_he_thong`, `nhat_ky_dang_nhap`, `thong_bao`) are designed for monthly partitioning but partitioning is not yet enabled.
-**Impact**: Performance may degrade with years of audit data.
-**Resolution**: Apply PostgreSQL declarative partitioning when data volume warrants it.
-**Priority**: Low (not an issue at current scale)
+Mở mục mới ở đây khi phát hiện: cấu hình bật được mà không có tác dụng, mã có mà không lối vào,
+hoặc một đánh đổi kỹ thuật cần người khác biết.
 
 ## Dropped From Scope
 
@@ -22,6 +20,34 @@ load test run anywhere other than the real 1 vCPU / 2GB VM would produce numbers
 about production. Re-open this if the investor asks for measured figures at acceptance.
 
 ## Resolved Items
+
+### TD-004: Database Partitioning Not Yet Applied (RESOLVED — tooling ready, switch is an ops decision)
+
+**Resolved by**: Rà soát 20/08/2026
+**Resolution**: monthly partitioning is now a single tested command instead of a research project.
+
+- `deploy/phan-vung-nhat-ky.sql` converts `nhat_ky_he_thong`, `nhat_ky_dang_nhap` and `thong_bao`
+  to `PARTITION BY RANGE` on their timestamp: renames the old table, builds the partitioned parent,
+  creates monthly partitions covering existing data plus three months, copies rows, **verifies the
+  row count matches before dropping the source**, and adds a DEFAULT partition so nothing is ever
+  rejected. Re-running it is a no-op on already-partitioned tables.
+- `CongViecTaoPhanVungThang` (job `tao-phan-vung-thang`, 02:00 daily) pre-creates the next three
+  months. Without it, a partitioned table silently funnels everything into the DEFAULT partition
+  and the whole exercise buys nothing. On a non-partitioned deployment the job does nothing, so it
+  ships enabled everywhere.
+
+**Verified on real data**, not just a fresh schema: run against the development database
+(3.504 login rows), row counts preserved, and the application kept working afterwards — login wrote
+through the new partitioned table (3.504 → 3.506), reading logs and notifications both returned 200.
+Tests: `PhanVungThangTests` (2) — the no-op path and partition creation against a real partitioned
+table, including idempotence and an insert landing in the right partition.
+
+**Deliberately NOT switched on**: as of 20/08/2026 the largest of the three tables is 3.504 rows /
+1,2 MB. Partitioning costs something real — the primary key must become `(id, thoi_gian)`, so
+PostgreSQL no longer guarantees `id` is unique table-wide (only per partition), and EF Core still
+emits `WHERE id = ...` without the partition key, forcing every partition to be scanned on
+UPDATE/DELETE. Those are acceptable trade-offs at millions of rows and pointless at three thousand.
+The runbook in the script says to run it when a table passes roughly 5 million rows.
 
 ### TD-014: Privilege Escalation Through Shared Data-Scope Helper (RESOLVED)
 

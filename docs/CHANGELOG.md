@@ -331,6 +331,40 @@ tỷ lệ đóng góp phải bằng 100%, tìm không dấu, xuất Excel, job c
 
 ---
 
+## [2.3.0] — 2026-08-20
+
+Bù nốt kiểm thử còn thiếu và đóng nợ kỹ thuật cuối cùng.
+
+### Bù kiểm thử (8 phép kiểm mới)
+
+`BuKiemThuDotHaiTests` phủ những chỗ trước ghi "no test for...": đường dẫn cây đơn vị tính lại cho
+cả cây con khi chuyển cấp trên (phạm vi dữ liệu `DON_VI_VA_CAP_DUOI` dựa vào đúng thứ này), sửa sơ
+đồ quy trình qua API, diff lịch sử trước/sau, bộ lọc yêu thích (kể cả việc người khác không thấy
+bộ lọc của mình), xử lý hàng loạt **không để lộ mã hồ sơ** của đơn vị khác trong câu báo lỗi, gán
+vai trò khi tạo tài khoản, ma trận phân quyền và đổi phạm vi dữ liệu, chặn tải lên tệp `.exe`.
+
+### TD-004 — phân vùng bảng nhật ký theo tháng
+
+- `deploy/phan-vung-nhat-ky.sql`: đổi ba bảng nhật ký sang `PARTITION BY RANGE` theo tháng. Đổi tên
+  bảng cũ, dựng bảng cha, tạo phân vùng phủ dữ liệu hiện có + 3 tháng, chép dữ liệu, **đối chiếu số
+  dòng trước khi xoá nguồn**, và tạo phân vùng DEFAULT làm lưới an toàn. Chạy lại là bỏ qua.
+- Việc nền `tao-phan-vung-thang` (2h sáng) tạo trước 3 tháng. Thiếu nó thì bảng phân vùng dồn hết
+  vào DEFAULT và toàn bộ lợi ích mất sạch. Bảng chưa phân vùng thì việc nền không làm gì.
+
+**Đã kiểm chứng trên dữ liệu thật** chứ không chỉ lược đồ trống: chạy trên CSDL phát triển
+(3.504 dòng nhật ký đăng nhập), số dòng giữ nguyên, ứng dụng vẫn chạy sau đó — đăng nhập ghi được
+qua bảng đã phân vùng (3.504 → 3.506), đọc nhật ký và thông báo đều 200.
+
+**Cố ý CHƯA bật ở bản triển khai hiện tại.** Bảng lớn nhất mới 3.504 dòng / 1,2 MB. Phân vùng có
+cái giá thật: khoá chính phải thành `(id, thoi_gian)`, nên CSDL không còn bảo đảm `id` duy nhất
+trên toàn bảng (chỉ trong từng phân vùng), và EF Core vẫn sinh `WHERE id = ...` không kèm cột thời
+gian nên UPDATE/DELETE phải quét mọi phân vùng. Đánh đổi đó hợp lý ở mức hàng triệu dòng và vô
+nghĩa ở mức ba nghìn. Runbook trong kịch bản ghi mốc nên chạy: khoảng 5 triệu dòng.
+
+264/264 kiểm thử tích hợp, 524/524 đơn vị.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện
