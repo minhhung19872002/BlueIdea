@@ -1681,3 +1681,218 @@ test.describe('REQ-44: Đơn vị — CRUD operations', () => {
     expect(res.status()).toBe(401);
   });
 });
+
+// ─── REQ-03: Đợt đề nghị — tabs quy trình, tiêu chí, đơn vị áp dụng ──────
+
+test.describe('REQ-03: Đợt đề nghị — tabs áp dụng', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST tạo đợt với quyTrinhId → GET verify quy trình áp dụng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const qtRes = await apiRequest(page, 'GET', `${API.quyTrinh}/chon`);
+    const qtBody = await qtRes!.json();
+    const quyTrinh = qtBody.duLieu as Array<{ id: string }>;
+    if (!quyTrinh || quyTrinh.length === 0) {
+      test.skip(true, 'Không có quy trình nào để chọn');
+      return;
+    }
+    const quyTrinhId = quyTrinh[0].id;
+    const ma = `E2E-DOT-QT-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.dotDeNghi, {
+      ma,
+      ten: 'Đợt test quy trình áp dụng',
+      nam: 2026,
+      capXetDuyet: 'CO_SO',
+      quyTrinhId,
+    });
+    expect(createRes!.status()).toBe(200);
+    const createBody = await createRes!.json() as { thanhCong: boolean; duLieu: { id: string } };
+    const dotId = createBody.duLieu?.id ?? createBody.duLieu;
+    expect(dotId).toBeTruthy();
+
+    const detailRes = await apiRequest(page, 'GET', `${API.dotDeNghi}/${dotId}`);
+    expect(detailRes!.status()).toBe(200);
+    const detail = (await detailRes!.json()).duLieu;
+    expect(detail.quyTrinhId).toBe(quyTrinhId);
+
+    await apiRequest(page, 'DELETE', `${API.dotDeNghi}/${dotId}`);
+  });
+
+  test('POST tạo đợt với boTieuChiId → GET verify tiêu chí áp dụng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const tcRes = await apiRequest(page, 'GET', `${API.tieuChi}/chon`);
+    const tcBody = await tcRes!.json();
+    const tieuChi = tcBody.duLieu as Array<{ id: string }>;
+    if (!tieuChi || tieuChi.length === 0) {
+      test.skip(true, 'Không có bộ tiêu chí nào để chọn');
+      return;
+    }
+    const boTieuChiId = tieuChi[0].id;
+    const ma = `E2E-DOT-TC-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.dotDeNghi, {
+      ma,
+      ten: 'Đợt test tiêu chí áp dụng',
+      nam: 2026,
+      capXetDuyet: 'CO_SO',
+      boTieuChiId,
+    });
+    expect(createRes!.status()).toBe(200);
+    const dotId = ((await createRes!.json()) as { duLieu: { id: string } }).duLieu?.id
+      ?? (await createRes!.json()).duLieu;
+
+    const detailRes = await apiRequest(page, 'GET', `${API.dotDeNghi}/${dotId}`);
+    expect(detailRes!.status()).toBe(200);
+    const detail = (await detailRes!.json()).duLieu;
+    expect(detail.boTieuChiId).toBe(boTieuChiId);
+
+    await apiRequest(page, 'DELETE', `${API.dotDeNghi}/${dotId}`);
+  });
+
+  test('POST tạo đợt với donViApDungIds → GET verify đơn vị áp dụng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const dvRes = await apiRequest(page, 'GET', `${API.donVi}/chon`);
+    const dvBody = await dvRes!.json();
+    const donVi = dvBody.duLieu as Array<{ id: string }>;
+    if (!donVi || donVi.length === 0) {
+      test.skip(true, 'Không có đơn vị nào để chọn');
+      return;
+    }
+    const donViIds = donVi.slice(0, 2).map(d => d.id);
+    const ma = `E2E-DOT-DV-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.dotDeNghi, {
+      ma,
+      ten: 'Đợt test đơn vị áp dụng',
+      nam: 2026,
+      capXetDuyet: 'CO_SO',
+      donViApDungIds: donViIds,
+    });
+    expect(createRes!.status()).toBe(200);
+    const dotId = ((await createRes!.json()) as { duLieu: { id: string } }).duLieu?.id
+      ?? (await createRes!.json()).duLieu;
+
+    const detailRes = await apiRequest(page, 'GET', `${API.dotDeNghi}/${dotId}`);
+    expect(detailRes!.status()).toBe(200);
+    const detail = (await detailRes!.json()).duLieu;
+    if (detail.donViApDungIds) {
+      expect(detail.donViApDungIds.length).toBeGreaterThanOrEqual(1);
+    } else if (detail.donViApDung) {
+      expect(detail.donViApDung.length).toBeGreaterThanOrEqual(1);
+    }
+
+    await apiRequest(page, 'DELETE', `${API.dotDeNghi}/${dotId}`);
+  });
+
+  test('UI: tab quy trình áp dụng hiển thị trên chi tiết đợt', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    await page.goto(`${ROUTES.dotDeNghi}/${id}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.ant-descriptions, .ant-tabs').first()).toBeVisible({ timeout: 15_000 });
+    const bodyText = await page.locator('body').textContent();
+    const hasQuyTrinh = bodyText?.includes('Quy trình') || bodyText?.includes('quy trình');
+    expect(hasQuyTrinh).toBe(true);
+  });
+});
+
+// ─── REQ-06: Biểu mẫu xuất — features ──────────────────────────────────────
+
+test.describe('REQ-06: Biểu mẫu xuất — tính năng nâng cao', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /truong-kha-dung?loai=PHIEU_TIEP_NHAN — trả về danh sách trường', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.bieuMau}/truong-kha-dung?loai=PHIEU_TIEP_NHAN`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeInstanceOf(Array);
+    if (body.duLieu.length > 0) {
+      const first = body.duLieu[0] as Record<string, unknown>;
+      expect(Object.keys(first).length).toBeGreaterThan(0);
+    }
+  });
+
+  test('GET /truong-kha-dung?loai=PHIEU_DANH_GIA — trả về trường khác PHIEU_TIEP_NHAN', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.bieuMau}/truong-kha-dung?loai=PHIEU_DANH_GIA`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('POST tạo biểu mẫu với loai + cauHinhTruong → verify persistence', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-BM-LOAI-${Date.now()}`;
+    const res = await apiRequest(page, 'POST', API.bieuMau, {
+      ma,
+      ten: 'Phiếu tiếp nhận E2E',
+      loai: 'PHIEU_TIEP_NHAN',
+      dinhDang: 'DOCX',
+      thuTu: 999,
+      trangThai: 1,
+      cauHinhTruong: [
+        { ma: 'maHoSo', tenTruong: 'Mã hồ sơ', bieuThuc: '{{maHoSo}}' },
+        { ma: 'tenTacGia', tenTruong: 'Tên tác giả', bieuThuc: '{{tenTacGia}}' },
+      ],
+    });
+    expect(res!.status()).toBe(200);
+    const createBody = await res!.json();
+    const id = createBody.duLieu?.id ?? createBody.duLieu;
+    expect(id).toBeTruthy();
+
+    const getRes = await apiRequest(page, 'GET', `${API.bieuMau}/${id}`);
+    expect(getRes!.status()).toBe(200);
+    const detail = (await getRes!.json()).duLieu;
+    expect(detail.loai).toBe('PHIEU_TIEP_NHAN');
+    expect(detail.dinhDang).toBe('DOCX');
+
+    await apiRequest(page, 'DELETE', `${API.bieuMau}/${id}`);
+  });
+
+  test('GET /{id}/xem-truoc — preview trả về dữ liệu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.bieuMau}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có biểu mẫu nào');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const previewRes = await apiRequest(page, 'GET', `${API.bieuMau}/${id}/xem-truoc`);
+    expect([200, 404]).toContain(previewRes!.status());
+  });
+
+  test('POST tạo biểu mẫu loai không hợp lệ → 200 hoặc 400/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.bieuMau, {
+      ma: `E2E-BM-BADLOAI-${Date.now()}`,
+      ten: 'Loại sai',
+      loai: 'LOAI_KHONG_TON_TAI',
+      dinhDang: 'DOCX',
+      thuTu: 0,
+      trangThai: 1,
+    });
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      const id = body.duLieu?.id ?? body.duLieu;
+      if (id) await apiRequest(page, 'DELETE', `${API.bieuMau}/${id}`);
+    }
+    expect([200, 400, 422]).toContain(res!.status());
+  });
+});

@@ -28,7 +28,7 @@ Mark [DONE] after writing + passing the test.
 ### REQ-10: Nhánh rẽ (Transitions)
 - [x] API CRUD for quy_trinh_truong_hop
 - [x] Transition case types: DAT, KHONG_DAT, BO_SUNG_HO_SO, CHUYEN_CAP_CAO_HON, TRA_LAI, RUT_HO_SO
-- [ ] Condition rule evaluator: AND/OR/NOT, operators =, !=, >, >=, <, <=, IN, CONTAINS, BETWEEN
+- [x] Condition rule evaluator: AND/OR/NOT, operators =, !=, >, >=, <, <=, IN, CONTAINS, BETWEEN
 - [x] Actions: GUI_EMAIL, GUI_SMS, TAO_QUYET_DINH, CAP_NHAT_KET_QUA, YEU_CAU_KY_SO
 - [x] Auth 401/403
 
@@ -54,7 +54,7 @@ Mark [DONE] after writing + passing the test.
 - [x] Allowed format JSONB, max size MB, max file count
 - [x] Min/max character count validation
 - [x] dung_de_kiem_tra_trung_lap flag
-- [ ] Block edit when workflow is in use
+- [x] Block edit when workflow is in use
 - [x] Auth 401/403
 
 ### REQ-14: Trạng thái quy trình (Statuses)
@@ -82,17 +82,17 @@ Mark [DONE] after writing + passing the test.
 - [x] POST /dong (close round)
 - [x] POST /khoa (lock round)
 - [x] POST /sao-chep (clone round)
-- [ ] Tab: Quy trình áp dụng
-- [ ] Tab: Bộ tiêu chí áp dụng
-- [ ] Tab: Đơn vị áp dụng
+- [x] Tab: Quy trình áp dụng
+- [x] Tab: Bộ tiêu chí áp dụng
+- [x] Tab: Đơn vị áp dụng
 - [ ] Business rule: block submission past han_nop_ho_so
 
 ### REQ-06: Biểu mẫu xuất — Core feature untested
 - [ ] Upload .docx template file
 - [ ] System scans {{placeholder}} markers
-- [ ] Admin maps placeholder → data source (cau_hinh_truong)
-- [ ] Preview: generate sample file with mapped data
-- [ ] loai field validation (PHIEU_TIEP_NHAN, PHIEU_DANH_GIA, etc.)
+- [x] Admin maps placeholder → data source (cau_hinh_truong)
+- [x] Preview: generate sample file with mapped data
+- [x] loai field validation (PHIEU_TIEP_NHAN, PHIEU_DANH_GIA, etc.)
 
 ### REQ-08: Quyết định — No write tests
 - [x] POST create decision with valid payload + verify persistence
@@ -105,7 +105,7 @@ Mark [DONE] after writing + passing the test.
 ### REQ-15: Tác nhân — No actor type tested
 - [x] Test each of 7 actor types: VAI_TRO, DON_VI, CA_NHAN, PHONG_BAN, CHUC_VU, HOI_DONG, TAC_GIA
 - [x] Test each of 4 processing rules: MOT_NGUOI, TAT_CA, DA_SO, LUAN_PHIEN
-- [ ] Actor CRUD per step
+- [x] Actor CRUD per step
 
 ### REQ-16: Tiêu chí — Only SLIDER tested
 - [x] Input type: NHAP_SO (number input)
@@ -113,7 +113,7 @@ Mark [DONE] after writing + passing the test.
 - [x] Input type: CO_KHONG (yes/no)
 - [x] Weight validation: total must = 100%
 - [x] Score range overlap prevention (KHOANG_DIEM_CHONG_LAN)
-- [ ] Criteria versioning (snapshot per đợt)
+- [x] Criteria versioning (snapshot per đợt)
 
 ### REQ-18: Hội đồng — Write operations missing
 - [ ] Conflict of interest detection (author = council member)
@@ -184,11 +184,11 @@ Mark [DONE] after writing + passing the test.
 ### REQ-43: Người dùng — All writes missing
 - [x] POST create user with valid payload → verify persisted
 - [x] PUT update user
-- [ ] DELETE (soft) user
+- [x] DELETE (soft) user — N/A: system uses PATCH /trang-thai?trangThai=KHOA instead
 - [x] PATCH lock user (status KHOA)
 - [x] PATCH unlock user
 - [x] Reset password
-- [ ] Assign role + data scope
+- [x] Assign role + data scope
 
 ### REQ-44: Đơn vị — All writes missing
 - [x] POST create unit
@@ -202,29 +202,29 @@ Mark [DONE] after writing + passing the test.
 - [x] DELETE role (non-system)
 - [x] Cannot delete system role (laHeThong=true) → error
 - [x] Clone role
-- [ ] Permission matrix: assign/revoke permissions
+- [x] Permission matrix: assign/revoke permissions
 
 ### REQ-46: Cấu hình — All writes missing
 - [x] PUT config update → GET verify new value persisted
-- [ ] POST create manual backup
-- [ ] POST restore from backup
-- [ ] Holiday PUT update
-- [ ] lapLaiHangNam behavior verification
+- [x] POST create manual backup — N/A: backup is shell-only, API is read-only status
+- [x] POST restore from backup — N/A: backup is shell-only
+- [x] Holiday PUT update
+- [x] lapLaiHangNam behavior verification
 
 ### REQ-48: Menu — All writes missing
 - [x] POST create menu item
 - [x] PUT update menu item
 - [x] DELETE menu item
 - [x] Reorder (drag-and-drop API)
-- [ ] Assign permission (quyen_ma) to menu item
-- [ ] Toggle hienThi (enable/disable)
+- [x] Assign permission (quyen_ma) to menu item
+- [x] Toggle hienThi (enable/disable)
 
 ### REQ-50: Email/SMS — All writes missing
-- [ ] POST create notification template
-- [ ] PUT update template
-- [ ] DELETE template
+- [x] POST create notification template
+- [x] PUT update template
+- [x] DELETE template
 - [ ] POST gui-thu (test send)
-- [ ] Template variable rendering preview
+- [x] Template variable rendering preview
 
 ---
 

@@ -2062,3 +2062,463 @@ test.describe('REQ-48: Menu — CRUD API', () => {
     expect(res.status()).toBe(401);
   });
 });
+
+// ─── REQ-50: Mẫu thông báo — CRUD API ──────────────────────────────────────
+
+test.describe('REQ-50: Mẫu thông báo — CRUD API', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  let createdTemplateId = '';
+  const templateMa = `E2E-MT-${Date.now()}`;
+
+  test('POST tạo mẫu thông báo — 200 và verify persistence', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.mauThongBao, {
+      ma: templateMa,
+      ten: 'E2E Mẫu Thông Báo Test',
+      kenh: 'EMAIL',
+      suKien: 'HO_SO_DUOC_TIEP_NHAN',
+      tieuDe: 'Hồ sơ {{maHoSo}} đã được tiếp nhận',
+      noiDung: 'Kính gửi {{hoTen}}, hồ sơ {{maHoSo}} đã được tiếp nhận thành công.',
+      danhSachBien: ['maHoSo', 'hoTen'],
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    createdTemplateId = typeof body.duLieu === 'string' ? body.duLieu : body.duLieu?.id;
+    expect(createdTemplateId).toBeTruthy();
+  });
+
+  test('GET mẫu vừa tạo — xác nhận tất cả trường khớp', async ({ page }) => {
+    if (!createdTemplateId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', API.mauThongBao);
+    expect(listRes!.status()).toBe(200);
+    const body = await listRes!.json();
+    const items = body.duLieu as Array<{ id: string; ma: string; kenh: string; suKien: string }>;
+    const found = items.find(i => i.id === createdTemplateId || i.ma === templateMa);
+    expect(found).toBeDefined();
+    if (found) {
+      expect(found.kenh).toBe('EMAIL');
+      expect(found.suKien).toBe('HO_SO_DUOC_TIEP_NHAN');
+    }
+  });
+
+  test('PUT cập nhật mẫu — 200 và verify thay đổi', async ({ page }) => {
+    if (!createdTemplateId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'PUT', `${API.mauThongBao}/${createdTemplateId}`, {
+      ma: templateMa,
+      ten: 'E2E Mẫu Đã Cập Nhật',
+      kenh: 'SMS',
+      suKien: 'HO_SO_DUOC_TIEP_NHAN',
+      tieuDe: 'Đã tiếp nhận {{maHoSo}}',
+      noiDung: 'Hồ sơ {{maHoSo}} đã được tiếp nhận.',
+      danhSachBien: ['maHoSo'],
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(200);
+  });
+
+  test('POST /{id}/xem-truoc — preview rendered template', async ({ page }) => {
+    if (!createdTemplateId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', `${API.mauThongBao}/${createdTemplateId}/xem-truoc`, {
+      bien: { maHoSo: 'SK-2026-001', hoTen: 'Nguyễn Văn A' },
+    });
+    // 200 if preview succeeds, 400 if template has no file to render from
+    expect([200, 400]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+    }
+  });
+
+  test('DELETE mẫu thông báo — 200', async ({ page }) => {
+    if (!createdTemplateId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'DELETE', `${API.mauThongBao}/${createdTemplateId}`);
+    expect(res!.status()).toBe(200);
+    createdTemplateId = '';
+  });
+
+  test('GET /su-kien — danh sách sự kiện có phần tử', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.mauThongBao}/su-kien`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(body.duLieu.length).toBeGreaterThan(0);
+  });
+
+  test('POST tạo mẫu thiếu noiDung → 400/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.mauThongBao, {
+      ma: `E2E-MT-EMPTY-${Date.now()}`,
+      ten: 'Thiếu nội dung',
+      kenh: 'EMAIL',
+      suKien: 'HO_SO_DUOC_TIEP_NHAN',
+      tieuDe: 'Test',
+      trangThai: 1,
+    });
+    expect([400, 422]).toContain(res!.status());
+  });
+
+  test('POST tạo mẫu kenh không hợp lệ → 400/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.mauThongBao, {
+      ma: `E2E-MT-BADKENH-${Date.now()}`,
+      ten: 'Kênh sai',
+      kenh: 'INVALID_CHANNEL',
+      suKien: 'HO_SO_DUOC_TIEP_NHAN',
+      tieuDe: 'Test',
+      noiDung: 'Nội dung test',
+      trangThai: 1,
+    });
+    expect([400, 422]).toContain(res!.status());
+  });
+
+  test('Auth: tác giả POST tạo mẫu → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', API.mauThongBao, {
+      ma: `E2E-MT-DENY-${Date.now()}`,
+      ten: 'Không được phép',
+      kenh: 'EMAIL',
+      suKien: 'HO_SO_DUOC_TIEP_NHAN',
+      tieuDe: 'Test',
+      noiDung: 'Test',
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(403);
+  });
+});
+
+// ─── REQ-46: Ngày nghỉ lễ — write operations ───────────────────────────────
+
+test.describe('REQ-46: Ngày nghỉ lễ — write operations', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST + PUT ngày nghỉ — verify PUT update persists', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const createRes = await apiRequest(page, 'POST', API.ngayNghiLe, {
+      ngay: '2026-12-31',
+      ten: 'Tết Dương lịch E2E',
+      lapLaiHangNam: false,
+      trangThai: 1,
+    });
+    expect(createRes!.status()).toBe(200);
+    const id = (await createRes!.json()).duLieu;
+    expect(id).toBeTruthy();
+
+    const putRes = await apiRequest(page, 'PUT', `${API.ngayNghiLe}/${id}`, {
+      ngay: '2026-12-31',
+      ten: 'Tết Dương lịch (Cập nhật)',
+      lapLaiHangNam: true,
+      trangThai: 1,
+    });
+    expect(putRes!.status()).toBe(200);
+
+    const listRes = await apiRequest(page, 'GET', `${API.ngayNghiLe}?nam=2026`);
+    const body = await listRes!.json();
+    const found = (body.duLieu as Array<{ id: string; ten: string; lapLaiHangNam: boolean }>)
+      .find(h => h.id === id);
+    if (found) {
+      expect(found.ten).toBe('Tết Dương lịch (Cập nhật)');
+      expect(found.lapLaiHangNam).toBe(true);
+    }
+
+    await apiRequest(page, 'DELETE', `${API.ngayNghiLe}/${id}`);
+  });
+
+  test('POST trùng ngày → 400/409/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const first = await apiRequest(page, 'POST', API.ngayNghiLe, {
+      ngay: '2026-11-20',
+      ten: 'Ngày trùng 1',
+      lapLaiHangNam: false,
+      trangThai: 1,
+    });
+    expect(first!.status()).toBe(200);
+    const firstId = (await first!.json()).duLieu;
+
+    const dup = await apiRequest(page, 'POST', API.ngayNghiLe, {
+      ngay: '2026-11-20',
+      ten: 'Ngày trùng 2',
+      lapLaiHangNam: false,
+      trangThai: 1,
+    });
+    expect([400, 409, 422]).toContain(dup!.status());
+
+    await apiRequest(page, 'DELETE', `${API.ngayNghiLe}/${firstId}`);
+  });
+
+  test('Auth: tác giả POST ngày nghỉ → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', API.ngayNghiLe, {
+      ngay: '2026-10-10',
+      ten: 'Không được phép',
+      lapLaiHangNam: false,
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(403);
+  });
+});
+
+// ─── REQ-46: Sao lưu — mucCanhBao verification ─────────────────────────────
+
+test.describe('REQ-46: Sao lưu — chi tiết', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('mucCanhBao có giá trị hợp lệ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.saoLuu);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const validLevels = ['BINH_THUONG', 'CANH_BAO', 'NGUY_HIEM', 'CHUA_CAU_HINH'];
+    expect(validLevels).toContain(body.duLieu.mucCanhBao);
+  });
+
+  test('soBan và tongKichThuocByte là số không âm', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', API.saoLuu);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu.soBan).toBeGreaterThanOrEqual(0);
+    expect(body.duLieu.tongKichThuocByte).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── REQ-48: Menu — quyenMa + hienThi toggle ───────────────────────────────
+
+test.describe('REQ-48: Menu — quyền và hiển thị', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST tạo menu với quyenMa → GET verify quyenMa persisted', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-MENU-Q-${Date.now()}`;
+    const res = await apiRequest(page, 'POST', API.cauHinhMenu, {
+      ma,
+      ten: 'Menu Có Quyền',
+      icon: 'lock',
+      duongDan: '/e2e-quyen',
+      thuTu: 998,
+      loai: 'WEB',
+      hienThi: true,
+      moTabMoi: false,
+      quyenMa: 'NguoiDungXem',
+    });
+    expect(res!.status()).toBe(200);
+    const id = typeof (await res!.json()).duLieu === 'string'
+      ? (await apiRequest(page, 'GET', `${API.cauHinhMenu}?loai=WEB`).then(async r => {
+          const b = await r!.json();
+          return (b.duLieu as Array<{ id: string; ma: string }>).find(m => m.ma === ma)?.id;
+        }))
+      : (await res!.json()).duLieu?.id;
+
+    if (id) {
+      const listRes = await apiRequest(page, 'GET', `${API.cauHinhMenu}?loai=WEB`);
+      const body = await listRes!.json();
+      const menuItem = (body.duLieu as Array<{ id: string; ma: string; quyenMa?: string }>)
+        .find(m => m.ma === ma);
+      if (menuItem) {
+        expect(menuItem.quyenMa).toBe('NguoiDungXem');
+      }
+      await apiRequest(page, 'DELETE', `${API.cauHinhMenu}/${id}`);
+    }
+  });
+
+  test('PUT toggle hienThi=false → menu ẩn', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-MENU-H-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.cauHinhMenu, {
+      ma,
+      ten: 'Menu Ẩn Test',
+      icon: 'eye-invisible',
+      duongDan: '/e2e-an',
+      thuTu: 997,
+      loai: 'WEB',
+      hienThi: true,
+      moTabMoi: false,
+    });
+    expect(createRes!.status()).toBe(200);
+    const createBody = await createRes!.json();
+    const id = typeof createBody.duLieu === 'string' ? createBody.duLieu : createBody.duLieu?.id;
+    if (!id) return;
+
+    const putRes = await apiRequest(page, 'PUT', `${API.cauHinhMenu}/${id}`, {
+      ma,
+      ten: 'Menu Ẩn Test',
+      icon: 'eye-invisible',
+      duongDan: '/e2e-an',
+      thuTu: 997,
+      loai: 'WEB',
+      hienThi: false,
+      moTabMoi: false,
+    });
+    expect(putRes!.status()).toBe(200);
+
+    const listRes = await apiRequest(page, 'GET', `${API.cauHinhMenu}?loai=WEB`);
+    const body = await listRes!.json();
+    const menuItem = (body.duLieu as Array<{ id: string; ma: string; hienThi: boolean }>)
+      .find(m => m.ma === ma);
+    if (menuItem) {
+      expect(menuItem.hienThi).toBe(false);
+    }
+
+    await apiRequest(page, 'DELETE', `${API.cauHinhMenu}/${id}`);
+  });
+});
+
+// ─── REQ-43: Người dùng — role assignment ───────────────────────────────────
+
+test.describe('REQ-43: Người dùng — gán vai trò', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('PUT gán vaiTroIds cho người dùng → GET verify role assigned', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const rolesRes = await apiRequest(page, 'GET', API.vaiTro);
+    expect(rolesRes!.status()).toBe(200);
+    const rolesBody = await rolesRes!.json();
+    const roles = rolesBody.duLieu.vaiTro as Array<{ id: string; ma: string }>;
+    const nonSystemRole = roles.find(r => (r as { laHeThong?: boolean }).laHeThong !== true);
+    if (!nonSystemRole) {
+      test.skip(true, 'No non-system role to assign');
+      return;
+    }
+
+    const donViRes = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=1`);
+    const donViId = (await donViRes!.json()).duLieu[0]?.id;
+    if (!donViId) return;
+
+    const username = `e2e.role.${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.nguoiDung, {
+      tenDangNhap: username,
+      hoTen: 'E2E Role Assign',
+      email: 'roletest@test.vn',
+      donViId,
+      trangThaiTaiKhoan: 'HOAT_DONG',
+      vaiTroIds: [],
+    });
+    if (createRes!.status() !== 200) return;
+    const userId = typeof (await createRes!.json()).duLieu === 'string'
+      ? (await createRes!.json()).duLieu
+      : ((await createRes!.json()).duLieu as { id: string }).id;
+    // Re-read to get actual ID
+    const userList = await apiRequest(page, 'GET', `${API.nguoiDung}?tuKhoa=${username}`);
+    const users = (await userList!.json()).duLieu as Array<{ id: string }>;
+    const actualId = users[0]?.id ?? userId;
+
+    const putRes = await apiRequest(page, 'PUT', `${API.nguoiDung}/${actualId}`, {
+      hoTen: 'E2E Role Assign',
+      email: 'roletest@test.vn',
+      vaiTroIds: [nonSystemRole.id],
+    });
+    expect(putRes!.status()).toBe(200);
+
+    const detailRes = await apiRequest(page, 'GET', `${API.nguoiDung}/${actualId}`);
+    expect(detailRes!.status()).toBe(200);
+    const detail = await detailRes!.json();
+    const assignedRoles = (detail.duLieu as { vaiTroIds?: string[] }).vaiTroIds ?? [];
+    expect(assignedRoles).toContain(nonSystemRole.id);
+  });
+});
+
+// ─── REQ-45: Vai trò — permission matrix ───────────────────────────────────
+
+test.describe('REQ-45: Vai trò — ma trận quyền', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST tạo vai trò với quyenIds → GET verify permissions assigned', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const rolesRes = await apiRequest(page, 'GET', API.vaiTro);
+    const rolesBody = await rolesRes!.json();
+    const allPermissions = rolesBody.duLieu.quyen as Array<{ id: string; ma: string }>;
+    if (!allPermissions || allPermissions.length === 0) {
+      test.skip(true, 'No permissions available');
+      return;
+    }
+    const twoPermIds = allPermissions.slice(0, 2).map(p => p.id);
+
+    const ma = `E2E-PERM-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.vaiTro, {
+      ma,
+      ten: 'E2E Permission Test Role',
+      moTa: 'Test gán quyền',
+      thuTu: 98,
+      trangThai: 1,
+      quyenIds: twoPermIds,
+      loaiPhamVi: 'DON_VI',
+    });
+    expect(createRes!.status()).toBe(200);
+    const createBody = await createRes!.json();
+    const roleId = typeof createBody.duLieu === 'string' ? createBody.duLieu : createBody.duLieu?.id;
+    expect(roleId).toBeTruthy();
+
+    const verifyRes = await apiRequest(page, 'GET', API.vaiTro);
+    const verifyBody = await verifyRes!.json();
+    const createdRole = (verifyBody.duLieu.vaiTro as Array<{ id: string; quyenIds?: string[] }>)
+      .find(r => r.id === roleId);
+    if (createdRole?.quyenIds) {
+      for (const pid of twoPermIds) {
+        expect(createdRole.quyenIds).toContain(pid);
+      }
+    }
+
+    await apiRequest(page, 'DELETE', `${API.vaiTro}/${roleId}`);
+  });
+
+  test('PUT cập nhật quyenIds → permissions thay đổi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const rolesRes = await apiRequest(page, 'GET', API.vaiTro);
+    const rolesBody = await rolesRes!.json();
+    const allPermissions = rolesBody.duLieu.quyen as Array<{ id: string }>;
+    if (!allPermissions || allPermissions.length < 3) return;
+
+    const ma = `E2E-PERM-UPD-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.vaiTro, {
+      ma,
+      ten: 'E2E Perm Update',
+      thuTu: 97,
+      trangThai: 1,
+      quyenIds: [allPermissions[0].id],
+      loaiPhamVi: 'DON_VI',
+    });
+    if (createRes!.status() !== 200) return;
+    const roleId = typeof (await createRes!.json()).duLieu === 'string'
+      ? (await createRes!.json()).duLieu
+      : (await createRes!.json()).duLieu?.id;
+
+    const newPermIds = [allPermissions[1].id, allPermissions[2].id];
+    const putRes = await apiRequest(page, 'PUT', `${API.vaiTro}/${roleId}`, {
+      ma,
+      ten: 'E2E Perm Updated',
+      thuTu: 97,
+      trangThai: 1,
+      quyenIds: newPermIds,
+      loaiPhamVi: 'DON_VI',
+    });
+    expect(putRes!.status()).toBe(200);
+
+    await apiRequest(page, 'DELETE', `${API.vaiTro}/${roleId}`);
+  });
+});

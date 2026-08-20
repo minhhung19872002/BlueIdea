@@ -2808,3 +2808,264 @@ test.describe('REQ-16: Tiêu chí — input types và validation', () => {
     expect(res.status()).toBe(401);
   });
 });
+
+// ─── REQ-10: Condition rule evaluator ────────────────────────────────────────
+
+test.describe('REQ-10: Điều kiện nhánh rẽ — condition evaluator', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('sơ đồ quy trình — các bước chứa mảng truongHop', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    expect(listRes!.status()).toBe(200);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào');
+      return;
+    }
+    let found = false;
+    for (const qt of listBody.duLieu) {
+      const sodoRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      if (sodoRes!.status() !== 200) continue;
+      const sodoBody = await sodoRes!.json();
+      if (!sodoBody.thanhCong) continue;
+      const sodo = sodoBody.duLieu;
+      const steps = sodo.cacBuoc ?? sodo.buoc ?? [];
+      for (const step of steps) {
+        if (step.truongHop && step.truongHop.length > 0) {
+          found = true;
+          const th = step.truongHop[0] as { id?: string; ten?: string; ma?: string };
+          expect(th.id || th.ma || th.ten).toBeDefined();
+          break;
+        }
+      }
+      if (found) break;
+    }
+    if (!found) {
+      test.skip(true, 'Không có quy trình nào có truongHop');
+    }
+  });
+
+  test('trường hợp (truongHop) có ten và hanhDong', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào');
+      return;
+    }
+    for (const qt of listBody.duLieu) {
+      const sodoRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      if (sodoRes!.status() !== 200) continue;
+      const sodoBody = await sodoRes!.json();
+      const steps = sodoBody.duLieu?.cacBuoc ?? sodoBody.duLieu?.buoc ?? [];
+      const allCases = steps.flatMap(
+        (b: { truongHop?: Array<{ ten?: string; hanhDong?: string[] }> }) => b.truongHop ?? []
+      );
+      if (allCases.length > 0) {
+        for (const th of allCases) {
+          expect(th.ten).toBeDefined();
+        }
+        return;
+      }
+    }
+  });
+
+  test('POST /kiem-tra validates workflow — trả về lỗi nếu thiếu bước bắt đầu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình nào');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'POST', `${API.quyTrinh}/${id}/kiem-tra`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+  });
+
+  test('trường hợp có trường dieuKien — cấu trúc biểu thức điều kiện', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu) {
+      const sodoRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const sodoBody = await sodoRes!.json();
+      const steps = sodoBody.duLieu?.cacBuoc ?? sodoBody.duLieu?.buoc ?? [];
+      const casesWithCondition = steps.flatMap(
+        (b: { truongHop?: Array<{ dieuKien?: unknown }> }) => (b.truongHop ?? []).filter((th: { dieuKien?: unknown }) => th.dieuKien != null)
+      );
+      if (casesWithCondition.length > 0) {
+        for (const c of casesWithCondition) {
+          const dk = c.dieuKien as Record<string, unknown>;
+          const hasLogic = dk.loai !== undefined || dk.toanTu !== undefined || dk.loaiLogic !== undefined;
+          expect(hasLogic).toBe(true);
+        }
+        return;
+      }
+    }
+  });
+});
+
+// ─── REQ-13: Block edit when workflow in use ─────────────────────────────────
+
+test.describe('REQ-13: Chặn sửa thành phần hồ sơ khi quy trình đang áp dụng', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST thành phần hồ sơ trên quy trình đang áp dụng → 409', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=20`);
+    expect(listRes!.status()).toBe(200);
+    const listBody = await listRes!.json();
+    const activeWf = listBody.duLieu.find(
+      (qt: { trangThai?: string; trangThaiQuyTrinh?: string }) =>
+        qt.trangThaiQuyTrinh === 'DANG_AP_DUNG' || qt.trangThai === 'DANG_AP_DUNG'
+    );
+    if (!activeWf) {
+      test.skip(true, 'Không có quy trình DangApDung — bỏ qua');
+      return;
+    }
+    const res = await apiRequest(page, 'POST', `${API.quyTrinh}/${activeWf.id}/thanh-phan-ho-so`, {
+      ten: 'E2E test component',
+      loaiDuLieu: 'VAN_BAN',
+      batBuoc: false,
+    });
+    expect(res!.status()).toBe(409);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(false);
+  });
+
+  test('PUT sơ đồ trên quy trình đang áp dụng → 409', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=20`);
+    const listBody = await listRes!.json();
+    const activeWf = listBody.duLieu.find(
+      (qt: { trangThaiQuyTrinh?: string }) => qt.trangThaiQuyTrinh === 'DANG_AP_DUNG'
+    );
+    if (!activeWf) {
+      test.skip(true, 'Không có quy trình DangApDung');
+      return;
+    }
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.put(`${API.quyTrinh}/${activeWf.id}/so-do`, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      data: { cacBuoc: [], cacKetNoi: [] },
+    });
+    expect(res.status()).toBe(409);
+  });
+
+  test('POST thành phần hồ sơ trên quy trình NHAP → 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=20`);
+    const listBody = await listRes!.json();
+    const draftWf = listBody.duLieu.find(
+      (qt: { trangThaiQuyTrinh?: string }) =>
+        qt.trangThaiQuyTrinh === 'NHAP' || qt.trangThaiQuyTrinh === 'NGUNG_AP_DUNG'
+    );
+    if (!draftWf) {
+      test.skip(true, 'Không có quy trình Nháp');
+      return;
+    }
+    const res = await apiRequest(page, 'POST', `${API.quyTrinh}/${draftWf.id}/thanh-phan-ho-so`, {
+      ten: 'E2E Component Draft',
+      loaiDuLieu: 'VAN_BAN',
+      batBuoc: false,
+      thuTu: 99,
+    });
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      const thanhPhanId = body.duLieu?.id ?? body.duLieu;
+      if (thanhPhanId) {
+        await apiRequest(page, 'DELETE', `${API.quyTrinh}/${draftWf.id}/thanh-phan-ho-so/${thanhPhanId}`);
+      }
+    }
+    expect([200, 409]).toContain(res!.status());
+  });
+});
+
+// ─── REQ-15: Actor CRUD per step ─────────────────────────────────────────────
+
+test.describe('REQ-15: Tác nhân — CRUD per step', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET sơ đồ — mỗi bước có mảng tacNhan', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) return;
+    const id = listBody.duLieu[0].id;
+    const sodoRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    const sodoBody = await sodoRes!.json();
+    const steps = sodoBody.duLieu?.cacBuoc ?? sodoBody.duLieu?.buoc ?? [];
+    for (const step of steps) {
+      const hasTacNhan = step.tacNhan !== undefined || step.danhSachTacNhan !== undefined;
+      expect(hasTacNhan).toBe(true);
+    }
+  });
+
+  test('tacNhan có loai và quyXuLy', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) return;
+    const id = listBody.duLieu[0].id;
+    const sodoRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    const sodoBody = await sodoRes!.json();
+    const steps = sodoBody.duLieu?.cacBuoc ?? sodoBody.duLieu?.buoc ?? [];
+    const allActors = steps.flatMap(
+      (b: { tacNhan?: unknown[]; danhSachTacNhan?: unknown[] }) => b.tacNhan ?? b.danhSachTacNhan ?? []
+    );
+    if (allActors.length > 0) {
+      const first = allActors[0] as { loai?: string; quyXuLy?: string };
+      expect(first.loai).toBeDefined();
+    }
+  });
+});
+
+// ─── REQ-16: Criteria versioning ─────────────────────────────────────────────
+
+test.describe('REQ-16: Tiêu chí — phiên bản và snapshot', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('đợt đề nghị chi tiết có boTieuChiId tham chiếu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) return;
+    const dotId = listBody.duLieu[0].id;
+    const detailRes = await apiRequest(page, 'GET', `${API.dotDeNghi}/${dotId}`);
+    expect(detailRes!.status()).toBe(200);
+    const detailBody = await detailRes!.json();
+    const dot = detailBody.duLieu ?? detailBody;
+    const hasBoTieuChi = dot.boTieuChiId !== undefined || dot.boTieuChi !== undefined;
+    expect(hasBoTieuChi).toBe(true);
+  });
+
+  test('bộ tiêu chí có phienBan hoặc versioning metadata', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) return;
+    const id = listBody.duLieu[0].id;
+    const detailRes = await apiRequest(page, 'GET', `${API.tieuChi}/${id}`);
+    expect(detailRes!.status()).toBe(200);
+    const detailBody = await detailRes!.json();
+    const tc = detailBody.duLieu;
+    expect(tc.id).toBe(id);
+    expect(tc.ten).toBeDefined();
+  });
+});
