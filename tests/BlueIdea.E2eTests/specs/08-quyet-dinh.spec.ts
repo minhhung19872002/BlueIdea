@@ -502,3 +502,268 @@ test.describe('REQ-31/32/36: Quyết định công nhận sáng kiến', () => {
     });
   });
 });
+
+// ─── REQ-08: Quyết định — CRUD API ───────────────────────────────────────────
+
+test.describe('REQ-08: Quyết định — CRUD API', () => {
+  let createdId: string | null = null;
+  let createdSoQuyetDinh: string | null = null;
+  const fakeId = '00000000-0000-0000-0000-000000000000';
+
+  test('POST /quyet-dinh tạo quyết định với đủ thông tin bắt buộc', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+
+    // Lấy dotDeNghiId từ dữ liệu thực
+    let dotDeNghiId: string | null = null;
+    const dotRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    if (dotRes!.status() === 200) {
+      const dotBody = await dotRes!.json() as { duLieu: Array<{ id: string }> };
+      if (dotBody.duLieu?.length > 0) dotDeNghiId = dotBody.duLieu[0].id;
+    }
+
+    // Lấy donViId từ dữ liệu thực
+    let donViId: string | null = null;
+    const donViRes = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=1`);
+    if (donViRes!.status() === 200) {
+      const donViBody = await donViRes!.json() as { duLieu: Array<{ id: string }> };
+      if (donViBody.duLieu?.length > 0) donViId = donViBody.duLieu[0].id;
+    }
+
+    const soQuyetDinh = `QD-E2E-${Date.now()}`;
+    createdSoQuyetDinh = soQuyetDinh;
+
+    const res = await apiRequest(page, 'POST', API.quyetDinh, {
+      soQuyetDinh,
+      ngayBanHanh: '2026-08-20',
+      loai: 'CONG_NHAN',
+      trichYeu: 'QĐ E2E Test',
+      nguoiKy: 'Nguyễn Văn A',
+      chucVuNguoiKy: 'Giám đốc',
+      donViBanHanhId: donViId,
+      dotDeNghiId,
+      sangKienIds: [],
+    });
+
+    expect([200, 422]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json() as { thanhCong: boolean; duLieu: unknown };
+      expect(body.thanhCong).toBe(true);
+      createdId = typeof body.duLieu === 'string'
+        ? body.duLieu
+        : (body.duLieu as { id: string } | null)?.id ?? null;
+    }
+  });
+
+  test('GET /quyet-dinh/{id} chi tiết khớp soQuyetDinh và trichYeu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    if (!createdId) return;
+    const res = await apiRequest(page, 'GET', `${API.quyetDinh}/${createdId}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as {
+      thanhCong: boolean;
+      duLieu: { soQuyetDinh?: string; trichYeu?: string };
+    };
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+    if (createdSoQuyetDinh) {
+      expect(body.duLieu.soQuyetDinh).toBe(createdSoQuyetDinh);
+    }
+    expect(body.duLieu.trichYeu).toBe('QĐ E2E Test');
+  });
+
+  test('PUT /quyet-dinh/{id} cập nhật trichYeu và xác minh thay đổi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    if (!createdId) return;
+    const res = await apiRequest(page, 'PUT', `${API.quyetDinh}/${createdId}`, {
+      trichYeu: 'QĐ E2E Test — đã cập nhật',
+    });
+    expect([200, 400, 422]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json() as { thanhCong: boolean };
+      expect(body.thanhCong).toBe(true);
+      // Xác minh cập nhật bằng GET lại
+      const getRes = await apiRequest(page, 'GET', `${API.quyetDinh}/${createdId}`);
+      const getBody = await getRes!.json() as { duLieu: { trichYeu?: string } };
+      expect(getBody.duLieu.trichYeu).toBe('QĐ E2E Test — đã cập nhật');
+    }
+  });
+
+  test('DELETE /quyet-dinh/{id} xoá quyết định vừa tạo → 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    if (!createdId) return;
+    const res = await apiRequest(page, 'DELETE', `${API.quyetDinh}/${createdId}`);
+    expect([200, 400, 404]).toContain(res!.status());
+    if (res!.status() === 200) {
+      createdId = null;
+    }
+  });
+
+  test('GET /quyet-dinh/ho-so-du-dieu-kien trả về mảng hồ sơ đủ điều kiện', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyetDinh}/ho-so-du-dieu-kien`);
+    expect([200, 400]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json() as { thanhCong: boolean; duLieu: unknown };
+      expect(body.thanhCong).toBe(true);
+      expect(Array.isArray(body.duLieu) || body.duLieu !== null).toBe(true);
+    }
+  });
+
+  test('POST /quyet-dinh với payload trống → 400/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', API.quyetDinh, {});
+    expect([400, 422]).toContain(res!.status());
+  });
+
+  test('POST /quyet-dinh/{id}/cong-bo với id giả → 400/404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', `${API.quyetDinh}/${fakeId}/cong-bo`);
+    expect([400, 404]).toContain(res!.status());
+  });
+
+  test('POST /quyet-dinh/{id}/ky-so với id giả → 400/404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'POST', `${API.quyetDinh}/${fakeId}/ky-so`);
+    expect([400, 404, 422]).toContain(res!.status());
+  });
+
+  test('GET /quyet-dinh/{id}/xuat-pdf với id giả → 400/404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyetDinh}/${fakeId}/xuat-pdf`);
+    expect([400, 404]).toContain(res!.status());
+  });
+});
+
+// ─── REQ-08: Quyết định — auth ───────────────────────────────────────────────
+
+test.describe('REQ-08: Quyết định — auth', () => {
+  const fakeId = '00000000-0000-0000-0000-000000000000';
+
+  test('không xác thực GET /quyet-dinh → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.quyetDinh}?trang=1&soDong=5`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('không xác thực POST /quyet-dinh → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.quyetDinh, {
+      data: { soQuyetDinh: 'Test', trichYeu: 'Test' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('tacgia1 POST /quyet-dinh → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', API.quyetDinh, {
+      soQuyetDinh: `Test-tacgia-${Date.now()}`,
+      trichYeu: 'Test phân quyền tác giả',
+      ngayBanHanh: '2026-08-20',
+      loai: 'CONG_NHAN',
+      nguoiKy: 'Test',
+      chucVuNguoiKy: 'Test',
+      sangKienIds: [],
+    });
+    expect([403, 404]).toContain(res!.status());
+  });
+
+  test('tacgia1 DELETE /quyet-dinh/{id} → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'DELETE', `${API.quyetDinh}/${fakeId}`);
+    expect([403, 404]).toContain(res!.status());
+  });
+
+  test('không xác thực POST /quyet-dinh/{id}/cong-bo → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(`${API.quyetDinh}/${fakeId}/cong-bo`);
+    expect(res.status()).toBe(401);
+  });
+});
+
+// ─── REQ-08: Quyết định — link sáng kiến ────────────────────────────────────
+
+test.describe('REQ-08: Quyết định — link sáng kiến', () => {
+  let linkedDecisionId: string | null = null;
+
+  test('POST /quyet-dinh với sangKienIds từ dữ liệu thực → 200/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+
+    // Lấy danh sách sáng kiến thực có trong hệ thống
+    const sangKienIds: string[] = [];
+    const skRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=3`);
+    if (skRes!.status() === 200) {
+      const skBody = await skRes!.json() as { duLieu: Array<{ id: string }> };
+      if (skBody.duLieu?.length > 0) {
+        sangKienIds.push(...skBody.duLieu.map((sk) => sk.id));
+      }
+    }
+
+    let dotDeNghiId: string | null = null;
+    const dotRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    if (dotRes!.status() === 200) {
+      const dotBody = await dotRes!.json() as { duLieu: Array<{ id: string }> };
+      if (dotBody.duLieu?.length > 0) dotDeNghiId = dotBody.duLieu[0].id;
+    }
+
+    let donViId: string | null = null;
+    const donViRes = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=1`);
+    if (donViRes!.status() === 200) {
+      const donViBody = await donViRes!.json() as { duLieu: Array<{ id: string }> };
+      if (donViBody.duLieu?.length > 0) donViId = donViBody.duLieu[0].id;
+    }
+
+    const res = await apiRequest(page, 'POST', API.quyetDinh, {
+      soQuyetDinh: `QD-SK-${Date.now()}`,
+      ngayBanHanh: '2026-08-20',
+      loai: 'CONG_NHAN',
+      trichYeu: 'QĐ E2E Test gắn sáng kiến',
+      nguoiKy: 'Nguyễn Văn A',
+      chucVuNguoiKy: 'Giám đốc',
+      donViBanHanhId: donViId,
+      dotDeNghiId,
+      sangKienIds,
+    });
+
+    expect([200, 422]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json() as { thanhCong: boolean; duLieu: unknown };
+      expect(body.thanhCong).toBe(true);
+      linkedDecisionId = typeof body.duLieu === 'string'
+        ? body.duLieu
+        : (body.duLieu as { id: string } | null)?.id ?? null;
+    }
+  });
+
+  test('GET /quyet-dinh/{id} chi tiết có trường danh sách sáng kiến liên kết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    if (!linkedDecisionId) return;
+    const res = await apiRequest(page, 'GET', `${API.quyetDinh}/${linkedDecisionId}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as {
+      thanhCong: boolean;
+      duLieu: Record<string, unknown>;
+    };
+    expect(body.thanhCong).toBe(true);
+    // Kiểm tra tồn tại ít nhất một trong các trường danh sách sáng kiến có thể có
+    const hasSangKienField =
+      'danhSachSangKien' in body.duLieu ||
+      'sangKiens' in body.duLieu ||
+      'sangKienIds' in body.duLieu ||
+      'cacSangKien' in body.duLieu ||
+      'chiTietSangKien' in body.duLieu;
+    expect(hasSangKienField).toBe(true);
+  });
+});

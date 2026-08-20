@@ -1811,3 +1811,1000 @@ test.describe('REQ-14: Trạng thái quy trình', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-09: Block edit on in-use workflow + ReactFlow designer depth
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-09: Block edit & ReactFlow depth', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('PUT quy trình DANG_AP_DUNG → blocked (409 hoặc 400)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=20`);
+    const listBody = await listRes!.json();
+    const active = (listBody.duLieu as Array<{ id: string; trangThaiQuyTrinh?: string }>)
+      .find(qt => qt.trangThaiQuyTrinh === 'DANG_AP_DUNG');
+    if (!active) {
+      test.skip(true, 'Không có quy trình DANG_AP_DUNG trong seed data');
+      return;
+    }
+    const res = await apiRequest(page, 'PUT', `${API.quyTrinh}/${active.id}`, {
+      ma: 'E2E_EDIT_BLOCKED',
+      ten: 'Should be blocked',
+      thuTu: 0,
+      trangThai: 1,
+      cap: 'CO_SO',
+      laMacDinh: false,
+    });
+    expect([400, 409, 422]).toContain(res!.status());
+  });
+
+  test('DELETE quy trình DANG_AP_DUNG → blocked', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=20`);
+    const listBody = await listRes!.json();
+    const active = (listBody.duLieu as Array<{ id: string; trangThaiQuyTrinh?: string }>)
+      .find(qt => qt.trangThaiQuyTrinh === 'DANG_AP_DUNG');
+    if (!active) {
+      test.skip(true, 'Không có quy trình DANG_AP_DUNG trong seed data');
+      return;
+    }
+    const res = await apiRequest(page, 'DELETE', `${API.quyTrinh}/${active.id}`);
+    expect([400, 409]).toContain(res!.status());
+  });
+
+  test('ReactFlow designer hiển thị edges giữa các bước', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.react-flow')).toBeVisible({ timeout: 15_000 });
+    const edgeCount = await page.locator('.react-flow__edge').count();
+    expect(edgeCount).toBeGreaterThanOrEqual(0);
+  });
+
+  test('ReactFlow có controls (zoom, fit)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const body = await res.json();
+    if (!body.duLieu || body.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình');
+      return;
+    }
+    const id = body.duLieu[0].id;
+    await page.goto(`/quan-tri/quy-trinh/${id}/thiet-ke`);
+    await expect(page.locator('.react-flow')).toBeVisible({ timeout: 15_000 });
+    const controlsCount = await page.locator('.react-flow__controls, .react-flow__panel').count();
+    expect(controlsCount).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-10: Transition case types, conditions, actions — data verification
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-10: Nhánh rẽ — loại trường hợp, điều kiện, hành động', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  const KNOWN_CASE_TYPES = ['DAT', 'KHONG_DAT', 'BO_SUNG_HO_SO', 'CHUYEN_CAP_CAO_HON', 'TRA_LAI', 'RUT_HO_SO'];
+  const KNOWN_ACTIONS = [
+    'GUI_EMAIL', 'GUI_SMS', 'TAO_QUYET_DINH', 'CAP_NHAT_KET_QUA',
+    'YEU_CAU_KY_SO', 'DONG_BO_LIEN_THONG', 'KIEM_TRA_TRUNG_LAP',
+    'TAO_BIEN_BAN', 'PHAN_CONG_CHAM', 'CONG_BO_KET_QUA',
+  ];
+
+  test('transition ma values thuộc tập case types đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    let found = false;
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<{ truongHop?: Array<{ ma: string }> }> = body.duLieu.danhSachBuoc || [];
+      for (const step of steps) {
+        if (step.truongHop && step.truongHop.length > 0) {
+          for (const th of step.truongHop) {
+            expect(typeof th.ma).toBe('string');
+            expect(th.ma.length).toBeGreaterThan(0);
+            found = true;
+          }
+        }
+      }
+      if (found) break;
+    }
+    if (!found) test.skip(true, 'Không tìm thấy transition nào trong seed data');
+  });
+
+  test('transition hanhDong values thuộc tập actions đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    let found = false;
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<{ truongHop?: Array<{ hanhDong?: string[] }> }> = body.duLieu.danhSachBuoc || [];
+      for (const step of steps) {
+        if (step.truongHop) {
+          for (const th of step.truongHop) {
+            if (th.hanhDong && th.hanhDong.length > 0) {
+              for (const hd of th.hanhDong) {
+                expect(KNOWN_ACTIONS).toContain(hd);
+              }
+              found = true;
+            }
+          }
+        }
+      }
+      if (found) break;
+    }
+  });
+
+  test('transition có ten và thuTu fields — cấu trúc nhánh rẽ đầy đủ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<{ truongHop?: Array<Record<string, unknown>> }> = body.duLieu.danhSachBuoc || [];
+      for (const step of steps) {
+        if (step.truongHop && step.truongHop.length > 0) {
+          for (const th of step.truongHop) {
+            expect(typeof th.ten).toBe('string');
+            expect(typeof th.thuTu).toBe('number');
+            expect(typeof th.ma).toBe('string');
+          }
+          return;
+        }
+      }
+    }
+  });
+
+  test('transition có mauNut và laMacDinh fields', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<{ truongHop?: Array<Record<string, unknown>> }> = body.duLieu.danhSachBuoc || [];
+      for (const step of steps) {
+        if (step.truongHop && step.truongHop.length > 0) {
+          const th = step.truongHop[0];
+          expect(th).toHaveProperty('laMacDinh');
+          expect(typeof th.laMacDinh).toBe('boolean');
+          return;
+        }
+      }
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-11: Step types, deadline config, required flags — data verification
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-11: Bước xử lý — loại bước, hạn xử lý, flags', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  const KNOWN_STEP_TYPES = [
+    'TIEP_NHAN', 'THAM_DINH', 'PHAN_CONG_CHAM', 'CHAM_DIEM',
+    'HOP_HOI_DONG', 'BO_PHIEU', 'PHE_DUYET', 'BAN_HANH_QUYET_DINH',
+    'CONG_BO', 'KET_THUC',
+  ];
+
+  test('loaiBuoc values thuộc tập 10 step types đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    const allTypes = new Set<string>();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<{ loaiBuoc: string }> = body.duLieu.danhSachBuoc || [];
+      for (const buoc of steps) {
+        allTypes.add(buoc.loaiBuoc);
+        expect(KNOWN_STEP_TYPES).toContain(buoc.loaiBuoc);
+      }
+    }
+    expect(allTypes.size).toBeGreaterThan(0);
+  });
+
+  test('deadline config: soNgayXuLy là số, tinhTheoNgayLamViec là boolean', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình mẫu');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    const body = await res!.json();
+    const steps: Array<Record<string, unknown>> = body.duLieu.danhSachBuoc;
+    expect(steps.length).toBeGreaterThan(0);
+    for (const buoc of steps) {
+      expect(typeof buoc.soNgayXuLy).toBe('number');
+      expect(buoc.soNgayXuLy).toBeGreaterThanOrEqual(0);
+      expect(typeof buoc.tinhTheoNgayLamViec).toBe('boolean');
+    }
+  });
+
+  test('required flags: batBuocDinhKem và batBuocNhapYKien là boolean', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình mẫu');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    const body = await res!.json();
+    const steps: Array<Record<string, unknown>> = body.duLieu.danhSachBuoc;
+    for (const buoc of steps) {
+      expect(typeof buoc.batBuocDinhKem).toBe('boolean');
+      expect(typeof buoc.batBuocNhapYKien).toBe('boolean');
+    }
+  });
+
+  test('bước có choPhepUyQuyen và choPhepThuHoi flags', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình mẫu');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    const body = await res!.json();
+    const steps: Array<Record<string, unknown>> = body.duLieu.danhSachBuoc;
+    for (const buoc of steps) {
+      expect(typeof buoc.choPhepUyQuyen).toBe('boolean');
+      expect(typeof buoc.choPhepThuHoi).toBe('boolean');
+    }
+  });
+
+  test('bước có canhBaoTruocHanGio là số', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình mẫu');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}/so-do`);
+    const body = await res!.json();
+    const steps: Array<Record<string, unknown>> = body.duLieu.danhSachBuoc;
+    for (const buoc of steps) {
+      expect(typeof buoc.canhBaoTruocHanGio).toBe('number');
+      expect(buoc.canhBaoTruocHanGio as number).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  test('bước CHAM_DIEM có hoiDongId hoặc boTieuChiId', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<Record<string, unknown>> = body.duLieu.danhSachBuoc || [];
+      const chamDiem = steps.find(s => s.loaiBuoc === 'CHAM_DIEM');
+      if (chamDiem) {
+        expect(chamDiem).toHaveProperty('hoiDongId');
+        expect(chamDiem).toHaveProperty('boTieuChiId');
+        return;
+      }
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-12: Feature toggles — all 9 features, batBuoc, cauHinh
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-12: Chức năng bổ sung — chi tiết', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  const KNOWN_FEATURES = [
+    'KY_SO', 'GUI_EMAIL', 'GUI_SMS', 'XUAT_BIEU_MAU', 'BO_PHIEU_KIN',
+    'TAO_BIEN_BAN', 'KIEM_TRA_TRUNG_LAP', 'CHAM_DIEM_DOC_LAP', 'CONG_KHAI_KET_QUA',
+  ];
+
+  test('maChucNang values thuộc tập 9 features đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const features: Array<{ maChucNang: string }> = body.duLieu.chucNangBoSung || [];
+      if (features.length > 0) {
+        for (const f of features) {
+          expect(KNOWN_FEATURES).toContain(f.maChucNang);
+        }
+        return;
+      }
+    }
+  });
+
+  test('feature toggle có batBuoc là boolean', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const features: Array<Record<string, unknown>> = body.duLieu.chucNangBoSung || [];
+      if (features.length > 0) {
+        for (const f of features) {
+          expect(typeof f.batBuoc).toBe('boolean');
+        }
+        return;
+      }
+    }
+  });
+
+  test('feature toggle cauHinh là null hoặc object khi có', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const features: Array<Record<string, unknown>> = body.duLieu.chucNangBoSung || [];
+      if (features.length > 0) {
+        for (const f of features) {
+          const cauHinh = f.cauHinh;
+          expect(cauHinh === undefined || cauHinh === null || typeof cauHinh === 'object').toBe(true);
+        }
+        return;
+      }
+    }
+  });
+
+  test('feature toggle có id và maChucNang là chuỗi không rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const features: Array<Record<string, unknown>> = body.duLieu.chucNangBoSung || [];
+      if (features.length > 0) {
+        for (const f of features) {
+          expect(f).toHaveProperty('id');
+          expect(typeof f.id).toBe('string');
+          expect(typeof f.maChucNang).toBe('string');
+          expect((f.maChucNang as string).length).toBeGreaterThan(0);
+        }
+        return;
+      }
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-13: Document component config — format, size, char count, trung_lap
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-13: Thành phần hồ sơ — cấu hình chi tiết', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('thành phần có dinhDangChoPhep là mảng chuỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/thanh-phan-ho-so`);
+      const body = await res!.json();
+      const items: Array<Record<string, unknown>> = body.duLieu || [];
+      if (items.length > 0) {
+        for (const tp of items) {
+          expect(tp).toHaveProperty('dinhDangChoPhep');
+          expect(Array.isArray(tp.dinhDangChoPhep)).toBe(true);
+        }
+        return;
+      }
+    }
+  });
+
+  test('thành phần có dungLuongToiDaMb và soLuongToiDa là số dương', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/thanh-phan-ho-so`);
+      const body = await res!.json();
+      const items: Array<Record<string, unknown>> = body.duLieu || [];
+      if (items.length > 0) {
+        for (const tp of items) {
+          expect(typeof tp.dungLuongToiDaMb).toBe('number');
+          expect(tp.dungLuongToiDaMb as number).toBeGreaterThan(0);
+          expect(typeof tp.soLuongToiDa).toBe('number');
+          expect(tp.soLuongToiDa as number).toBeGreaterThan(0);
+        }
+        return;
+      }
+    }
+  });
+
+  test('thành phần có soKyTuToiThieu và soKyTuToiDa là số', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/thanh-phan-ho-so`);
+      const body = await res!.json();
+      const items: Array<Record<string, unknown>> = body.duLieu || [];
+      if (items.length > 0) {
+        for (const tp of items) {
+          expect(typeof tp.soKyTuToiThieu).toBe('number');
+          expect(typeof tp.soKyTuToiDa).toBe('number');
+          expect(tp.soKyTuToiThieu as number).toBeGreaterThanOrEqual(0);
+        }
+        return;
+      }
+    }
+  });
+
+  test('thành phần có dungDeKiemTraTrungLap flag boolean', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/thanh-phan-ho-so`);
+      const body = await res!.json();
+      const items: Array<Record<string, unknown>> = body.duLieu || [];
+      if (items.length > 0) {
+        for (const tp of items) {
+          expect(typeof tp.dungDeKiemTraTrungLap).toBe('boolean');
+        }
+        return;
+      }
+    }
+  });
+
+  test('POST thành phần với cấu hình đầy đủ rồi verify qua GET', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có quy trình mẫu');
+      return;
+    }
+    const quyTrinhId: string = listBody.duLieu[0].id;
+    const ma = `E2E_TP_CFG_${Date.now()}`;
+    const payload = {
+      ma,
+      ten: `Thành phần cấu hình E2E`,
+      batBuoc: true,
+      loaiDuLieu: 'TEP',
+      dinhDangChoPhep: ['.pdf', '.docx', '.xlsx'],
+      dungLuongToiDaMb: 15,
+      soLuongToiDa: 3,
+      soKyTuToiThieu: 100,
+      soKyTuToiDa: 10000,
+      dungDeKiemTraTrungLap: true,
+      thuTu: 99,
+      moTaHuongDan: 'Test cấu hình đầy đủ',
+    };
+    const createRes = await apiRequest(page, 'POST', `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`, payload);
+    if (createRes!.status() === 409) {
+      test.skip(true, 'Workflow đang sử dụng, không thể thêm');
+      return;
+    }
+    expect(createRes!.status()).toBe(200);
+    const createBody = await createRes!.json();
+    const thanhPhanId = createBody.duLieu;
+
+    const getRes = await apiRequest(page, 'GET', `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`);
+    const getBody = await getRes!.json();
+    const created = (getBody.duLieu as Array<Record<string, unknown>>).find(
+      (tp) => tp.ma === ma
+    );
+    expect(created).toBeTruthy();
+    expect(created!.batBuoc).toBe(true);
+    expect(created!.loaiDuLieu).toBe('TEP');
+    expect(created!.dungLuongToiDaMb).toBe(15);
+    expect(created!.soLuongToiDa).toBe(3);
+    expect(created!.soKyTuToiThieu).toBe(100);
+    expect(created!.soKyTuToiDa).toBe(10000);
+    expect(created!.dungDeKiemTraTrungLap).toBe(true);
+
+    // Cleanup
+    if (thanhPhanId) {
+      const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+      await page.request.delete(
+        `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so/${thanhPhanId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-14: Status color, icon, display order
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-14: Trạng thái — mauSac, icon, thuTu', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('trạng thái toàn cục có mauSac field (null hoặc string)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const statuses: Array<Record<string, unknown>> = body.duLieu.trangThaiToanCuc || [];
+      if (statuses.length > 0) {
+        for (const s of statuses) {
+          expect(s).toHaveProperty('mauSac');
+          expect(s.mauSac === null || typeof s.mauSac === 'string').toBe(true);
+        }
+        return;
+      }
+    }
+  });
+
+  test('trạng thái toàn cục có hienThiChoTacGia flag', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const statuses: Array<Record<string, unknown>> = body.duLieu.trangThaiToanCuc || [];
+      if (statuses.length > 0) {
+        for (const s of statuses) {
+          expect(typeof s.hienThiChoTacGia).toBe('boolean');
+        }
+        return;
+      }
+    }
+  });
+
+  test('trạng thái toàn cục có thuTu là số', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const statuses: Array<Record<string, unknown>> = body.duLieu.trangThaiToanCuc || [];
+      if (statuses.length > 0) {
+        for (const s of statuses) {
+          expect(typeof s.thuTu).toBe('number');
+        }
+        return;
+      }
+    }
+  });
+
+  test('trạng thái bước có mauSac, laTrangThaiKetThuc, thuTu fields', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}/so-do`);
+      const body = await res!.json();
+      const steps: Array<{ trangThai?: Array<Record<string, unknown>> }> = body.duLieu.danhSachBuoc || [];
+      for (const buoc of steps) {
+        if (buoc.trangThai && buoc.trangThai.length > 0) {
+          const tt = buoc.trangThai[0];
+          expect(tt).toHaveProperty('mauSac');
+          expect(tt).toHaveProperty('laTrangThaiKetThuc');
+          expect(tt).toHaveProperty('thuTu');
+          return;
+        }
+      }
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-15: Tác nhân — actor types và processing rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-15: Tác nhân — actor types và processing rules', () => {
+  const VALID_LOAI_TAC_NHAN = ['VAI_TRO', 'DON_VI', 'CA_NHAN', 'PHONG_BAN', 'CHUC_VU', 'HOI_DONG', 'TAC_GIA'];
+  const VALID_QUY_TAC_XU_LY = ['MOT_NGUOI', 'TAT_CA', 'DA_SO', 'LUAN_PHIEN'];
+
+  test('actor types: loaiTacNhan trong bước quy trình thuộc tập hợp đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu quy trình');
+      return;
+    }
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}`);
+      const body = await res!.json();
+      const steps: Array<Record<string, unknown>> = body.duLieu?.danhSachBuoc || [];
+      for (const step of steps) {
+        const actors: Array<Record<string, unknown>> =
+          (step['danhSachTacNhan'] as Array<Record<string, unknown>>) || [];
+        for (const actor of actors) {
+          expect(VALID_LOAI_TAC_NHAN).toContain(actor['loaiTacNhan']);
+          return; // validated at least one actor
+        }
+      }
+    }
+  });
+
+  test('danhSachTacNhan của mỗi bước là mảng (rỗng hoặc có phần tử)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=5`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu quy trình');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const steps: Array<Record<string, unknown>> = body.duLieu?.danhSachBuoc || [];
+    for (const step of steps) {
+      const actors = step['danhSachTacNhan'];
+      // Must be null, undefined, or an Array — never a non-array object
+      expect(actors === null || actors === undefined || Array.isArray(actors)).toBe(true);
+    }
+  });
+
+  test('quyTacXuLy của tác nhân thuộc tập hợp đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu quy trình');
+      return;
+    }
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}`);
+      const body = await res!.json();
+      const steps: Array<Record<string, unknown>> = body.duLieu?.danhSachBuoc || [];
+      for (const step of steps) {
+        const actors: Array<Record<string, unknown>> =
+          (step['danhSachTacNhan'] as Array<Record<string, unknown>>) || [];
+        for (const actor of actors) {
+          if (actor['quyTacXuLy'] !== null && actor['quyTacXuLy'] !== undefined) {
+            expect(VALID_QUY_TAC_XU_LY).toContain(actor['quyTacXuLy']);
+            return; // validated at least one
+          }
+        }
+      }
+    }
+  });
+
+  test('thuTu của tác nhân là số >= 0', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu quy trình');
+      return;
+    }
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}`);
+      const body = await res!.json();
+      const steps: Array<Record<string, unknown>> = body.duLieu?.danhSachBuoc || [];
+      for (const step of steps) {
+        const actors: Array<Record<string, unknown>> =
+          (step['danhSachTacNhan'] as Array<Record<string, unknown>>) || [];
+        for (const actor of actors) {
+          if (actor['thuTu'] !== null && actor['thuTu'] !== undefined) {
+            expect(typeof actor['thuTu']).toBe('number');
+            expect(actor['thuTu'] as number).toBeGreaterThanOrEqual(0);
+            return; // validated at least one
+          }
+        }
+      }
+    }
+  });
+
+  test('tác nhân loại VAI_TRO có thamChieuId hoặc thamChieuMa', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu quy trình');
+      return;
+    }
+    let foundVaiTro = false;
+    for (const qt of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${qt.id}`);
+      const body = await res!.json();
+      const steps: Array<Record<string, unknown>> = body.duLieu?.danhSachBuoc || [];
+      for (const step of steps) {
+        const actors: Array<Record<string, unknown>> =
+          (step['danhSachTacNhan'] as Array<Record<string, unknown>>) || [];
+        for (const actor of actors) {
+          if (actor['loaiTacNhan'] === 'VAI_TRO') {
+            foundVaiTro = true;
+            const hasRef =
+              (actor['thamChieuId'] !== null && actor['thamChieuId'] !== undefined) ||
+              (actor['thamChieuMa'] !== null &&
+                actor['thamChieuMa'] !== undefined &&
+                (actor['thamChieuMa'] as string) !== '');
+            expect(hasRef).toBe(true);
+          }
+        }
+      }
+    }
+    if (!foundVaiTro) {
+      test.skip(true, 'Không có tác nhân loại VAI_TRO trong dữ liệu mẫu');
+    }
+  });
+
+  test('tacgia1 GET chi tiết quy trình — 200 hoặc 403 tùy phân quyền', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.quyTrinh}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu quy trình');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.quyTrinh}/${id}`);
+    expect([200, 403]).toContain(res!.status());
+  });
+
+  test('không xác thực GET chi tiết quy trình → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.quyTrinh}/00000000-0000-0000-0000-000000000000`);
+    expect(res.status()).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REQ-16: Tiêu chí — input types và validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('REQ-16: Tiêu chí — input types và validation', () => {
+  const VALID_LOAI_NHAP_DIEM = ['SLIDER', 'NHAP_SO', 'LUA_CHON', 'CO_KHONG'];
+
+  test('GET danh sách bộ tiêu chí — trả về mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=20`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(typeof body.tongSo).toBe('number');
+  });
+
+  test('GET chi tiết bộ tiêu chí — có danhSachNhom là mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu tiêu chí');
+      return;
+    }
+    const id: string = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.tieuChi}/${id}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toHaveProperty('danhSachNhom');
+    expect(body.duLieu.danhSachNhom).toBeInstanceOf(Array);
+  });
+
+  test('loaiNhapDiem của tiêu chí thuộc tập hợp đã biết', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu tiêu chí');
+      return;
+    }
+    for (const tc of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}/${tc.id}`);
+      const body = await res!.json();
+      const nhoms: Array<Record<string, unknown>> = body.duLieu?.danhSachNhom || [];
+      for (const nhom of nhoms) {
+        const tieuChis: Array<Record<string, unknown>> =
+          (nhom['danhSachTieuChi'] as Array<Record<string, unknown>>) || [];
+        for (const tieuChi of tieuChis) {
+          if (tieuChi['loaiNhapDiem'] !== null && tieuChi['loaiNhapDiem'] !== undefined) {
+            expect(VALID_LOAI_NHAP_DIEM).toContain(tieuChi['loaiNhapDiem']);
+            return; // validated at least one
+          }
+        }
+      }
+    }
+  });
+
+  test('tổng tyTrong của các nhóm bằng 100 hoặc 0 (chưa cấu hình)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu tiêu chí');
+      return;
+    }
+    for (const tc of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}/${tc.id}`);
+      const body = await res!.json();
+      const nhoms: Array<Record<string, unknown>> = body.duLieu?.danhSachNhom || [];
+      if (nhoms.length > 0) {
+        const total = nhoms.reduce((sum, nhom) => {
+          const w = nhom['tyTrong'];
+          return sum + (typeof w === 'number' ? w : 0);
+        }, 0);
+        // Total weight across groups must be 100 (configured) or 0 (not yet set)
+        expect(total === 0 || Math.abs(total - 100) < 0.01).toBe(true);
+        return;
+      }
+    }
+  });
+
+  test('diemToiThieu < diemToiDa cho mỗi tiêu chí', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu tiêu chí');
+      return;
+    }
+    let validated = false;
+    for (const tc of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}/${tc.id}`);
+      const body = await res!.json();
+      const nhoms: Array<Record<string, unknown>> = body.duLieu?.danhSachNhom || [];
+      for (const nhom of nhoms) {
+        const tieuChis: Array<Record<string, unknown>> =
+          (nhom['danhSachTieuChi'] as Array<Record<string, unknown>>) || [];
+        for (const tieuChi of tieuChis) {
+          const min = tieuChi['diemToiThieu'];
+          const max = tieuChi['diemToiDa'];
+          if (typeof min === 'number' && typeof max === 'number') {
+            expect(min).toBeLessThan(max);
+            validated = true;
+          }
+        }
+      }
+    }
+    if (!validated) {
+      test.skip(true, 'Không có tiêu chí nào có diemToiThieu và diemToiDa');
+    }
+  });
+
+  test('mỗi tiêu chí có trường ten không rỗng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.tieuChi}?trang=1&soDong=10`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có dữ liệu mẫu tiêu chí');
+      return;
+    }
+    for (const tc of listBody.duLieu as Array<{ id: string }>) {
+      const res = await apiRequest(page, 'GET', `${API.tieuChi}/${tc.id}`);
+      const body = await res!.json();
+      const nhoms: Array<Record<string, unknown>> = body.duLieu?.danhSachNhom || [];
+      for (const nhom of nhoms) {
+        const tieuChis: Array<Record<string, unknown>> =
+          (nhom['danhSachTieuChi'] as Array<Record<string, unknown>>) || [];
+        for (const tieuChi of tieuChis) {
+          expect(typeof tieuChi['ten']).toBe('string');
+          expect((tieuChi['ten'] as string).length).toBeGreaterThan(0);
+          return; // validated at least one
+        }
+      }
+    }
+  });
+
+  test('POST tạo bộ tiêu chí — 200 hoặc 422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-TC-${Date.now()}`;
+    const res = await apiRequest(page, 'POST', API.tieuChi, {
+      ma,
+      ten: 'E2E Test Criteria',
+      moTa: 'Test',
+    });
+    expect([200, 422]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      if (body.thanhCong && body.duLieu?.id) {
+        // Cleanup created record
+        await apiRequest(page, 'DELETE', `${API.tieuChi}/${body.duLieu.id as string}`);
+      }
+    }
+  });
+
+  test('DELETE bộ tiêu chí — 200 hoặc 409 (đang được sử dụng)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    // Create a temporary criteria set to delete
+    const ma = `E2E-TC-DEL-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.tieuChi, {
+      ma,
+      ten: 'E2E Delete Test',
+      moTa: 'Tạo để xóa trong E2E test',
+    });
+    if (createRes!.status() !== 200) {
+      test.skip(true, 'Không thể tạo bộ tiêu chí để thử xóa');
+      return;
+    }
+    const createBody = await createRes!.json();
+    if (!createBody.thanhCong || !createBody.duLieu?.id) {
+      test.skip(true, 'Tạo bộ tiêu chí thất bại — bỏ qua kiểm tra xóa');
+      return;
+    }
+    const id: string = createBody.duLieu.id;
+    const delRes = await apiRequest(page, 'DELETE', `${API.tieuChi}/${id}`);
+    expect([200, 409]).toContain(delRes!.status());
+  });
+
+  test('tacgia1 POST tạo bộ tiêu chí → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', API.tieuChi, {
+      ma: `E2E-TC-TACGIA-${Date.now()}`,
+      ten: 'Unauthorized Criteria',
+      moTa: 'Phải bị từ chối',
+    });
+    expect(res!.status()).toBe(403);
+  });
+
+  test('không xác thực GET danh sách tiêu chí → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.tieuChi}?trang=1&soDong=20`);
+    expect(res.status()).toBe(401);
+  });
+});

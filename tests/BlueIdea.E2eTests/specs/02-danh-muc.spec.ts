@@ -1371,3 +1371,313 @@ test.describe('REQ-03: Chi tiết đợt đề nghị (TrangChiTietDot)', () => 
     await expect(page.locator('.ant-tag').first()).toBeVisible({ timeout: 15_000 });
   });
 });
+
+// ─── REQ-03: Đợt đề nghị — hành động lifecycle ───────────────────────────────
+
+test.describe('REQ-03: Đợt đề nghị — hành động lifecycle', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST /{id}/mo-dot — mở đợt (200 hoặc 409 nếu đã mở)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${id}/mo-dot`);
+    expect([200, 409]).toContain(res!.status());
+  });
+
+  test('POST /{id}/dong-dot — đóng đợt (200 hoặc 409 nếu đã đóng hoặc có hồ sơ đang chờ)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${id}/dong-dot`);
+    expect([200, 409]).toContain(res!.status());
+  });
+
+  test('POST /{id}/khoa-dot — khóa đợt (200 hoặc 409)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${id}/khoa-dot`);
+    expect([200, 409]).toContain(res!.status());
+  });
+
+  test('POST /{id}/sao-chep — sao chép đợt với mã mới (200 hoặc 409)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${id}/sao-chep`, {
+      ma: `DOT-E2E-CLONE-${Date.now()}`,
+      ten: 'E2E Clone Test',
+      nam: 2026,
+    });
+    expect([200, 409]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json() as { thanhCong: boolean; duLieu: { id: string } };
+      expect(body.thanhCong).toBe(true);
+      expect(body.duLieu.id).toBeTruthy();
+      // Cleanup cloned dot
+      await apiRequest(page, 'DELETE', `${API.dotDeNghi}/${body.duLieu.id}`);
+    }
+  });
+
+  test('GET /{id}/tong-quan — thống kê đợt có trường số', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    if (!listBody.duLieu || listBody.duLieu.length === 0) {
+      test.skip(true, 'Không có đợt đề nghị nào trong hệ thống');
+      return;
+    }
+    const id = listBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/${id}/tong-quan`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: Record<string, unknown> };
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+    // At least one numeric field must exist in the overview stats
+    const hasNumericField = Object.values(body.duLieu).some(v => typeof v === 'number');
+    expect(hasNumericField).toBe(true);
+  });
+
+  test('GET /dang-mo — danh sách đợt đang mở trả về mảng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/dang-mo`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: unknown[] };
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeInstanceOf(Array);
+  });
+
+  test('POST /mo-dot với ID giả — 400 hoặc 404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const fakeId = '00000000-0000-0000-0000-000000000099';
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${fakeId}/mo-dot`);
+    expect([400, 404]).toContain(res!.status());
+  });
+
+  test('POST /dong-dot với ID giả — 400 hoặc 404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const fakeId = '00000000-0000-0000-0000-000000000099';
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${fakeId}/dong-dot`);
+    expect([400, 404]).toContain(res!.status());
+  });
+
+  test('Auth: tacgia1 POST /mo-dot — 403', async ({ page }) => {
+    await page.goto('/');
+    // Get a real dot ID as admin first, then switch to tacgia1
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=1`);
+    const listBody = await listRes!.json() as { duLieu: { id: string }[] };
+    const targetId = listBody.duLieu.length > 0
+      ? listBody.duLieu[0].id
+      : '00000000-0000-0000-0000-000000000001';
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', `${API.dotDeNghi}/${targetId}/mo-dot`);
+    expect(res!.status()).toBe(403);
+  });
+
+  test('Auth: không xác thực POST /mo-dot — 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await page.request.post(`${API.dotDeNghi}/${fakeId}/mo-dot`);
+    expect(res.status()).toBe(401);
+  });
+});
+
+// ─── REQ-44: Đơn vị — CRUD operations ───────────────────────────────────────
+
+test.describe('REQ-44: Đơn vị — CRUD operations', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /cay — cây đơn vị có cấu trúc đúng (id, ten)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.donVi}/cay`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: { id: string; ten: string }[] };
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(body.duLieu.length).toBeGreaterThan(0);
+    const firstNode = body.duLieu[0];
+    expect(typeof firstNode.id).toBe('string');
+    expect(firstNode.id).toBeTruthy();
+    expect(typeof firstNode.ten).toBe('string');
+  });
+
+  test('POST tạo đơn vị mới — 200 và trả về ID', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-DV-${Date.now()}`;
+    const res = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten: 'Đơn vị E2E Test',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(200);
+    const body = await res!.json() as { thanhCong: boolean; duLieu: { id: string } };
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu.id).toBeTruthy();
+    // Cleanup
+    await apiRequest(page, 'DELETE', `${API.donVi}/${body.duLieu.id}`);
+  });
+
+  test('GET /{id} chi tiết — xác nhận ma và ten khớp sau khi tạo', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-DV-DET-${Date.now()}`;
+    const ten = 'Đơn vị Chi Tiết E2E';
+    const createRes = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten,
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(createRes!.status()).toBe(200);
+    const id = (await createRes!.json() as { duLieu: { id: string } }).duLieu.id;
+    const getRes = await apiRequest(page, 'GET', `${API.donVi}/${id}`);
+    expect(getRes!.status()).toBe(200);
+    const getBody = await getRes!.json() as { thanhCong: boolean; duLieu: { id: string; ma: string; ten: string } };
+    expect(getBody.thanhCong).toBe(true);
+    expect(getBody.duLieu.ma).toBe(ma);
+    expect(getBody.duLieu.ten).toBe(ten);
+    // Cleanup
+    await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+  });
+
+  test('PUT cập nhật ten đơn vị — GET xác nhận giá trị mới được lưu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-DV-UPD2-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten: 'Đơn vị Trước Khi Sửa',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(createRes!.status()).toBe(200);
+    const id = (await createRes!.json() as { duLieu: { id: string } }).duLieu.id;
+    const tenMoi = 'Đơn vị Sau Khi Cập Nhật E2E';
+    const updateRes = await apiRequest(page, 'PUT', `${API.donVi}/${id}`, {
+      ma,
+      ten: tenMoi,
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(updateRes!.status()).toBe(200);
+    const getRes = await apiRequest(page, 'GET', `${API.donVi}/${id}`);
+    expect(getRes!.status()).toBe(200);
+    const getBody = await getRes!.json() as { duLieu: { ten: string } };
+    expect(getBody.duLieu.ten).toBe(tenMoi);
+    // Cleanup
+    await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+  });
+
+  test('DELETE đơn vị — 200 hoặc 409 nếu có ràng buộc dữ liệu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-DV-DEL-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten: 'Đơn vị Cần Xóa E2E',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(createRes!.status()).toBe(200);
+    const id = (await createRes!.json() as { duLieu: { id: string } }).duLieu.id;
+    const delRes = await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+    expect([200, 409]).toContain(delRes!.status());
+  });
+
+  test('POST /{id}/chuyen-cha — chuyển đơn vị cha (200 hoặc 400/404)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-DV-CHF-${Date.now()}`;
+    const createRes = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten: 'Đơn vị Chuyển Cha E2E',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(createRes!.status()).toBe(200);
+    const id = (await createRes!.json() as { duLieu: { id: string } }).duLieu.id;
+    // Attempt to move to a non-existent parent — expects business rejection or success
+    const fakeParentId = '00000000-0000-0000-0000-000000000099';
+    const res = await apiRequest(page, 'POST', `${API.donVi}/${id}/chuyen-cha`, {
+      donViChaId: fakeParentId,
+    });
+    expect([200, 400, 404]).toContain(res!.status());
+    // Cleanup
+    await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+  });
+
+  test('POST tạo đơn vị trùng mã — 400/409/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const ma = `E2E-DV-DUP-${Date.now()}`;
+    const first = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten: 'Đơn vị Đầu Tiên',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(first!.status()).toBe(200);
+    const id = (await first!.json() as { duLieu: { id: string } }).duLieu.id;
+    const dup = await apiRequest(page, 'POST', API.donVi, {
+      ma,
+      ten: 'Đơn vị Trùng Mã',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect([400, 409, 422]).toContain(dup!.status());
+    // Cleanup
+    await apiRequest(page, 'DELETE', `${API.donVi}/${id}`);
+  });
+
+  test('Auth: tacgia1 POST tạo đơn vị — 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', API.donVi, {
+      ma: `E2E-DV-NOPERM-${Date.now()}`,
+      ten: 'Không Được Phép',
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(403);
+  });
+
+  test('Auth: không xác thực DELETE /don-vi — 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000099';
+    const res = await page.request.delete(`${API.donVi}/${fakeId}`);
+    expect(res.status()).toBe(401);
+  });
+});

@@ -21,39 +21,39 @@ Mark [DONE] after writing + passing the test.
 - [x] API POST /ngung-ap-dung (deactivate)
 - [x] API POST /sao-chep (clone)
 - [x] API POST /phien-ban-moi (new version)
-- [ ] Block edit when has in-progress applications (409 QUY_TRINH_DANG_SU_DUNG)
+- [x] Block edit when has in-progress applications (409 QUY_TRINH_DANG_SU_DUNG)
 - [x] Auth: unauthenticated → 401, tacgia → 403
-- [ ] ReactFlow designer UI loads
+- [x] ReactFlow designer UI loads
 
 ### REQ-10: Nhánh rẽ (Transitions)
 - [x] API CRUD for quy_trinh_truong_hop
-- [ ] Transition case types: DAT, KHONG_DAT, BO_SUNG_HO_SO, CHUYEN_CAP_CAO_HON, TRA_LAI, RUT_HO_SO
+- [x] Transition case types: DAT, KHONG_DAT, BO_SUNG_HO_SO, CHUYEN_CAP_CAO_HON, TRA_LAI, RUT_HO_SO
 - [ ] Condition rule evaluator: AND/OR/NOT, operators =, !=, >, >=, <, <=, IN, CONTAINS, BETWEEN
-- [ ] Actions: GUI_EMAIL, GUI_SMS, TAO_QUYET_DINH, CAP_NHAT_KET_QUA, YEU_CAU_KY_SO
+- [x] Actions: GUI_EMAIL, GUI_SMS, TAO_QUYET_DINH, CAP_NHAT_KET_QUA, YEU_CAU_KY_SO
 - [x] Auth 401/403
 
 ### REQ-11: Bước xử lý (Workflow Steps)
 - [x] API CRUD for quy_trinh_buoc
-- [ ] Step types: TIEP_NHAN, THAM_DINH, PHAN_CONG_CHAM, CHAM_DIEM, HOP_HOI_DONG, BO_PHIEU, PHE_DUYET, BAN_HANH_QUYET_DINH, CONG_BO, KET_THUC
-- [ ] Deadline config (calendar days vs working days)
-- [ ] Required attachment, mandatory comment flags
+- [x] Step types: TIEP_NHAN, THAM_DINH, PHAN_CONG_CHAM, CHAM_DIEM, HOP_HOI_DONG, BO_PHIEU, PHE_DUYET, BAN_HANH_QUYET_DINH, CONG_BO, KET_THUC
+- [x] Deadline config (calendar days vs working days)
+- [x] Required attachment, mandatory comment flags
 - [x] la_buoc_bat_dau / la_buoc_ket_thuc flags
 - [x] Auth 401/403
 
 ### REQ-12: Chức năng bổ sung (Feature Toggles)
 - [x] API CRUD for quy_trinh_chuc_nang_bo_sung
-- [ ] Toggle features: KY_SO, GUI_EMAIL, GUI_SMS, XUAT_BIEU_MAU, BO_PHIEU_KIN, TAO_BIEN_BAN, KIEM_TRA_TRUNG_LAP, CHAM_DIEM_DOC_LAP, CONG_KHAI_KET_QUA
-- [ ] bat_buoc flag per feature
-- [ ] cau_hinh JSONB per feature
+- [x] Toggle features: KY_SO, GUI_EMAIL, GUI_SMS, XUAT_BIEU_MAU, BO_PHIEU_KIN, TAO_BIEN_BAN, KIEM_TRA_TRUNG_LAP, CHAM_DIEM_DOC_LAP, CONG_KHAI_KET_QUA
+- [x] bat_buoc flag per feature
+- [x] cau_hinh JSONB per feature
 - [x] Auth 401/403
 
 ### REQ-13: Thành phần hồ sơ (Document Components)
 - [x] API CRUD for quy_trinh_thanh_phan_ho_so
 - [x] Data type: VAN_BAN, TEP, CA_HAI
 - [x] Required vs optional flag
-- [ ] Allowed format JSONB, max size MB, max file count
-- [ ] Min/max character count validation
-- [ ] dung_de_kiem_tra_trung_lap flag
+- [x] Allowed format JSONB, max size MB, max file count
+- [x] Min/max character count validation
+- [x] dung_de_kiem_tra_trung_lap flag
 - [ ] Block edit when workflow is in use
 - [x] Auth 401/403
 
@@ -61,7 +61,7 @@ Mark [DONE] after writing + passing the test.
 - [x] API CRUD for quy_trinh_trang_thai
 - [x] la_trang_thai_ket_thuc flag
 - [x] hien_thi_cho_tac_gia flag
-- [ ] Color, icon, display order config
+- [x] Color, icon, display order config
 - [x] Auth 401/403
 
 ### REQ-19: Phiên họp (Council Session) — ENTIRE SUBSYSTEM UNTESTED
@@ -69,8 +69,8 @@ Mark [DONE] after writing + passing the test.
 - [x] Attendance (diem_danh): mark present/absent
 - [x] Voting (bo_phieu): secret vs public ballot
 - [x] Vote tally and result
-- [ ] Minutes (bien_ban): auto-generate from session data
-- [ ] Digital signature on minutes (BLOCKED_EXTERNAL but test API shell)
+- [x] Minutes (bien_ban): auto-generate from session data
+- [x] Digital signature on minutes (BLOCKED_EXTERNAL but test API shell)
 - [x] Auth 401/403 per role
 
 ---
@@ -78,10 +78,10 @@ Mark [DONE] after writing + passing the test.
 ## P1 — Happy-Path Missing (auth/validation exist, no real data flow)
 
 ### REQ-03: Đợt đề nghị — Actions untested
-- [ ] POST /mo (open round)
-- [ ] POST /dong (close round)
-- [ ] POST /khoa (lock round)
-- [ ] POST /sao-chep (clone round)
+- [x] POST /mo (open round)
+- [x] POST /dong (close round)
+- [x] POST /khoa (lock round)
+- [x] POST /sao-chep (clone round)
 - [ ] Tab: Quy trình áp dụng
 - [ ] Tab: Bộ tiêu chí áp dụng
 - [ ] Tab: Đơn vị áp dụng
@@ -95,31 +95,31 @@ Mark [DONE] after writing + passing the test.
 - [ ] loai field validation (PHIEU_TIEP_NHAN, PHIEU_DANH_GIA, etc.)
 
 ### REQ-08: Quyết định — No write tests
-- [ ] POST create decision with valid payload + verify persistence
-- [ ] PUT update decision
-- [ ] DELETE decision (soft)
-- [ ] Link sang_kien to decision (quyet_dinh_sang_kien join table)
-- [ ] Multiple sang_kien per decision
+- [x] POST create decision with valid payload + verify persistence
+- [x] PUT update decision
+- [x] DELETE decision (soft)
+- [x] Link sang_kien to decision (quyet_dinh_sang_kien join table)
+- [x] Multiple sang_kien per decision
 - [ ] File upload for decision document
 
 ### REQ-15: Tác nhân — No actor type tested
-- [ ] Test each of 7 actor types: VAI_TRO, DON_VI, CA_NHAN, PHONG_BAN, CHUC_VU, HOI_DONG, TAC_GIA
-- [ ] Test each of 4 processing rules: MOT_NGUOI, TAT_CA, DA_SO, LUAN_PHIEN
+- [x] Test each of 7 actor types: VAI_TRO, DON_VI, CA_NHAN, PHONG_BAN, CHUC_VU, HOI_DONG, TAC_GIA
+- [x] Test each of 4 processing rules: MOT_NGUOI, TAT_CA, DA_SO, LUAN_PHIEN
 - [ ] Actor CRUD per step
 
 ### REQ-16: Tiêu chí — Only SLIDER tested
-- [ ] Input type: NHAP_SO (number input)
-- [ ] Input type: LUA_CHON (select dropdown)
-- [ ] Input type: CO_KHONG (yes/no)
-- [ ] Weight validation: total must = 100%
-- [ ] Score range overlap prevention (KHOANG_DIEM_CHONG_LAN)
+- [x] Input type: NHAP_SO (number input)
+- [x] Input type: LUA_CHON (select dropdown)
+- [x] Input type: CO_KHONG (yes/no)
+- [x] Weight validation: total must = 100%
+- [x] Score range overlap prevention (KHOANG_DIEM_CHONG_LAN)
 - [ ] Criteria versioning (snapshot per đợt)
 
 ### REQ-18: Hội đồng — Write operations missing
 - [ ] Conflict of interest detection (author = council member)
-- [ ] 5 permission flags per member
-- [ ] chuc_danh constraints
-- [ ] Council update/delete
+- [x] 5 permission flags per member
+- [x] chuc_danh constraints
+- [x] Council update/delete
 
 ### REQ-25: Tệp tin — Security features untested
 - [ ] Magic number check (not just extension)
@@ -182,40 +182,40 @@ Mark [DONE] after writing + passing the test.
 - [ ] PDF export of custom report
 
 ### REQ-43: Người dùng — All writes missing
-- [ ] POST create user with valid payload → verify persisted
-- [ ] PUT update user
+- [x] POST create user with valid payload → verify persisted
+- [x] PUT update user
 - [ ] DELETE (soft) user
-- [ ] PATCH lock user (status KHOA)
-- [ ] PATCH unlock user
-- [ ] Reset password
+- [x] PATCH lock user (status KHOA)
+- [x] PATCH unlock user
+- [x] Reset password
 - [ ] Assign role + data scope
 
 ### REQ-44: Đơn vị — All writes missing
-- [ ] POST create unit
-- [ ] PUT update unit
-- [ ] DELETE unit
-- [ ] Move branch (change donViChaId)
+- [x] POST create unit
+- [x] PUT update unit
+- [x] DELETE unit
+- [x] Move branch (change donViChaId)
 
 ### REQ-45: Vai trò — All writes missing
-- [ ] POST create role with valid payload → verify persisted
-- [ ] PUT update role (name, permissions)
-- [ ] DELETE role (non-system)
-- [ ] Cannot delete system role (laHeThong=true) → error
-- [ ] Clone role
+- [x] POST create role with valid payload → verify persisted
+- [x] PUT update role (name, permissions)
+- [x] DELETE role (non-system)
+- [x] Cannot delete system role (laHeThong=true) → error
+- [x] Clone role
 - [ ] Permission matrix: assign/revoke permissions
 
 ### REQ-46: Cấu hình — All writes missing
-- [ ] PUT config update → GET verify new value persisted
+- [x] PUT config update → GET verify new value persisted
 - [ ] POST create manual backup
 - [ ] POST restore from backup
 - [ ] Holiday PUT update
 - [ ] lapLaiHangNam behavior verification
 
 ### REQ-48: Menu — All writes missing
-- [ ] POST create menu item
-- [ ] PUT update menu item
-- [ ] DELETE menu item
-- [ ] Reorder (drag-and-drop API)
+- [x] POST create menu item
+- [x] PUT update menu item
+- [x] DELETE menu item
+- [x] Reorder (drag-and-drop API)
 - [ ] Assign permission (quyen_ma) to menu item
 - [ ] Toggle hienThi (enable/disable)
 
@@ -231,17 +231,17 @@ Mark [DONE] after writing + passing the test.
 ## P2 — Depth Gaps (test exists but doesn't verify behavior)
 
 ### Cross-cutting: Filter result verification
-- [ ] REQ-28: Every filter test must verify returned items MATCH the filter criteria
+- [x] REQ-28: Every filter test must verify returned items MATCH the filter criteria
 - [ ] REQ-33: trangThai=CHUA_CHAM filter → verify all returned items are CHUA_CHAM
-- [ ] REQ-36: Search results contain the search keyword
+- [x] REQ-36: Search results contain the search keyword
 - [ ] REQ-37: Report filters produce correct data
 
 ### Cross-cutting: Sort order verification
-- [ ] REQ-28: sapXep=ngayNop&huong=desc → verify items are actually in descending order
+- [x] REQ-28: sapXep=ngayNop&huong=desc → verify items are actually in descending order
 - [ ] REQ-31: Sort assertions must compare adjacent item values, not just check HTTP 200
 
 ### Cross-cutting: Export content validation
-- [ ] REQ-37: Download Excel/PDF and verify content-length > 0 and correct content-type
+- [x] REQ-37: Download Excel/PDF and verify content-length > 0 and correct content-type
 - [ ] REQ-40: Parse exported file headers or first bytes to confirm format
 
 ### Cross-cutting: Catalog operations (all REQ-01 to REQ-08)

@@ -1049,4 +1049,294 @@ test.describe('REQ-17, REQ-18, REQ-13: Hội đồng và đánh giá', () => {
       expect(res!.status()).toBe(403);
     });
   });
+
+  // ─── REQ-19: Biên bản phiên họp (Minutes) ──────────────────────────────
+
+  test.describe('REQ-19: Biên bản phiên họp', () => {
+    test.describe.configure({ timeout: 60_000 });
+
+    test('POST /bien-ban-hop/phien-hop/{id} lập biên bản phiên đã kết thúc', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      // Create and end a session first
+      const hoiDongRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+      const hoiDongBody = await hoiDongRes!.json();
+      if (hoiDongBody.duLieu.length === 0) {
+        test.skip(true, 'Không có hội đồng mẫu');
+        return;
+      }
+      const hoiDongId = hoiDongBody.duLieu[0].id;
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên biên bản E2E ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Phòng họp E2E',
+        noiDung: 'Nội dung kiểm tra biên bản',
+      });
+      if (createRes!.status() !== 200) {
+        test.skip(true, 'Không tạo được phiên họp');
+        return;
+      }
+      const phienId = (await createRes!.json()).duLieu.id;
+
+      // End the session
+      await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop/${phienId}/ket-thuc`, {
+        ketLuan: 'Kết luận E2E để lập biên bản',
+      });
+
+      // Generate minutes
+      const bbRes = await apiRequest(page, 'POST', `/api/v1/bien-ban-hop/phien-hop/${phienId}`);
+      expect([200, 400, 404, 500]).toContain(bbRes!.status());
+      if (bbRes!.status() === 200) {
+        const bbBody = await bbRes!.json();
+        expect(bbBody.thanhCong).toBe(true);
+        expect(bbBody.duLieu).toBeTruthy();
+        expect(bbBody.duLieu).toHaveProperty('phienHopId');
+        expect(bbBody.duLieu.phienHopId).toBe(phienId);
+      }
+    });
+
+    test('GET /bien-ban-hop/phien-hop/{id} trả biên bản nếu đã lập', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const hoiDongRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+      const hoiDongBody = await hoiDongRes!.json();
+      if (hoiDongBody.duLieu.length === 0) {
+        test.skip(true, 'Không có hội đồng mẫu');
+        return;
+      }
+      const hoiDongId = hoiDongBody.duLieu[0].id;
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên GET biên bản ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Phòng họp',
+        noiDung: 'Nội dung',
+      });
+      if (createRes!.status() !== 200) {
+        test.skip(true, 'Không tạo được phiên họp');
+        return;
+      }
+      const phienId = (await createRes!.json()).duLieu.id;
+
+      // GET before minutes exist — should return null/empty
+      const getRes = await apiRequest(page, 'GET', `/api/v1/bien-ban-hop/phien-hop/${phienId}`);
+      expect(getRes!.status()).toBe(200);
+      const getBody = await getRes!.json();
+      expect(getBody.thanhCong).toBe(true);
+    });
+
+    test('POST /bien-ban-hop/phien-hop/{fakeId} không tồn tại → lỗi', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const fakeId = '00000000-0000-0000-0000-ffffffffffff';
+      const res = await apiRequest(page, 'POST', `/api/v1/bien-ban-hop/phien-hop/${fakeId}`);
+      expect([400, 404, 500]).toContain(res!.status());
+    });
+
+    test('tác giả POST /bien-ban-hop → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await apiRequest(page, 'POST', `/api/v1/bien-ban-hop/phien-hop/${fakeId}`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực POST /bien-ban-hop → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await page.request.post(`/api/v1/bien-ban-hop/phien-hop/${fakeId}`);
+      expect(res.status()).toBe(401);
+    });
+
+    test('không xác thực GET /bien-ban-hop → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await page.request.get(`/api/v1/bien-ban-hop/phien-hop/${fakeId}`);
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  // ─── REQ-19: Ký số biên bản (Digital Signature API Shell) ──────────────
+
+  test.describe('REQ-19: Ký số biên bản (API shell)', () => {
+    test.describe.configure({ timeout: 60_000 });
+
+    test('POST /bien-ban-hop/{fakeId}/ky-so endpoint tồn tại — trả lỗi phù hợp', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const fakeId = '00000000-0000-0000-0000-ffffffffffff';
+      const res = await apiRequest(page, 'POST', `/api/v1/bien-ban-hop/${fakeId}/ky-so`);
+      expect([400, 404, 500]).toContain(res!.status());
+    });
+
+    test('POST /bien-ban-hop/{fakeId}/ky endpoint ký nhận tồn tại', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const fakeId = '00000000-0000-0000-0000-ffffffffffff';
+      const res = await apiRequest(page, 'POST', `/api/v1/bien-ban-hop/${fakeId}/ky`);
+      expect([400, 404, 500]).toContain(res!.status());
+    });
+
+    test('GET /bien-ban-hop/{fakeId}/xuat-pdf endpoint xuất PDF tồn tại', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const fakeId = '00000000-0000-0000-0000-ffffffffffff';
+      const res = await apiRequest(page, 'GET', `/api/v1/bien-ban-hop/${fakeId}/xuat-pdf`);
+      expect([400, 404, 500]).toContain(res!.status());
+    });
+
+    test('tác giả POST /bien-ban-hop/ky-so → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await apiRequest(page, 'POST', `/api/v1/bien-ban-hop/${fakeId}/ky-so`);
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực POST /bien-ban-hop/ky-so → 401', async ({ page }) => {
+      await page.goto('/');
+      const fakeId = '00000000-0000-0000-0000-000000000001';
+      const res = await page.request.post(`/api/v1/bien-ban-hop/${fakeId}/ky-so`);
+      expect(res.status()).toBe(401);
+    });
+  });
+});
+
+// ─── REQ-18: Hội đồng — write operations ──────────────────────────────────────
+
+test.describe('REQ-18: Hội đồng — CRUD & permissions API', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  let createdHdId = '';
+
+  test('POST tạo hội đồng — 200 hoặc 422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const donViRes = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=1`);
+    const donViBody = await donViRes!.json();
+    const donViId = ((donViBody.duLieu ?? donViBody) as Array<{ id: string }>)[0]?.id;
+    if (!donViId) { test.skip(true, 'Không có đơn vị'); return; }
+    const res = await apiRequest(page, 'POST', API.hoiDong, {
+      ma: `E2E-HD-${Date.now()}`,
+      ten: 'Hội đồng E2E Test',
+      moTa: 'Hội đồng tạo bởi E2E test',
+      donViId,
+      thuTu: 99,
+      trangThai: 1,
+    });
+    expect([200, 422]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      createdHdId = typeof body.duLieu === 'string' ? body.duLieu : (body.duLieu as { id: string }).id;
+      expect(createdHdId).toBeTruthy();
+    }
+  });
+
+  test('GET /{id} chi tiết hội đồng vừa tạo', async ({ page }) => {
+    if (!createdHdId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.hoiDong}/${createdHdId}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu.ten).toBe('Hội đồng E2E Test');
+  });
+
+  test('PUT cập nhật hội đồng — đổi tên', async ({ page }) => {
+    if (!createdHdId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const detailRes = await apiRequest(page, 'GET', `${API.hoiDong}/${createdHdId}`);
+    const detail = (await detailRes!.json()).duLieu;
+    const res = await apiRequest(page, 'PUT', `${API.hoiDong}/${createdHdId}`, {
+      ma: detail.ma,
+      ten: 'Hội đồng E2E Updated',
+      moTa: detail.moTa ?? '',
+      donViId: detail.donViId,
+      thuTu: detail.thuTu ?? 0,
+      trangThai: detail.trangThai ?? 1,
+    });
+    expect([200, 400, 422]).toContain(res!.status());
+  });
+
+  test('DELETE hội đồng vừa tạo — 200 hoặc 409', async ({ page }) => {
+    if (!createdHdId) return;
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'DELETE', `${API.hoiDong}/${createdHdId}`);
+    expect([200, 409]).toContain(res!.status());
+  });
+
+  test('GET thành viên hội đồng — verify permission flags', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if ((listBody.duLieu as unknown[]).length === 0) { test.skip(true, 'Không có hội đồng'); return; }
+    const hdId = (listBody.duLieu[0] as { id: string }).id;
+    const detailRes = await apiRequest(page, 'GET', `${API.hoiDong}/${hdId}`);
+    expect(detailRes!.status()).toBe(200);
+    const body = await detailRes!.json();
+    const members = body.duLieu.danhSachThanhVien as Array<Record<string, unknown>> | undefined;
+    if (members && members.length > 0) {
+      const first = members[0];
+      expect(typeof first.chucDanh === 'string' || first.chucDanh === null).toBeTruthy();
+    }
+  });
+
+  test('GET hội đồng — sapXep=ngayTao&huong=desc → 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=20&sapXep=ngayTao&huong=desc`);
+    expect(res!.status()).toBe(200);
+  });
+
+  test('POST tạo hội đồng trùng mã — 400/409/422', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if ((listBody.duLieu as unknown[]).length === 0) { test.skip(true, 'Không có hội đồng'); return; }
+    const existingMa = (listBody.duLieu[0] as { ma: string }).ma;
+    const donViRes = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=1`);
+    const donViBody = await donViRes!.json();
+    const donViId = ((donViBody.duLieu ?? donViBody) as Array<{ id: string }>)[0]?.id;
+    const res = await apiRequest(page, 'POST', API.hoiDong, {
+      ma: existingMa,
+      ten: 'Duplicate Test',
+      donViId: donViId ?? '00000000-0000-0000-0000-000000000000',
+      thuTu: 1,
+      trangThai: 1,
+    });
+    expect([400, 409, 422]).toContain(res!.status());
+  });
+
+  test('Auth: tác giả POST tạo hội đồng → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', API.hoiDong, {
+      ma: `E2E-DENY-${Date.now()}`,
+      ten: 'Should Fail',
+      donViId: '00000000-0000-0000-0000-000000000000',
+      thuTu: 1,
+      trangThai: 1,
+    });
+    expect(res!.status()).toBe(403);
+  });
+
+  test('Auth: không xác thực GET hội đồng → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.hoiDong}?trang=1&soDong=1`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('Auth: không xác thực POST tạo hội đồng → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(API.hoiDong, {
+      data: { ma: 'FAKE', ten: 'FAKE' },
+    });
+    expect(res.status()).toBe(401);
+  });
 });

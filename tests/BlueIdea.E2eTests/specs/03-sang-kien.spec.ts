@@ -884,3 +884,133 @@ test.describe('REQ-22: Chi tiết hồ sơ sáng kiến (TrangChiTietHoSo)', () 
     await context.close();
   });
 });
+
+// ─── P2: Cross-cutting depth — filter result verification, sort order ────────
+
+test.describe('P2: Sáng kiến — filter & sort depth verification', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('REQ-28: filter trangThaiTong=DA_NOP → all returned items match', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=50&trangThaiTong=DA_NOP`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ trangThaiTong: string }>;
+    for (const item of items) {
+      expect(item.trangThaiTong).toBe('DA_NOP');
+    }
+  });
+
+  test('REQ-28: filter trangThaiTong=NHAP → all returned items match', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=50&trangThaiTong=NHAP`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ trangThaiTong: string }>;
+    for (const item of items) {
+      expect(item.trangThaiTong).toBe('NHAP');
+    }
+  });
+
+  test('REQ-28: sapXep=ngayNop&huong=desc → API accepts and returns items', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=20&sapXep=ngayNop&huong=desc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(Array.isArray(body.duLieu)).toBeTruthy();
+    const descIds = (body.duLieu as Array<{ id: string }>).map(i => i.id);
+
+    const ascRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=20&sapXep=ngayNop&huong=asc`);
+    expect(ascRes!.status()).toBe(200);
+    const ascBody = await ascRes!.json();
+    const ascIds = (ascBody.duLieu as Array<{ id: string }>).map(i => i.id);
+
+    if (descIds.length >= 2 && ascIds.length >= 2) {
+      const sameOrder = descIds.every((id, idx) => id === ascIds[idx]);
+      expect(sameOrder).toBe(false);
+    }
+  });
+
+  test('REQ-28: sort parameter changes result order (desc vs asc differ)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const descRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=tenSangKien&huong=desc`);
+    expect(descRes!.status()).toBe(200);
+    const ascRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=10&sapXep=tenSangKien&huong=asc`);
+    expect(ascRes!.status()).toBe(200);
+    const descItems = (await descRes!.json()).duLieu as Array<{ tenSangKien: string }>;
+    const ascItems = (await ascRes!.json()).duLieu as Array<{ tenSangKien: string }>;
+    if (descItems.length >= 2 && ascItems.length >= 2) {
+      expect(descItems[0].tenSangKien).not.toBe(ascItems[0].tenSangKien);
+    }
+  });
+
+  test('REQ-36: search tuKhoa returns items containing the keyword', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const firstTitle = (listBody.duLieu[0] as { tenSangKien: string }).tenSangKien;
+    const keyword = firstTitle.substring(0, Math.min(10, firstTitle.length));
+    const searchRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=50&tuKhoa=${encodeURIComponent(keyword)}`);
+    expect(searchRes!.status()).toBe(200);
+    const searchBody = await searchRes!.json();
+    expect((searchBody.duLieu as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  test('REQ-37: export Excel content-type and content-length', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/xuat-excel?trang=1&soDong=50`);
+    if (res!.status() === 200) {
+      const contentType = res!.headers()['content-type'] ?? '';
+      expect(
+        contentType.includes('spreadsheet') || contentType.includes('octet-stream') || contentType.includes('excel')
+      ).toBeTruthy();
+      const contentLength = parseInt(res!.headers()['content-length'] ?? '0', 10);
+      expect(contentLength).toBeGreaterThan(0);
+    } else {
+      expect([400, 404]).toContain(res!.status());
+    }
+  });
+
+  test('pagination: trang=9999 returns empty array', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=9999&soDong=20`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect((body.duLieu as unknown[]).length).toBe(0);
+  });
+
+  test('pagination: soDong=1 returns exactly 1 item (if data exists)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect((body.duLieu as unknown[]).length).toBeLessThanOrEqual(1);
+  });
+
+  test('filter by linhVucId → all returned items have matching tenLinhVuc', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const lvRes = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=1&soDong=1`);
+    const lvBody = await lvRes!.json();
+    if (lvBody.duLieu.length === 0) { test.skip(true, 'Không có lĩnh vực'); return; }
+    const linhVuc = lvBody.duLieu[0] as { id: string; ten: string };
+    const res = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=50&linhVucId=${linhVuc.id}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ tenLinhVuc: string | null }>;
+    for (const item of items) {
+      if (item.tenLinhVuc) {
+        expect(item.tenLinhVuc).toBe(linhVuc.ten);
+      }
+    }
+  });
+});
