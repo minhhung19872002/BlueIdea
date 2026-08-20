@@ -163,6 +163,83 @@ public sealed class LuongBoSungTests
     }
 
     /// <summary>
+    /// Canh bao suc khoe he thong: lo loi vuot nguong thi quan tri vien duoc bao ngay tren chuong
+    /// thong bao, va mot dot loi keo dai khong bi bien thanh hang chuc thong bao giong nhau.
+    /// </summary>
+    [Fact]
+    public async Task Lo_Loi_Vuot_Nguong_Thi_Quan_Tri_Duoc_Canh_Bao_Mot_Lan()
+    {
+        var nguon = $"KiemThuCanhBao-{Guid.NewGuid():N}";
+
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            var db = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+            // Ngưỡng mặc định là 20 lỗi chưa xử lý trong 15 phút.
+            for (var i = 0; i < 25; i++)
+            {
+                db.NhatKyLoi.Add(new Domain.QuanTri.NhatKyLoi
+                {
+                    MucDo = "LOI",
+                    Nguon = nguon,
+                    ThongBao = $"Lỗi giả lập {i}",
+                    ThoiGian = DateTimeOffset.UtcNow.AddMinutes(-1),
+                    DaXuLy = false
+                });
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        var truoc = await DemCanhBaoAsync();
+
+        int lanDau;
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            lanDau = await pham.ServiceProvider
+                .GetRequiredService<Infrastructure.CongViecNen.CongViecCanhBaoSucKhoe>()
+                .ChayAsync();
+        }
+
+        lanDau.Should().BeGreaterThan(0, "phải gửi cảnh báo cho ít nhất một quản trị viên");
+        (await DemCanhBaoAsync()).Should().Be(truoc + lanDau);
+
+        // Chạy lại ngay: không được gửi thêm lần nữa trong cửa sổ chống lặp.
+        int lanHai;
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            lanHai = await pham.ServiceProvider
+                .GetRequiredService<Infrastructure.CongViecNen.CongViecCanhBaoSucKhoe>()
+                .ChayAsync();
+        }
+
+        lanHai.Should().Be(0, "một đợt lỗi kéo dài chỉ nên báo một lần");
+        (await DemCanhBaoAsync()).Should().Be(truoc + lanDau);
+
+        // Dọn dữ liệu giả lập để không ảnh hưởng các kiểm thử khác.
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            var db = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+            var rac = await db.NhatKyLoi.Where(x => x.Nguon == nguon).ToListAsync();
+            db.NhatKyLoi.RemoveRange(rac);
+            await db.SaveChangesAsync();
+        }
+    }
+
+    private async Task<int> DemCanhBaoAsync()
+    {
+        using var pham = _ungDung.Services.CreateScope();
+        var db = pham.ServiceProvider
+            .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+        return await db.ThongBao
+            .CountAsync(x => x.LoaiSuKien == Domain.QuanTri.SuKienThongBao.CanhBaoHeThong);
+    }
+
+    /// <summary>
     /// Cong viec nen don CAPTCHA / OTP het han: chi xoa ban ghi da qua han, giu nguyen ban ghi
     /// con hieu luc. Truoc day ham don da co san nhung khong lich nao goi, nen bang chi phinh ra.
     /// </summary>

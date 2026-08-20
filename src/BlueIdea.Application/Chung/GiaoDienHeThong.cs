@@ -258,8 +258,13 @@ public interface IDichVuThongBao
         IDictionary<string, object?> bien, IReadOnlyCollection<string> kenhChoPhep,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Gui mot thong bao trong ung dung. <paramref name="loaiSuKien"/> de trong cung duoc, nhung
+    /// dat vao thi moi loc / chong gui trung theo loai duoc.
+    /// </summary>
     Task GuiTrongUngDungAsync(Guid nguoiNhanId, string tieuDe, string noiDung,
-        string? duongDan = null, string? mucDo = null, CancellationToken ct = default);
+        string? duongDan = null, string? mucDo = null, string? loaiSuKien = null,
+        CancellationToken ct = default);
 }
 
 /// <summary>

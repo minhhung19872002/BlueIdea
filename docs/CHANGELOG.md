@@ -157,6 +157,33 @@ rồi đặt lên máy chủ. Mô hình dùng SentencePiece/BPE như PhoBERT ch�
 
 ---
 
+## [1.9.0] — 2026-08-20
+
+Cảnh báo chủ động cho quản trị viên (TD-003).
+
+Trước đây lỗi chỉ nằm trong bảng `nhat_ky_loi` và trong Seq: ai không mở màn hình đó thì không
+biết gì. Một đợt lỗi lúc 2h sáng có thể đến sáng hôm sau mới có người phát hiện.
+
+- Công việc nền `canh-bao-suc-khoe` (mỗi 15 phút) theo dõi hai dấu hiệu và báo thẳng lên **chuông
+  thông báo** của mọi tài khoản quản trị hệ thống, mức độ CAO, bấm vào là mở nhật ký lỗi:
+  - số lỗi chưa xử lý trong cửa sổ gần đây vượt ngưỡng;
+  - hàng đợi email/SMS ứ lại — với người dùng thì việc này trông giống hệ thống im lặng, chứ
+    không giống cấu hình SMTP đang hỏng.
+- **Chống lặp theo từng người**: một sự cố kéo dài chỉ sinh ra một cảnh báo phải xử lý, không
+  phải hàng chục thông báo giống nhau.
+- Bốn con số ngưỡng đều là cấu hình `GiamSat:*`, đổi được mà không phải build lại.
+
+Đây **không phải** một hệ APM: vẫn chưa có truy vết theo request, biểu đồ độ trễ hay giám sát
+uptime từ bên ngoài. `/health` và `/health/ready` vẫn là điểm đấu nối nếu đơn vị dựng hệ giám sát
+riêng.
+
+**Ngoài phạm vi**: kiểm thử tải (TD-007) được chủ đầu tư quyết định bỏ — yêu cầu của khách hàng là
+định tính, và số đo chạy ở máy khác máy chủ thật thì không nói lên điều gì.
+
+231/231 kiểm thử tích hợp, 524/524 đơn vị.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

@@ -11,9 +11,155 @@ using BlueIdea.Domain.SangKien;
 using BlueIdea.Workflow;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace BlueIdea.Infrastructure.CongViecNen;
+
+/// <summary>
+/// Canh bao chu dong cho quan tri he thong khi he thong co dau hieu hong (TD-003).
+///
+/// Truoc day loi chi nam trong bang <c>nhat_ky_loi</c> va trong Seq: ai khong mo man hinh do thi
+/// khong biet gi. Mot dot loi luc 2h sang co the den sang hom sau moi co nguoi phat hien.
+///
+/// Viec nen nay khong thay the mot he APM that su; no giai quyet dung phan nguy hiem nhat — co
+/// nguoi BIET rang dang co chuyen — bang chinh chuong thong bao san co.
+/// </summary>
+public sealed class CongViecCanhBaoSucKhoe
+{
+    private readonly IAppDbContext _db;
+    private readonly IDichVuThongBao _thongBao;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly IConfiguration _cauHinh;
+    private readonly ILogger<CongViecCanhBaoSucKhoe> _logger;
+
+    public CongViecCanhBaoSucKhoe(
+        IAppDbContext db, IDichVuThongBao thongBao, IDongHoHeThong dongHo,
+        IConfiguration cauHinh, ILogger<CongViecCanhBaoSucKhoe> logger)
+    {
+        _db = db;
+        _thongBao = thongBao;
+        _dongHo = dongHo;
+        _cauHinh = cauHinh;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task<int> ChayAsync(CancellationToken ct = default)
+    {
+        var bayGio = _dongHo.BayGio;
+
+        var cuaSo = TimeSpan.FromMinutes(_cauHinh.GetValue("GiamSat:CuaSoPhut", 15));
+        var nguongLoi = _cauHinh.GetValue("GiamSat:NguongLoi", 20);
+        var nguongHangDoi = _cauHinh.GetValue("GiamSat:NguongHangDoiUn", 100);
+        var khongNhacLai = TimeSpan.FromHours(_cauHinh.GetValue("GiamSat:KhongNhacLaiGio", 4));
+
+        var canhBao = new List<string>();
+
+        var soLoi = await _db.NhatKyLoi.AsNoTracking()
+            .CountAsync(x => x.ThoiGian >= bayGio - cuaSo
+                             && !x.DaXuLy
+                             && (x.MucDo == "LOI" || x.MucDo == "NGHIEM_TRONG"), ct)
+            .ConfigureAwait(false);
+
+        if (soLoi >= nguongLoi)
+        {
+            canhBao.Add($"{soLoi} lỗi chưa xử lý trong {cuaSo.TotalMinutes:0} phút gần đây "
+                        + $"(ngưỡng {nguongLoi}).");
+        }
+
+        // Hang doi u dong nghia voi email/SMS khong den tay ai — nguoi dung tuong he thong im
+        // lang chu khong biet la thong bao dang ket.
+        var soChoGui = await _db.HangDoiGuiTin.AsNoTracking()
+            .CountAsync(x => x.TrangThaiGui == "CHO_GUI" || x.TrangThaiGui == "LOI", ct)
+            .ConfigureAwait(false);
+
+        if (soChoGui >= nguongHangDoi)
+        {
+            canhBao.Add($"Hàng đợi gửi tin còn {soChoGui} bản tin chưa gửi được "
+                        + $"(ngưỡng {nguongHangDoi}) — kiểm tra cấu hình SMTP/SMS.");
+        }
+
+        if (canhBao.Count == 0)
+        {
+            return 0;
+        }
+
+        var quanTri = await LayQuanTriHeThongAsync(ct).ConfigureAwait(false);
+
+        if (quanTri.Count == 0)
+        {
+            _logger.LogWarning(
+                "Có cảnh báo hệ thống nhưng không tìm thấy tài khoản quản trị nào để gửi: {CanhBao}",
+                string.Join(" ", canhBao));
+
+            return 0;
+        }
+
+        var khongNhacTruoc = bayGio - khongNhacLai;
+        var noiDung = string.Join(" ", canhBao);
+        var soDaGui = 0;
+
+        foreach (var id in quanTri)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // Chong lap: dot loi keo dai nhieu gio khong duoc bien thanh hang chuc thong bao
+            // giong nhau — bao nhieu lan cung chi la mot viec phai xu ly.
+            var daNhac = await _db.ThongBao.AsNoTracking()
+                .AnyAsync(x => x.NguoiNhanId == id
+                               && x.LoaiSuKien == SuKienThongBao.CanhBaoHeThong
+                               && x.ThoiGian >= khongNhacTruoc, ct)
+                .ConfigureAwait(false);
+
+            if (daNhac)
+            {
+                continue;
+            }
+
+            await _thongBao.GuiTrongUngDungAsync(
+                id,
+                "Cảnh báo sức khoẻ hệ thống",
+                noiDung,
+                "/quan-tri/nhat-ky-loi",
+                "CAO",
+                SuKienThongBao.CanhBaoHeThong,
+                ct).ConfigureAwait(false);
+
+            soDaGui++;
+        }
+
+        if (soDaGui > 0)
+        {
+            _logger.LogWarning(
+                "Đã gửi cảnh báo sức khoẻ hệ thống tới {SoNguoi} quản trị viên: {NoiDung}",
+                soDaGui, noiDung);
+        }
+
+        return soDaGui;
+    }
+
+    private async Task<IReadOnlyList<Guid>> LayQuanTriHeThongAsync(CancellationToken ct)
+    {
+        var vaiTroIds = await _db.VaiTro.AsNoTracking()
+            .Where(x => x.Ma == MaVaiTro.QuanTriHeThong)
+            .Select(x => x.Id)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (vaiTroIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        return await _db.NguoiDungVaiTro.AsNoTracking()
+            .Where(x => vaiTroIds.Contains(x.VaiTroId))
+            .Select(x => x.NguoiDungId)
+            .Distinct()
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+}
 
 /// <summary>
 /// Nhung lai cac doan van con mang vector cua mo hinh CU.

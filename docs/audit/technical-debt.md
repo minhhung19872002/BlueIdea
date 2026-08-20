@@ -4,14 +4,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 
 ## Current Items
 
-### TD-003: No Monitoring/Alerting
-
-**Area**: Operations
-**Description**: No application performance monitoring (APM), error tracking, or alerting beyond Serilog + Seq.
-**Impact**: Production issues may not be detected proactively.
-**Resolution**: Consider adding health check dashboard, error rate alerting, or APM integration.
-**Priority**: Low (Seq provides basic log monitoring)
-
 ### TD-004: Database Partitioning Not Yet Applied
 
 **Area**: Database
@@ -19,14 +11,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Impact**: Performance may degrade with years of audit data.
 **Resolution**: Apply PostgreSQL declarative partitioning when data volume warrants it.
 **Priority**: Low (not an issue at current scale)
-
-### TD-007: No Load Testing Evidence
-
-**Area**: Performance
-**Description**: The internal spec targets P95 < 500ms and 500 concurrent users, but no load test has been run or recorded. (The customer requirement itself is qualitative — "responds quickly", "handles many concurrent users" — so this is a self-imposed target.)
-**Impact**: Concurrency limits are unknown before go-live.
-**Resolution**: Run a k6/JMeter scenario against a production-like environment and record results in the acceptance dossier.
-**Priority**: Medium (before final acceptance)
 
 ### TD-008: USB Token Client Step Is Manual
 
@@ -36,7 +20,37 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Wire the vendor's browser plugin/local port once the unit picks a CA provider. No server change needed.
 **Priority**: Low (depends on external vendor choice)
 
+## Dropped From Scope
+
+### TD-007: No Load Testing Evidence (DROPPED 2026-08-20)
+
+Dropped at the owner's decision. The customer requirement is qualitative ("responds quickly",
+"handles many concurrent users"); the P95 < 500ms / 500-concurrent target was self-imposed, and a
+load test run anywhere other than the real 1 vCPU / 2GB VM would produce numbers that say nothing
+about production. Re-open this if the investor asks for measured figures at acceptance.
+
 ## Resolved Items
+
+### TD-003: No Monitoring/Alerting (RESOLVED — proactive alerting)
+
+**Resolved by**: Rà soát 20/08/2026
+**Resolution**: Errors used to sit in `nhat_ky_loi` and Seq, visible only to whoever opened those
+screens — a 2 a.m. error burst could go unnoticed until the next morning. The `canh-bao-suc-khoe`
+job (every 15 min) now watches two signals and notifies every system administrator through the
+existing notification bell, at `CAO` priority, linking straight to the error log:
+
+- unhandled `LOI` / `NGHIEM_TRONG` entries in the last window exceeding a threshold;
+- the email/SMS queue backing up (`CHO_GUI` + `LOI`), which otherwise looks like silence to users
+  rather than like a broken SMTP configuration.
+
+Repeat suppression is per administrator over a configurable window, so a long outage produces one
+alert to act on rather than dozens. All four numbers are configuration (`GiamSat:*`), changeable
+without a rebuild. Test:
+`LuongBoSungTests.Lo_Loi_Vuot_Nguong_Thi_Quan_Tri_Duoc_Canh_Bao_Mot_Lan`.
+
+**Not covered**: this is not APM. There is still no request-level tracing, latency histogram or
+external uptime probe; `/health` and `/health/ready` remain the integration points for an external
+monitor if the unit deploys one.
 
 ### TD-001: Semantic Embedding is Lexical Only (RESOLVED — code side)
 

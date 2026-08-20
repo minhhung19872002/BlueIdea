@@ -188,6 +188,7 @@ chỉ vai trò Quản trị hệ thống mở được. Tắt hoàn toàn bằng
 | `quet-trung-lap-con-thieu` | mỗi 15 phút | Quét bù hồ sơ đã nộp nhưng chưa kiểm tra trùng lặp |
 | `don-ma-xac-thuc-tam` | 3h hằng ngày | Xoá CAPTCHA và OTP quên mật khẩu đã hết hạn |
 | `nhung-lai-doan-van` | mỗi 10 phút | Nhúng lại đoạn văn còn vector của mô hình cũ (tự dừng khi hết) |
+| `canh-bao-suc-khoe` | mỗi 15 phút | Báo lên chuông thông báo của quản trị viên khi lỗi tăng bất thường hoặc hàng đợi gửi tin ứ |
 
 Ngoài ra hai công việc chạy theo sự kiện: trích xuất văn bản (OCR) khi tải tệp lên, và kiểm tra
 trùng lặp khi nộp hồ sơ.

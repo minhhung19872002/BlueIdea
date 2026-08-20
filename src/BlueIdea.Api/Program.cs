@@ -503,6 +503,13 @@ static void DangKyCongViecDinhKy(WebApplication app)
         Lich("QuetTrungLap", "*/15 * * * *"),
         new RecurringJobOptions { TimeZone = muiGio });
 
+    // Canh bao suc khoe he thong cho quan tri vien - moi 15 phut.
+    quanLy.AddOrUpdate<CongViecCanhBaoSucKhoe>(
+        "canh-bao-suc-khoe",
+        x => x.ChayAsync(CancellationToken.None),
+        Lich("CanhBaoSucKhoe", "*/15 * * * *"),
+        new RecurringJobOptions { TimeZone = muiGio });
+
     // Nhung lai doan van con vector cua mo hinh cu - moi 10 phut, tu dung khi da het.
     quanLy.AddOrUpdate<CongViecNhungLaiDoanVan>(
         "nhung-lai-doan-van",
