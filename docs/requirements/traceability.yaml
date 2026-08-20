@@ -1010,17 +1010,31 @@ requirements:
     title: "Cau hinh chu ky so"
     source: "E-HSMT Chuong V, Muc 3.1"
     type: admin
-    status: BLOCKED_EXTERNAL
+    status: VERIFIED
+    verified_date: "2026-08-20"
+    verified_by: "kiem-chung-token-that"
     evidence:
       frontend: ["web/src/features/quan-tri/TrangChuKySo.tsx"]
-      backend: ["src/BlueIdea.Api/Controllers/CauHinhChuKySoController.cs", "src/BlueIdea.Infrastructure/KySo/BoKySoPkcs7.cs"]
-      tests: ["tests/BlueIdea.UnitTests/KySo/BoKySoPkcs7Tests.cs", "tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"]
+      backend:
+        - "src/BlueIdea.Api/Controllers/CauHinhChuKySoController.cs"
+        - "src/BlueIdea.Api/Controllers/KySoUsbController.cs"
+        - "src/BlueIdea.Application/KySo/DichVuKySoUsbToken.cs"
+        - "src/BlueIdea.Infrastructure/KySo/BoKySoPkcs7.cs"
+      tools: ["client-tools/BlueIdea.KySoUsb"]
+      tests:
+        - "tests/BlueIdea.UnitTests/KySo/BoKySoPkcs7Tests.cs"
+        - "tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs"
+        - "tests/BlueIdea.IntegrationTests/KySoUsbVaAnhXaTests.cs"
+      runtime: "docs/HUONG-DAN-KY-SO-USB.md (nhat ky kiem chung 20/08/2026)"
     gaps:
-      - "Needs real CA certificate for legally valid signatures"
-    dependencies: ["external-ca-certificate"]
+      - "Duong ky bang chung thu cua to chuc dat tren may chu (PAdES/PKCS#7) van dung chung thu tu ky trong kiem thu; don vi phai nap PFX that cua minh khi trien khai."
+      - "Chua co dong dau thoi gian tu TSA, nen chua dat muc PAdES-T."
+      - "Token chi lo khoa qua plugin rieng (khong dang ky chung thu vao kho chung thu Windows) thi can cau noi rieng."
     notes:
       - "PKCS#7 detached signing and verification work with self-signed certificate. Secret masking and single-default constraint tested."
       - 'Bo sung 19/08/2026: ky XML theo chuan XAdES-BES; sua loi xac minh ban PAdES luon bao "khong co chu ky".'
+      - "Kiem chung 20/08/2026 tren TOKEN THAT: chung thu do WINCA (WINGROUP, chuoi tin cay ve rootca.gov.vn) cap, RSA 2048 sau WINCA Key Storage Provider v6.0, serial 5401160B56525DDB1B2B5CA3F7C5D9ED. Chay tron ba nhip qua cong cu client-tools/BlueIdea.KySoUsb: may chu phat bam SHA-256, token ky 256 byte PKCS#1 v1.5, may chu xac minh va ghi nhat ky (nguonKhoa=USB_TOKEN, trangThaiKy=THANH_CONG). Phep thu nguoc: lat mot byte cua chinh chu ky hop le do thi may chu tra 422 DU_LIEU_KHONG_HOP_LE."
+      - "Truoc day trang thai la BLOCKED_EXTERNAL vi thieu chung thu that cua CA duoc cap phep. Rang buoc do da duoc go bang chung thu WINCA; phan con lai (PFX cua chinh don vi cho duong ky tren may chu, dau thoi gian TSA) la du lieu trien khai va nang cap tuy chon, khong phai thieu ma."
 
   - id: REQ-50
     source_number: 50

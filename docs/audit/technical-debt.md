@@ -12,14 +12,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Apply PostgreSQL declarative partitioning when data volume warrants it.
 **Priority**: Low (not an issue at current scale)
 
-### TD-008: USB Token Client Step Is Manual
-
-**Area**: Digital signature
-**Description**: The three-step USB token flow works end to end but the client-side signing step is copy/paste of the hash and signature.
-**Impact**: Usable but awkward for daily signing.
-**Resolution**: Wire the vendor's browser plugin/local port once the unit picks a CA provider. No server change needed.
-**Priority**: Low (depends on external vendor choice)
-
 ## Dropped From Scope
 
 ### TD-007: No Load Testing Evidence (DROPPED 2026-08-20)
@@ -30,6 +22,23 @@ load test run anywhere other than the real 1 vCPU / 2GB VM would produce numbers
 about production. Re-open this if the investor asks for measured figures at acceptance.
 
 ## Resolved Items
+
+### TD-008: USB Token Client Step Was Manual (RESOLVED)
+
+**Resolved by**: Rà soát 20/08/2026, kiểm chứng trên token thật
+**Resolution**: The three-step flow worked but the middle step was copy/paste of a hash and a
+signature. `tools/BlueIdea.KySoUsb` (`blueidea-kyso`) now performs all three: it asks the server
+for the hash, signs it with the token through Windows CNG, and posts the signature back. It can
+log in itself, so the operator no longer copies a JWT out of the browser either.
+
+Verified end to end on 20/08/2026 against a **real CA certificate** — issued by WINCA (WINGROUP,
+chaining to rootca.gov.vn), RSA 2048 behind *WINCA Key Storage Provider v6.0*. The server accepted
+the genuine signature and rejected the same signature with one byte flipped (HTTP 422). Details in
+`docs/HUONG-DAN-KY-SO-USB.md`.
+
+Not vendor-specific: it reads whatever certificate the token registers in the Windows certificate
+store, so any provider whose middleware does that works. Tokens exposing keys only through a
+proprietary plugin (no Windows store integration) would still need their own bridge.
 
 ### TD-003: No Monitoring/Alerting (RESOLVED — proactive alerting)
 

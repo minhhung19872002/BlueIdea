@@ -243,6 +243,45 @@ Kiểm thử bắt được một lỗi thật khi viết: `SangKienXuLy.DaHoanT
 
 ---
 
+## [2.1.0] — 2026-08-20
+
+Ký số bằng USB token: nối xong nhịp giữa và **kiểm chứng trên token thật** (REQ-49, TD-008).
+
+### Công cụ ký ở máy trạm
+
+`client-tools/BlueIdea.KySoUsb` (`blueidea-kyso`) chạy trọn ba nhịp thay cho thao tác sao chép/dán giá
+trị băm và chữ ký như trước. Tự đăng nhập lấy JWT nên người ký không phải đi lấy token từ trình
+duyệt. Không phụ thuộc nhà cung cấp: đọc chứng thư mà token đăng ký vào kho chứng thư Windows.
+
+- `liet-ke` — xem chứng thư đang cắm. **Không** chạm vào khoá bí mật: chạm vào là token đòi PIN
+  ngay, kể cả khi chỉ muốn đọc thông tin.
+- `ky --hash` — ký một giá trị băm, in JSON để dán tay (máy ký tách khỏi mạng).
+- `tu-dong` — xin băm, ký, gửi chữ ký về máy chủ.
+- `--van-tay` chọn chứng thư; máy có nhiều chứng thư còn hạn thì công cụ **không tự đoán**.
+- `--pin` cho chạy nền, `--cho <giây>` đặt thời gian chờ token.
+
+### Kiểm chứng trên chứng thư CA thật
+
+Chứng thư do **WINCA** (WINGROUP, chuỗi tin cậy về `rootca.gov.vn`) cấp, RSA 2048 nằm sau *WINCA
+Key Storage Provider v6.0*. Máy chủ phát băm SHA-256, token ký 256 byte PKCS#1 v1.5, máy chủ xác
+minh và ghi nhật ký (`nguonKhoa = USB_TOKEN`, `trangThaiKy = THANH_CONG`). **Phép thử ngược**: lật
+một byte của chính chữ ký hợp lệ đó thì máy chủ trả 422 — nhịp 3 xác minh thật chứ không chỉ ghi
+nhận. Chi tiết ở `docs/HUONG-DAN-KY-SO-USB.md`.
+
+REQ-49 chuyển từ `BLOCKED_EXTERNAL` sang `VERIFIED`. Phần còn lại là **dữ liệu triển khai**, không
+phải thiếu mã: đơn vị nạp PFX của mình cho đường ký trên máy chủ, và địa chỉ TSA nếu văn bản đòi
+PAdES-T.
+
+### Bài học ghi lại
+
+Lần chạy đầu **treo im lặng**. Công cụ được gọi từ tiến trình không gắn console tương tác; driver
+vẫn tạo hộp thoại "Xác nhận PIN" — enumerate ra thấy đủ lớp `#32770`, đúng session, toạ độ trong
+màn hình — nhưng không bao giờ được vẽ, vì luồng tạo ra nó chính là luồng đang bị chặn trong lệnh
+ký. Tiến trình đó còn giữ token làm mọi lệnh sau xếp hàng theo. Công cụ nay có thời gian chờ và
+báo đúng nguyên nhân đó thay vì đứng im.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện
