@@ -53,9 +53,40 @@ phương án bảo đảm hệ thống vẫn phát hiện được trùng lặp 
   `string.GetHashCode()` vốn có randomized hashing trong .NET).
 - Không cần tải bất cứ tài nguyên nào từ Internet.
 
-Khi nạp mô hình ONNX thật, chỉ cần đăng ký một cài đặt `IBoNhungVanBan` khác trong DI —
-không sửa nghiệp vụ. Tên mô hình đang dùng được ghi vào kết quả mỗi lần kiểm tra
-(`tenMoHinhNhung`) để truy vết về sau.
+Tên mô hình đang dùng được ghi vào kết quả mỗi lần kiểm tra (`tenMoHinhNhung`) để truy vết
+về sau.
+
+**Cách nạp mô hình ONNX (bổ sung 20/08/2026).** Bản cài đặt `BoNhungOnnx` đã có sẵn trong
+`BlueIdea.Ai/Nhung/`, chạy bằng ONNX Runtime ngay trong tiến trình API. Vận hành chỉ cần đặt
+hai tệp lên máy chủ rồi khai trong `appsettings` / biến môi trường:
+
+```jsonc
+"Ai": {
+  "Nhung": {
+    "DuongDanMoHinh": "/var/lib/blueidea/mo-hinh/vietnamese-sbert.onnx",
+    "DuongDanTuVung": "/var/lib/blueidea/mo-hinh/vocab.txt",
+    "TenMoHinh": "vietnamese-sbert",   // ghi vào kết quả kiểm tra để truy vết
+    "SoTokenToiDa": 256,
+    "HaThapChu": true
+  }
+}
+```
+
+Ba điều hệ thống tự lo, không phải sửa mã:
+
+1. **Sai số chiều thì từ chối nạp.** Cột `embedding` là `vector(768)`; mô hình sinh số chiều khác
+   sẽ làm API dừng ngay lúc khởi động kèm thông báo rõ, thay vì ghi hỏng dữ liệu dần dần.
+2. **Thiếu tệp thì lùi về bộ băm từ vựng** kèm cảnh báo trong log — mất tìm ngữ nghĩa còn hơn cả
+   hệ thống không vào được.
+3. **Vector cũ được nhúng lại tự động.** Mỗi đoạn văn ghi kèm tên mô hình đã sinh ra nó
+   (`sang_kien_doan_van.mo_hinh_nhung`). Tìm ngữ nghĩa chỉ so với vector của **đúng** mô hình đang
+   chạy — cosine giữa hai không gian vector khác nhau là một con số vô nghĩa chứ không phải một
+   con số thấp — còn công việc nền `nhung-lai-doan-van` gặm dần kho cũ mỗi 10 phút cho tới khi
+   sạch. Vì vậy đổi mô hình chỉ làm tìm ngữ nghĩa *tạm* rỗng, không làm nó trả kết quả sai.
+
+Bộ tách từ là **WordPiece** đọc từ `vocab.txt` của chính mô hình (tự viết, không kéo thư viện —
+phần phải khớp tuyệt đối là dữ liệu từ vựng chứ không phải thư viện). Mô hình dùng SentencePiece
+hoặc BPE (PhoBERT chẳng hạn) chưa dùng được; chọn mô hình họ BERT có `vocab.txt`.
 
 ## Hệ quả
 

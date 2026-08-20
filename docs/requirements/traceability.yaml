@@ -781,7 +781,9 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/CongKhaiTests.cs"]
     gaps:
       - "Semantic search uses lexical hashing, not learned embedding (see TD-001)"
-    notes: "Reconciled: AI Specialist rated IMPL (semantic quality), Req Auditor rated VERIFIED (functional). Resolution: VERIFIED — customer requirement is functional search, semantic is a quality improvement."
+    notes:
+      - "Reconciled: AI Specialist rated IMPL (semantic quality), Req Auditor rated VERIFIED (functional). Resolution: VERIFIED — customer requirement is functional search, semantic is a quality improvement."
+      - "Ra soat 20/08/2026: bo sung BoNhungOnnx chay sentence-transformer bang ONNX Runtime noi bo (khong goi API ben thu ba), chon bang cau hinh Ai:Nhung; khong khai thi giu bo bam tu vung nhu cu. Sai so chieu thi tu choi nap luc khoi dong. Moi doan van ghi kem mo hinh da sinh ra vector (sang_kien_doan_van.mo_hinh_nhung), tim ngu nghia chi so voi vector cua dung mo hinh dang chay, cong viec nen nhung-lai-doan-van nhung lai kho cu. Bang chung: BoNhungOnnxTests (10 test, chay suy luan ONNX that) va LuongBoSungTests.Doi_Mo_Hinh_Nhung_Thi_Bo_Qua_Vector_Cu_Va_Nhung_Lai."
 
   # ── Nhom X: Thong ke bao cao ───────────────────────────────────────
 

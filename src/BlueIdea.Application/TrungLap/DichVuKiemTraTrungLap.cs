@@ -578,7 +578,8 @@ public sealed class DichVuKiemTraTrungLap
                 NoiDungChuanHoa = doan.NoiDungChuanHoa,
                 SoTu = doan.NoiDungChuanHoa.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length,
                 SimHash = doan.SimHash,
-                Embedding = doan.Embedding
+                Embedding = doan.Embedding,
+                MoHinhNhung = _boNhung.TenMoHinh
             });
         }
 

@@ -352,6 +352,10 @@ public class AppDbContext : DbContext, IAppDbContext
         b.Entity<SangKienDoanVan>()
             .Property(x => x.Embedding)
             .HasColumnType("real[]");
+
+        b.Entity<SangKienDoanVan>()
+            .Property(x => x.MoHinhNhung)
+            .HasMaxLength(100);
     }
 
     private static void DatJsonb<TEntity, TProperty>(

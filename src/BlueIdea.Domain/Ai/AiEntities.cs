@@ -29,6 +29,15 @@ public class SangKienDoanVan : ThucThe
 
     /// <summary>Vector embedding 768 chieu (pgvector). Null khi mo hinh chua chay.</summary>
     public float[]? Embedding { get; set; }
+
+    /// <summary>
+    /// Ten mo hinh da sinh ra <see cref="Embedding"/>.
+    ///
+    /// Vector cua hai mo hinh khac nhau KHONG so sanh duoc voi nhau — cosine giua chung la mot
+    /// con so vo nghia chu khong phai mot con so thap. Doi mo hinh ma khong danh dau thi tim ngu
+    /// nghia van chay, van tra ket qua, chi la ket qua sai ma khong co dau hieu gi.
+    /// </summary>
+    public string? MoHinhNhung { get; set; }
 }
 
 /// <summary>Chuc nang 26 - Mot lan chay kiem tra trung lap cho mot ho so.</summary>

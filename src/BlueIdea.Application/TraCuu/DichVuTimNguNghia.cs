@@ -83,8 +83,19 @@ public sealed class DichVuTimNguNghia
             return Array.Empty<KetQuaTimNguNghia>();
         }
 
+        /*
+         * Chỉ so với vector do CHÍNH mô hình đang chạy sinh ra.
+         *
+         * Vector của hai mô hình khác nhau nằm trong hai không gian khác nhau: đem cosine chúng
+         * với nhau vẫn ra một con số, chỉ là con số đó không mang nghĩa gì. Nếu không lọc, ngày
+         * đơn vị nạp mô hình ONNX mới là tìm ngữ nghĩa lặng lẽ trả kết quả sai.
+         */
+        var tenMoHinh = _boNhung.TenMoHinh;
+
         var doan = await _db.SangKienDoanVan.AsNoTracking()
-            .Where(x => hoSoChoPhep.Contains(x.SangKienId) && x.Embedding != null)
+            .Where(x => hoSoChoPhep.Contains(x.SangKienId)
+                        && x.Embedding != null
+                        && x.MoHinhNhung == tenMoHinh)
             .Select(x => new { x.SangKienId, x.NoiDung, x.Embedding })
             .Take(SoDoanToiDa)
             .ToListAsync(ct)
@@ -92,8 +103,22 @@ public sealed class DichVuTimNguNghia
 
         if (doan.Count == 0)
         {
-            _logger.LogInformation(
-                "Chưa có đoạn văn nào có vector nhúng — tìm ngữ nghĩa trả về rỗng.");
+            var soVectorMoHinhKhac = await _db.SangKienDoanVan.AsNoTracking()
+                .CountAsync(x => x.Embedding != null && x.MoHinhNhung != tenMoHinh, ct)
+                .ConfigureAwait(false);
+
+            if (soVectorMoHinhKhac > 0)
+            {
+                _logger.LogWarning(
+                    "Có {SoDoan} đoạn văn còn vector của mô hình khác '{MoHinhDangChay}' — "
+                    + "công việc nền 'nhung-lai-doan-van' sẽ nhúng lại, tìm ngữ nghĩa tạm rỗng.",
+                    soVectorMoHinhKhac, tenMoHinh);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Chưa có đoạn văn nào có vector nhúng — tìm ngữ nghĩa trả về rỗng.");
+            }
 
             return Array.Empty<KetQuaTimNguNghia>();
         }

@@ -1,6 +1,7 @@
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.HoiDong;
 using BlueIdea.Application.TrungLap;
+using BlueIdea.Ai.Nhung;
 using BlueIdea.Application.XacThuc;
 using BlueIdea.Domain.Ai;
 using BlueIdea.Domain.Chung;
@@ -13,6 +14,68 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BlueIdea.Infrastructure.CongViecNen;
+
+/// <summary>
+/// Nhung lai cac doan van con mang vector cua mo hinh CU.
+///
+/// Doi mo hinh nhung (vi du nap ONNX tieng Viet thay cho bo bam tu vung) khong the nhung lai ca
+/// kho trong mot lan: vai chuc nghin doan van chay dong bo se treo tien trinh API. Viec nen nay
+/// gam dan tung lo, nen he thong tu lanh sau vai vong ma khong ai phai chay lenh gi.
+/// </summary>
+public sealed class CongViecNhungLaiDoanVan
+{
+    /// <summary>Moi luot mot lo vua phai: giu do tre cua API on dinh khi kho lon.</summary>
+    private const int SoDoanMoiLuot = 200;
+
+    private readonly IAppDbContext _db;
+    private readonly IBoNhungVanBan _boNhung;
+    private readonly ILogger<CongViecNhungLaiDoanVan> _logger;
+
+    public CongViecNhungLaiDoanVan(
+        IAppDbContext db, IBoNhungVanBan boNhung, ILogger<CongViecNhungLaiDoanVan> logger)
+    {
+        _db = db;
+        _boNhung = boNhung;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task<int> ChayAsync(CancellationToken ct = default)
+    {
+        var tenMoHinh = _boNhung.TenMoHinh;
+
+        var canNhungLai = await _db.SangKienDoanVan
+            .Where(x => x.MoHinhNhung != tenMoHinh)
+            .OrderBy(x => x.NgayTao)
+            .Take(SoDoanMoiLuot)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (canNhungLai.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var doan in canNhungLai)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            doan.Embedding = await _boNhung
+                .TaoVectorAsync(doan.NoiDungChuanHoa, ct)
+                .ConfigureAwait(false);
+
+            doan.MoHinhNhung = tenMoHinh;
+        }
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Đã nhúng lại {SoDoan} đoạn văn theo mô hình '{MoHinh}'.",
+            canNhungLai.Count, tenMoHinh);
+
+        return canNhungLai.Count;
+    }
+}
 
 /// <summary>
 /// Don bang <c>ma_xac_thuc_tam</c>: xoa cac ma CAPTCHA va OTP quen mat khau da het han.

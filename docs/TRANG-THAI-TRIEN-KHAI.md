@@ -168,7 +168,7 @@ quản trị viên gỡ hộ), CAPTCHA sau 3 lần sai, quên mật khẩu qua O
 | 41 — Liên thông IOC/TĐKT | Đã có adapter đầy đủ và kiểm chứng bằng máy chủ nhận thật chạy cục bộ, nhưng **chưa đấu vào hệ thống thật của thành phố** | Endpoint, khoá và tài liệu API của IOC / Thi đua khen thưởng |
 | 21, 41 — SSO | Luồng OIDC hoàn chỉnh (Authorization Code + PKCE) kèm nút trên trang đăng nhập và trang nhận mã trả về, kiểm chứng bằng nhà cung cấp OIDC chạy cục bộ | `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` trong `.env` (ánh xạ sang `Sso:*`) và đăng ký redirect URI `<địa-chỉ-web>/dang-nhap/sso` với hệ thống SSO thành phố |
 | 49 — Ký số | Ba hình thức đều chạy và có kiểm thử: **PAdES** (chữ ký nhúng trong PDF, trình đọc PDF thông thường kiểm tra được), **PKCS#7 detached** cho tệp không phải PDF, và **ký bằng USB token** (máy chủ phát giá trị băm, máy trạm ký, máy chủ xác minh). Mới kiểm chứng bằng chứng thư tự ký. Chưa có đóng dấu thời gian từ TSA | Chứng thư số thật của Ban Cơ yếu / CA được cấp phép; địa chỉ máy chủ cấp dấu thời gian (TSA) nếu văn bản đòi PAdES-T; công cụ ký ở máy trạm của nhà cung cấp token để nối vào `/api/v1/ky-so-usb` |
-| 37 — Tìm ngữ nghĩa | Vector nhúng hiện là "hashing trick" từ vựng nên bắt quan hệ **từ vựng**, chưa bắt được quan hệ ngữ nghĩa xa (ví dụ "tiết kiệm điện" ~ "cảm biến ánh sáng") | Nạp mô hình sentence-transformer tiếng Việt dạng ONNX chạy nội bộ (không dùng API bên thứ ba) |
+| 37 — Tìm ngữ nghĩa | **Mã đã sẵn sàng cho mô hình học sâu**: khai `Ai:Nhung:DuongDanMoHinh` + `DuongDanTuVung` là hệ thống chạy mô hình đó bằng ONNX Runtime nội bộ. Chưa khai thì vẫn dùng vector "hashing trick" từ vựng, bắt quan hệ **từ vựng**, chưa bắt quan hệ ngữ nghĩa xa | Đặt tệp `.onnx` + `vocab.txt` của một mô hình họ BERT tiếng Việt lên máy chủ. Đổi mô hình an toàn: vector cũ bị bỏ qua và được nhúng lại tự động, không trả kết quả sai. Mô hình SentencePiece/BPE (PhoBERT) chưa dùng được |
 | 42 — Di động | Đáp ứng bằng **web responsive** chứ không phải ứng dụng cài từ store: không có thông báo đẩy, không dùng được ngoại tuyến, không truy cập máy ảnh/chữ ký trên thiết bị. Menu Mobile đã cấu hình riêng được ở màn hình cấu hình menu | Nếu chủ đầu tư yêu cầu bản cài đặt: làm ứng dụng React Native dùng lại hợp đồng API hiện có |
 | Sao lưu / phục hồi | Màn hình trên web **chỉ theo dõi** (liệt kê bản sao, cảnh báo bản cũ hoặc thiếu thành phần). Tạo bản sao và khôi phục chạy bằng `deploy/sao-luu-blueidea.sh` trên máy chủ. **WAL archiving đã bật sẵn** trong `docker-compose.prod.yml` (đẩy WAL mỗi 5 phút) nên khôi phục được về thời điểm bất kỳ, không chỉ về mốc sao lưu hằng ngày | Vận hành phải đưa thư mục WAL vào lịch sao chép ra ngoài máy chủ và dọn WAL cũ sau mỗi bản sao lưu đầy đủ — hướng dẫn ở `TAI-LIEU-QUAN-TRI-VAN-HANH.md` mục 4. Khôi phục vẫn cố ý không đưa lên web: nó ghi đè toàn bộ CSDL đang chạy, và để API tự chạy được lệnh đó thì phải trao quyền tương đương root của máy đó |
 | ~~Form dùng antd Form thay vì react-hook-form + zod~~ — **ghi chú này đã lỗi thời** | Rà soát lại ngày 19/08/2026: toàn bộ 30 màn hình có biểu mẫu đều dùng `useBieuMau` — bọc `react-hook-form` + `zodResolver` (`web/src/components/bieu-mau/BieuMau.tsx`), 32 tệp khai lược đồ `zod`; không còn tệp nào gọi thẳng `<Form>` của Ant Design. Đúng như đặc tả chương 9 | Không còn việc phải làm |
@@ -187,6 +187,7 @@ chỉ vai trò Quản trị hệ thống mở được. Tắt hoàn toàn bằng
 | `gui-hang-doi` | mỗi 5 phút | Rút hàng đợi email/SMS và gửi thật |
 | `quet-trung-lap-con-thieu` | mỗi 15 phút | Quét bù hồ sơ đã nộp nhưng chưa kiểm tra trùng lặp |
 | `don-ma-xac-thuc-tam` | 3h hằng ngày | Xoá CAPTCHA và OTP quên mật khẩu đã hết hạn |
+| `nhung-lai-doan-van` | mỗi 10 phút | Nhúng lại đoạn văn còn vector của mô hình cũ (tự dừng khi hết) |
 
 Ngoài ra hai công việc chạy theo sự kiện: trích xuất văn bản (OCR) khi tải tệp lên, và kiểm tra
 trùng lặp khi nộp hồ sơ.
@@ -227,8 +228,9 @@ làm được nếu chỉ ngồi tại chỗ viết thêm mã.
 2. **Đấu nối IOC và Thi đua khen thưởng**: khai báo hệ thống trong màn hình *Liên thông hệ thống
    ngoài* bằng endpoint, khoá và kiểu xác thực thật, rồi chạy *Xem trước dữ liệu* trước khi đồng bộ.
 3. **Chữ ký số**: nạp chứng thư thật (PFX hoặc USB token/HSM) của CA được cấp phép.
-4. **Tìm ngữ nghĩa**: nạp mô hình sentence-transformer tiếng Việt dạng ONNX chạy nội bộ để thay
-   vector "hashing trick" hiện tại.
+4. **Tìm ngữ nghĩa**: đặt tệp `.onnx` + `vocab.txt` của một mô hình họ BERT tiếng Việt lên máy chủ
+   rồi khai `Ai:Nhung:DuongDanMoHinh` / `Ai:Nhung:DuongDanTuVung`. Phần mã đã xong — hệ thống tự
+   kiểm số chiều lúc nạp và tự nhúng lại kho vector cũ.
 5. **Nạp biểu mẫu xuất thật**: tải các tệp `.docx` mẫu của đơn vị lên tab *Biểu mẫu xuất* và ánh xạ
    placeholder — hiện mới có biểu mẫu mẫu trong dữ liệu seed.
 6. *(Tuỳ chọn, ngoài phạm vi hiện tại)* Ứng dụng cài đặt từ store nếu chủ đầu tư đổi ý về phương án

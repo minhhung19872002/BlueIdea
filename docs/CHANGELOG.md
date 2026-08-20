@@ -116,6 +116,47 @@ Dọn mã chết (TD-013). Ba mục, một trong đó có hại thật sự.
 
 ---
 
+## [1.8.0] — 2026-08-20
+
+Tìm ngữ nghĩa chạy được bằng **mô hình học sâu tiếng Việt** thay vì chỉ vector từ vựng (TD-001).
+Toàn bộ suy luận nằm trên máy chủ đơn vị bằng ONNX Runtime — không gọi API AI bên thứ ba, đúng
+ràng buộc Mục 3.2 E-HSMT và ADR 0001.
+
+### Thêm
+
+- `BoNhungOnnx` — nạp mô hình sentence-transformer định dạng `.onnx`, kèm bộ tách từ **WordPiece**
+  đọc `vocab.txt` của chính mô hình đó. Vận hành chỉ cần đặt hai tệp lên máy chủ và khai
+  `Ai:Nhung:DuongDanMoHinh` / `Ai:Nhung:DuongDanTuVung`; không khai gì thì hệ thống chạy y như cũ
+  bằng bộ băm từ vựng.
+- Công việc nền `nhung-lai-doan-van` (mỗi 10 phút, tự dừng khi hết việc).
+
+### Ba cái bẫy đã chặn sẵn
+
+- **Sai số chiều** → từ chối nạp ngay lúc khởi động kèm thông báo rõ. Nếu để tới lúc ghi, cột
+  `vector(768)` sẽ từ chối từng bản ghi một, rải rác trong log, không ai hiểu vì sao.
+- **Thiếu tệp mô hình** → cảnh báo rồi lùi về bộ băm từ vựng. Mất tìm ngữ nghĩa còn hơn cả hệ
+  thống không khởi động được.
+- **Đổi mô hình làm hỏng kho vector cũ** → mỗi đoạn văn nay ghi kèm tên mô hình đã sinh ra nó
+  (`sang_kien_doan_van.mo_hinh_nhung`). Tìm ngữ nghĩa chỉ so với vector của **đúng** mô hình đang
+  chạy, và công việc nền gặm dần kho cũ cho tới khi sạch. Không có chỗ này thì đổi mô hình xong
+  tìm kiếm vẫn chạy, vẫn trả kết quả — chỉ là kết quả sai mà không có dấu hiệu gì, vì cosine giữa
+  hai không gian vector khác nhau vẫn ra một con số.
+
+### Kiểm thử
+
+- `BoNhungOnnxTests` (10 test) chạy **suy luận ONNX thật** trên một mô hình tí hon dựng riêng cho
+  kiểm thử (1KB, kèm trong kho mã) — tách từ, mảnh nối `##`, `[UNK]`, cắt theo độ dài, gộp token
+  có loại `[PAD]`, chuẩn hoá L2, và phép kiểm số chiều lúc nạp.
+- `LuongBoSungTests.Doi_Mo_Hinh_Nhung_Thi_Bo_Qua_Vector_Cu_Va_Nhung_Lai` — đổi mô hình thì tìm
+  ngữ nghĩa bỏ qua vector cũ, việc nền nhúng lại tới khi hết.
+
+230/230 kiểm thử tích hợp, 524/524 đơn vị, 405/405 E2E.
+
+**Việc còn lại của đơn vị**: chọn một mô hình họ BERT tiếng Việt (có `vocab.txt`) xuất sang ONNX
+rồi đặt lên máy chủ. Mô hình dùng SentencePiece/BPE như PhoBERT chưa dùng được.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

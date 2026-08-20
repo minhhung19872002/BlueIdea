@@ -4,14 +4,6 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 
 ## Current Items
 
-### TD-001: Semantic Embedding is Lexical Only
-
-**Area**: AI/Similarity
-**Description**: `BoNhungBamTuVung` uses hashing trick on word/bigram tokens, not a learned model. It detects word-level overlap but misses semantic paraphrasing.
-**Impact**: Lower recall on paraphrased content in similarity detection.
-**Resolution**: Load ONNX sentence-transformer model via `IBoNhungVanBan`. Architecture supports this without code changes.
-**Priority**: Medium (lexical matching still catches most cases)
-
 ### TD-003: No Monitoring/Alerting
 
 **Area**: Operations
@@ -45,6 +37,33 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Priority**: Low (depends on external vendor choice)
 
 ## Resolved Items
+
+### TD-001: Semantic Embedding is Lexical Only (RESOLVED — code side)
+
+**Resolved by**: Rà soát 20/08/2026
+**Resolution**: `BoNhungOnnx` runs a Vietnamese sentence-transformer through ONNX Runtime in-process
+(no third-party AI API — ADR 0001 holds), with a hand-written WordPiece tokenizer reading the
+model's own `vocab.txt`. Selected by configuration (`Ai:Nhung:*`); with no model configured the
+system keeps using `BoNhungBamTuVung` exactly as before.
+
+Three failure modes are handled rather than left to bite later:
+- **Wrong vector size** → refuses to load at startup with a clear message, instead of writing
+  vectors the `vector(768)` column will reject one row at a time.
+- **Missing files** → warns and falls back, because losing semantic search beats failing to boot.
+- **Model change invalidates stored vectors** → each chunk records which model produced it
+  (`sang_kien_doan_van.mo_hinh_nhung`); semantic search only compares vectors from the *current*
+  model, and the `nhung-lai-doan-van` job re-embeds the old ones every 10 minutes until the store
+  is clean. Without this, switching models would leave search silently wrong rather than briefly
+  empty.
+
+**Tests**: `BoNhungOnnxTests` (10) run real ONNX inference against a tiny purpose-built model
+committed under `tests/BlueIdea.UnitTests/TaiNguyen/`, covering tokenization, `##` continuation,
+`[UNK]`, truncation, mask-aware mean pooling, L2 normalisation and the startup dimension check.
+`LuongBoSungTests.Doi_Mo_Hinh_Nhung_Thi_Bo_Qua_Vector_Cu_Va_Nhung_Lai` covers the switch-over.
+
+**Remaining (not code)**: the unit still has to supply the model file itself — pick a BERT-family
+Vietnamese model exported to ONNX with a `vocab.txt`, put it on the server, fill in `Ai:Nhung:*`.
+SentencePiece/BPE models (PhoBERT) are not supported by the tokenizer yet.
 
 ### TD-013: Dead Application Code (RESOLVED)
 

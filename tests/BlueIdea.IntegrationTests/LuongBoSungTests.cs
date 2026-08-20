@@ -80,6 +80,89 @@ public sealed class LuongBoSungTests
     }
 
     /// <summary>
+    /// Doi mo hinh nhung: vector cu phai bi bo qua (khong dem cosine giua hai khong gian khac
+    /// nhau) va cong viec nen phai nhung lai cho den khi kho sach.
+    /// </summary>
+    [Fact]
+    public async Task Doi_Mo_Hinh_Nhung_Thi_Bo_Qua_Vector_Cu_Va_Nhung_Lai()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var sangKienId = await LaySangKienDaNopAsync(admin);
+
+        // Chay kiem tra trung lap de chac chan ho so co doan van kem vector.
+        (await admin.PostAsync($"/api/v1/sang-kien/{sangKienId}/trung-lap/chay-lai", null))
+            .EnsureSuccessStatusCode();
+
+        string tenMoHinhHienTai;
+
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            tenMoHinhHienTai = pham.ServiceProvider
+                .GetRequiredService<Ai.Nhung.IBoNhungVanBan>().TenMoHinh;
+
+            var db = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+            var doan = await db.SangKienDoanVan
+                .Where(x => x.SangKienId == sangKienId)
+                .ToListAsync();
+
+            doan.Should().NotBeEmpty("hồ sơ đã chạy kiểm tra trùng lặp phải có đoạn văn");
+
+            // Giả lập kho vector do một mô hình cũ sinh ra.
+            foreach (var d in doan)
+            {
+                d.MoHinhNhung = "mo-hinh-cu-gia-lap";
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        // Tìm ngữ nghĩa không được đọc vector của mô hình khác.
+        var tim = await admin.GetAsync(
+            "/api/v1/sang-kien/tim-ngu-nghia?cauHoi=tiết kiệm điện chiếu sáng");
+
+        tim.EnsureSuccessStatusCode();
+
+        var ketQua = (await tim.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("duLieu");
+
+        ketQua.EnumerateArray().Should().NotContain(
+            x => x.GetProperty("sangKienId").GetGuid() == sangKienId,
+            "vector của mô hình khác không được đem ra so sánh");
+
+        // Công việc nền nhúng lại đến khi hết đoạn cũ.
+        int daNhungLai;
+        var soVong = 0;
+
+        do
+        {
+            using var pham = _ungDung.Services.CreateScope();
+            var congViec = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.CongViecNen.CongViecNhungLaiDoanVan>();
+
+            daNhungLai = await congViec.ChayAsync();
+            soVong++;
+        }
+        while (daNhungLai > 0 && soVong < 20);
+
+        using (var pham = _ungDung.Services.CreateScope())
+        {
+            var db = pham.ServiceProvider
+                .GetRequiredService<Infrastructure.Persistence.AppDbContext>();
+
+            var conCu = await db.SangKienDoanVan
+                .CountAsync(x => x.SangKienId == sangKienId && x.MoHinhNhung != tenMoHinhHienTai);
+
+            conCu.Should().Be(0, "công việc nền phải nhúng lại hết đoạn văn của mô hình cũ");
+
+            var thieuVector = await db.SangKienDoanVan
+                .CountAsync(x => x.SangKienId == sangKienId && x.Embedding == null);
+
+            thieuVector.Should().Be(0, "nhúng lại xong thì đoạn nào cũng phải có vector");
+        }
+    }
+
+    /// <summary>
     /// Cong viec nen don CAPTCHA / OTP het han: chi xoa ban ghi da qua han, giu nguyen ban ghi
     /// con hieu luc. Truoc day ham don da co san nhung khong lich nao goi, nen bang chi phinh ra.
     /// </summary>
