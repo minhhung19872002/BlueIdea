@@ -110,6 +110,9 @@ public sealed partial class DuLieuMau
 
         if (await _db.VaiTro.AnyAsync(ct).ConfigureAwait(false))
         {
+            // He thong da cai dat: khong dung den danh sach vai tro chuan nua (quan tri vien co the
+            // da sua), chi bu nhung quyen vua duoc tach ra khoi mot quyen cu.
+            await BuQuyenTachMoiAsync(tatCaQuyen, ct).ConfigureAwait(false);
             return;
         }
 
@@ -147,6 +150,112 @@ public sealed partial class DuLieuMau
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        // Chay ca tren CSDL vua cai: de ma tran quyen cua ban cai moi va ban nang cap giong nhau.
+        // Khac di thi mot loi chi xuat hien o mot trong hai loai trien khai — dung thu ma kiem thu
+        // tren moi truong sach khong bao gio bat duoc.
+        await BuQuyenTachMoiAsync(tatCaQuyen, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Cap "quyen anh em" mot lan cho cac he thong da cai dat truoc khi quyen do duoc siet.
+    ///
+    /// Van de: mot thao tac lau nay duoc bao ve bang quyen A, nay tach ra thanh quyen B rieng
+    /// (vi du nhap Excel danh muc tach khoi <c>DANH_MUC.SUA</c>). Tren CSDL da chay, chua vai tro
+    /// nao cam quyen B — nen ngay khi ban moi trien khai, mot chuc nang dang chay tot bong tra 403
+    /// cho tat ca moi nguoi tru quan tri he thong. Quan tri vien khong he biet minh phai vao cap
+    /// them quyen, vi ho khong doi chuc nang nao ca.
+    ///
+    /// Nen: vai tro nao dang co quyen A thi duoc cap quyen B, giu nguyen kha nang hien tai. Ke tu
+    /// do quyen B nam tren ma tran phan quyen va quan tri vien go ra duoc.
+    ///
+    /// Chi chay MOT LAN cho moi quyen, danh dau bang mot khoa cau hinh an. Chay lai moi lan khoi
+    /// dong se dap len quyet dinh cua quan tri vien: ho go quyen B khoi mot vai tro, khoi dong lai
+    /// la no quay ve.
+    /// </summary>
+    private async Task BuQuyenTachMoiAsync(
+        IReadOnlyDictionary<string, Quyen> tatCaQuyen, CancellationToken ct)
+    {
+        // (quyen moi, quyen anh em) — vai tro dang co quyen anh em thi duoc cap quyen moi.
+        var capBu = new (string QuyenMoi, string QuyenAnhEm)[]
+        {
+            (MaQuyen.DanhMucNhap, MaQuyen.DanhMucSua),
+            (MaQuyen.BaoCaoCauHinh, MaQuyen.DanhMucThem),
+            (MaQuyen.XuLyUyQuyen, MaQuyen.XuLyThucThi),
+            (MaQuyen.TiepNhanXuLy, MaQuyen.TiepNhanXem),
+            (MaQuyen.SangKienXoa, MaQuyen.SangKienSua)
+        };
+
+        var daBu = false;
+
+        foreach (var (maQuyenMoi, maAnhEm) in capBu)
+        {
+            var khoaDanhDau = $"he_thong.da_bu_quyen.{maQuyenMoi}";
+
+            var daChay = await _db.CauHinhHeThong.AsNoTracking()
+                .AnyAsync(x => x.Khoa == khoaDanhDau, ct)
+                .ConfigureAwait(false);
+
+            if (daChay)
+            {
+                continue;
+            }
+
+            if (!tatCaQuyen.TryGetValue(maQuyenMoi, out var quyenMoi)
+                || !tatCaQuyen.TryGetValue(maAnhEm, out var quyenAnhEm))
+            {
+                continue;
+            }
+
+            var vaiTroCoAnhEm = await _db.VaiTroQuyen.AsNoTracking()
+                .Where(x => x.QuyenId == quyenAnhEm.Id)
+                .Select(x => x.VaiTroId)
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            var vaiTroDaCoQuyenMoi = await _db.VaiTroQuyen.AsNoTracking()
+                .Where(x => x.QuyenId == quyenMoi.Id)
+                .Select(x => x.VaiTroId)
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            var canCap = vaiTroCoAnhEm.Except(vaiTroDaCoQuyenMoi).ToList();
+
+            foreach (var vaiTroId in canCap)
+            {
+                _db.VaiTroQuyen.Add(new VaiTroQuyen
+                {
+                    VaiTroId = vaiTroId,
+                    QuyenId = quyenMoi.Id
+                });
+            }
+
+            _db.CauHinhHeThong.Add(new CauHinhHeThong
+            {
+                Nhom = "HE_THONG",
+                Khoa = khoaDanhDau,
+                GiaTri = "true",
+                KieuDuLieu = "BOOLEAN",
+                TenHienThi = $"Đã bù quyền {maQuyenMoi}",
+                MoTa = $"Đánh dấu đã cấp {maQuyenMoi} cho vai trò đang có {maAnhEm}. "
+                       + "Xoá dòng này sẽ khiến lần khởi động sau cấp lại.",
+                ChoPhepSua = false
+            });
+
+            daBu = true;
+
+            if (canCap.Count > 0)
+            {
+                _logger.LogInformation(
+                    "Da bu quyen {QuyenMoi} cho {SoVaiTro} vai tro dang co {QuyenAnhEm}.",
+                    maQuyenMoi, canCap.Count, maAnhEm);
+            }
+        }
+
+        if (daBu)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -267,8 +376,8 @@ public sealed partial class DuLieuMau
             new[]
             {
                 MaQuyen.SangKienXem, MaQuyen.SangKienThem, MaQuyen.SangKienSua,
-                MaQuyen.SangKienNop, MaQuyen.SangKienRut, MaQuyen.TrungLapXem,
-                MaQuyen.DanhMucXem
+                MaQuyen.SangKienNop, MaQuyen.SangKienRut, MaQuyen.SangKienXoa,
+                MaQuyen.TrungLapXem, MaQuyen.DanhMucXem
             },
             LoaiPhamViDuLieu.CaNhan),
 
@@ -279,6 +388,7 @@ public sealed partial class DuLieuMau
                 MaQuyen.SangKienHuy,
                 MaQuyen.TiepNhanXem, MaQuyen.TiepNhanXuLy,
                 MaQuyen.XuLyXem, MaQuyen.XuLyThucThi, MaQuyen.XuLyThuHoi, MaQuyen.XuLyGiaHan,
+                MaQuyen.XuLyUyQuyen,
                 MaQuyen.TrungLapXem, MaQuyen.TrungLapXemXet,
                 MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem
             },
@@ -288,12 +398,13 @@ public sealed partial class DuLieuMau
             new[]
             {
                 MaQuyen.SangKienXem, MaQuyen.SangKienXemTatCa, MaQuyen.SangKienXuat,
-                MaQuyen.XuLyXem, MaQuyen.XuLyThucThi,
+                MaQuyen.XuLyXem, MaQuyen.XuLyThucThi, MaQuyen.XuLyUyQuyen,
                 MaQuyen.DanhGiaXem, MaQuyen.DanhGiaPhanCong, MaQuyen.DanhGiaTongHop,
                 MaQuyen.DanhGiaMoLaiPhieu,
                 MaQuyen.HoiDongXem, MaQuyen.HoiDongHopPhien,
                 MaQuyen.TrungLapXem, MaQuyen.TrungLapChayLai, MaQuyen.TrungLapXemXet,
-                MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem, MaQuyen.BaoCaoXuat
+                MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem, MaQuyen.BaoCaoXuat,
+                MaQuyen.BaoCaoCauHinh
             },
             LoaiPhamViDuLieu.DonViVaCapDuoi),
 

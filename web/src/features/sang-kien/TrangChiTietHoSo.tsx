@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   App,
   Alert,
@@ -23,6 +23,7 @@ import {
   Typography,
 } from 'antd';
 import {
+  DeleteOutlined,
   CalculatorOutlined,
   ClockCircleOutlined,
   DownloadOutlined,
@@ -113,6 +114,8 @@ export default function TrangChiTietHoSo() {
   const duocThuHoi = useAuthStore((st) => st.coQuyen('XU_LY.THU_HOI'));
   const duocGiaHan = useAuthStore((st) => st.coQuyen('XU_LY.GIA_HAN'));
   const duocHuy = useAuthStore((st) => st.coQuyen('SANG_KIEN.HUY'));
+  const duocXoa = useAuthStore((st) => st.coQuyen('SANG_KIEN.XOA'));
+  const dieuHuong = useNavigate();
   const duocPhanCong = useAuthStore((st) => st.coQuyen('DANH_GIA.PHAN_CONG'));
   const duocTongHop = useAuthStore((st) => st.coQuyen('DANH_GIA.TONG_HOP'));
   const duocXemXetTrungLap = useAuthStore((st) => st.coQuyen('TRUNG_LAP.XEM_XET'));
@@ -302,6 +305,22 @@ export default function TrangChiTietHoSo() {
     },
     onError: (loi) =>
       message.error(loi instanceof LoiApi ? loi.message : 'Không ghi được ý kiến xem xét.'),
+  });
+
+  /**
+   * Chức năng 23 — xoá hồ sơ nháp.
+   *
+   * Chỉ hiện với hồ sơ chưa từng nộp. Đã nộp thì đường ra là rút hoặc huỷ: văn bản đã vào hệ
+   * thống không được biến mất không dấu vết.
+   */
+  const xoaHoSo = useMutation({
+    mutationFn: () => apiSangKien.xoa(id),
+    onSuccess: () => {
+      message.success('Đã xoá hồ sơ nháp');
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien'] });
+      dieuHuong('/sang-kien/cua-toi');
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không xoá được hồ sơ.'),
   });
 
   const rutHoSo = useMutation({
@@ -560,6 +579,27 @@ export default function TrangChiTietHoSo() {
                 }
               >
                 Rút hồ sơ
+              </Button>
+            )}
+            {hs.trangThaiTong === 'NHAP' && duocXoa && (
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={xoaHoSo.isPending}
+                onClick={() =>
+                  modal.confirm({
+                    title: 'Xoá hồ sơ nháp?',
+                    content:
+                      'Hồ sơ và các tệp đính kèm sẽ biến khỏi danh sách của bạn. '
+                      + 'Thao tác này không hoàn tác được từ giao diện.',
+                    okText: 'Xoá',
+                    okButtonProps: { danger: true },
+                    cancelText: 'Hủy',
+                    onOk: () => xoaHoSo.mutateAsync(),
+                  })
+                }
+              >
+                Xoá hồ sơ
               </Button>
             )}
           </Space>

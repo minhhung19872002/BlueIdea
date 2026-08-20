@@ -249,6 +249,7 @@ public static class HanhDongLichSuHoSo
     public const string Nop = "NOP";
     public const string Rut = "RUT";
     public const string Huy = "HUY";
+    public const string Xoa = "XOA";
     public const string BoSung = "BO_SUNG";
     public const string XoaTep = "XOA_TEP";
     public const string ThemTep = "THEM_TEP";

@@ -73,9 +73,12 @@ public class ChinhSachPhanQuyenControllerTests
     [InlineData(typeof(BieuMauXuatController), "XemTruocPdfAsync", MaQuyen.DanhMucXem)]
     [InlineData(typeof(BieuMauThongKeController), "LayDanhSachAsync", MaQuyen.DanhMucXem)]
     [InlineData(typeof(BieuMauThongKeController), "LayTheoIdAsync", MaQuyen.DanhMucXem)]
-    [InlineData(typeof(BieuMauThongKeController), "ThemAsync", MaQuyen.DanhMucThem)]
-    [InlineData(typeof(BieuMauThongKeController), "SuaAsync", MaQuyen.DanhMucSua)]
-    [InlineData(typeof(BieuMauThongKeController), "XoaAsync", MaQuyen.DanhMucXoa)]
+    // Bieu mau thong ke la cau hinh BAO CAO chu khong phai mot danh muc thong thuong: no quyet dinh
+    // so lieu bao cao trong ra sao. Sua no bang quyen danh muc chung dong nghia bat ky ai them sua
+    // duoc mot danh muc cung doi duoc dinh dang bao cao gui len cap tren.
+    [InlineData(typeof(BieuMauThongKeController), "ThemAsync", MaQuyen.BaoCaoCauHinh)]
+    [InlineData(typeof(BieuMauThongKeController), "SuaAsync", MaQuyen.BaoCaoCauHinh)]
+    [InlineData(typeof(BieuMauThongKeController), "XoaAsync", MaQuyen.BaoCaoCauHinh)]
     public void BieuMau_Action_Co_Authorize_Policy_Dung(Type loaiController, string tenAction, string maQuyen)
     {
         BatBuocCoPolicy(loaiController, tenAction, maQuyen);
@@ -117,6 +120,10 @@ public class ChinhSachPhanQuyenControllerTests
     [InlineData(typeof(SangKienController), "NopAsync", MaQuyen.SangKienNop)]
     [InlineData(typeof(SangKienController), "PhieuTiepNhanAsync", MaQuyen.SangKienXem)]
     [InlineData(typeof(SangKienController), "RutAsync", MaQuyen.SangKienRut)]
+    [InlineData(typeof(SangKienController), "XoaAsync", MaQuyen.SangKienXoa)]
+    // Hang cho tiep nhan phai la TIEP_NHAN.XEM: dat SANG_KIEN.XEM thi quyen tiep nhan lai tro
+    // thanh mot cai ten khong chan gi, dung tinh trang ma dot ra soat nay di sua.
+    [InlineData(typeof(SangKienController), "LayDanhSachChoTiepNhanAsync", MaQuyen.TiepNhanXem)]
     [InlineData(typeof(SangKienController), "XuatExcelAsync", MaQuyen.SangKienXuat)]
     public void SangKien_Action_Co_Authorize_Policy_Dung(Type loaiController, string tenAction, string maQuyen)
     {

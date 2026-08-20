@@ -49,6 +49,26 @@ public sealed class SangKienController : ControllerBase
         [FromQuery] ThamSoLocSangKien thamSo, CancellationToken ct)
         => Ok(PhanHoiPhanTrang<SangKienTomTatDto>.Tu(await _truyVan.LayDanhSachAsync(thamSo, ct)));
 
+    /// <summary>
+    /// Chức năng 27 — Hồ sơ chờ tiếp nhận.
+    ///
+    /// Là chức năng riêng trong yêu cầu kỹ thuật nên có quyền riêng, không dùng chung
+    /// <c>SANG_KIEN.XEM</c>: cán bộ tiếp nhận cần thấy hàng chờ này, còn tác giả hay thành viên
+    /// hội đồng thì không — họ vẫn xem được hồ sơ qua danh sách chung theo phạm vi của mình.
+    ///
+    /// Trạng thái bị ép về ĐÃ NỘP tại máy chủ; tham số <c>trangThaiTong</c> do máy khách gửi lên
+    /// bị bỏ qua, để endpoint này không trở thành đường vòng lấy trọn danh sách hồ sơ.
+    /// </summary>
+    [HttpGet("cho-tiep-nhan")]
+    [Authorize(Policy = MaQuyen.TiepNhanXem)]
+    public async Task<IActionResult> LayDanhSachChoTiepNhanAsync(
+        [FromQuery] ThamSoLocSangKien thamSo, CancellationToken ct)
+    {
+        thamSo.TrangThaiTong = TrangThaiTongHoSo.DaNop.ToString();
+        return Ok(PhanHoiPhanTrang<SangKienTomTatDto>.Tu(
+            await _truyVan.LayDanhSachAsync(thamSo, ct)));
+    }
+
     /// <summary>Chức năng 37 — Gợi ý từ khoá khi gõ ở ô tìm kiếm.</summary>
     [HttpGet("goi-y")]
     [Authorize(Policy = MaQuyen.SangKienXem)]
@@ -268,6 +288,15 @@ public sealed class SangKienController : ControllerBase
     {
         await _mediator.Send(new RutHoSoCommand(id, duLieu.LyDo), ct);
         return Ok(PhanHoiApi.Ok("Đã rút hồ sơ"));
+    }
+
+    /// <summary>Chức năng 23 — xoá hồ sơ còn ở dạng nháp (chưa từng nộp).</summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = MaQuyen.SangKienXoa)]
+    public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
+    {
+        await _mediator.Send(new XoaHoSoCommand(id), ct);
+        return Ok(PhanHoiApi.Ok("Đã xoá hồ sơ nháp"));
     }
 
     /// <summary>

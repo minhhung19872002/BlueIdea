@@ -324,8 +324,10 @@ public sealed class NhapXuatController : ControllerBase
     /// <summary>
     /// Nhập danh mục từ Excel. Mặc định <c>chayThu=true</c> để xem trước kết quả rồi mới ghi.
     /// </summary>
+    // Nhap hang loat la thao tac rieng trong ma tran phan quyen (chuc nang 1-8): mot tep Excel
+    // sai co the ghi de ca danh muc trong mot lan bam, khac han voi sua tung ban ghi.
     [HttpPost("danh-muc")]
-    [Authorize(Policy = MaQuyen.DanhMucSua)]
+    [Authorize(Policy = MaQuyen.DanhMucNhap)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> NhapDanhMucAsync(
         IFormFile tep, [FromQuery] string loai = "linh-vuc", [FromQuery] bool chayThu = true,

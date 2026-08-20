@@ -507,6 +507,113 @@ public sealed class NopHoSoCommandHandler : IRequestHandler<NopHoSoCommand, KetQ
     }
 }
 
+/// <summary>
+/// Chuc nang 23 — Xoa ho so con o dang NHAP.
+///
+/// Chi xoa duoc ho so CHUA TUNG NOP. Ho so da nop thi duong ra la "rut" (co ly do, co lich su) —
+/// van ban da vao he thong khong duoc bien mat khong dau vet.
+///
+/// Xoa mem: ho so bien khoi danh sach nhung tep dinh kem, doan van va nhat ky van truy nguoc duoc.
+/// </summary>
+public sealed record XoaHoSoCommand(Guid Id)
+    : IRequest<Unit>, ICoYeuCauQuyen, ICoGhiNhatKy
+{
+    public string MaQuyenYeuCau => MaQuyen.SangKienXoa;
+
+    public Guid? DoiTuongId => Id;
+
+    public string HanhDongNhatKy => "XOA_HO_SO";
+
+    public string ModuleNhatKy => "SANG_KIEN";
+}
+
+public sealed class XoaHoSoCommandHandler : IRequestHandler<XoaHoSoCommand, Unit>
+{
+    private readonly IAppDbContext _db;
+    private readonly INguoiDungHienTai _nguoiDung;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly IDichVuPhanQuyen _phanQuyen;
+
+    public XoaHoSoCommandHandler(
+        IAppDbContext db, INguoiDungHienTai nguoiDung, IDongHoHeThong dongHo,
+        IDichVuPhanQuyen phanQuyen)
+    {
+        _db = db;
+        _nguoiDung = nguoiDung;
+        _dongHo = dongHo;
+        _phanQuyen = phanQuyen;
+    }
+
+    public async Task<Unit> Handle(XoaHoSoCommand request, CancellationToken ct)
+    {
+        var hoSo = await _db.SangKien
+            .Include(x => x.DanhSachTacGia)
+            .FirstOrDefaultAsync(x => x.Id == request.Id, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("hồ sơ sáng kiến", request.Id);
+
+        if (hoSo.TrangThaiTong != TrangThaiTongHoSo.Nhap || hoSo.NgayNop is not null)
+        {
+            throw new NghiepVuException(MaLoiHeThong.TrangThaiKhongChoPhepSua,
+                "Chỉ xoá được hồ sơ còn ở dạng nháp và chưa từng nộp. "
+                + "Hồ sơ đã nộp thì dùng chức năng rút hoặc huỷ.");
+        }
+
+        await BatBuocTrongPhamViAsync(hoSo, ct).ConfigureAwait(false);
+
+        hoSo.DaXoa = true;
+
+        _db.SangKienLichSu.Add(new SangKienLichSu
+        {
+            SangKienId = hoSo.Id,
+            HanhDong = HanhDongLichSuHoSo.Xoa,
+            GhiChu = "Xoá hồ sơ nháp",
+            NguoiThucHienId = _nguoiDung.Id,
+            ThoiGian = _dongHo.BayGio,
+            DiaChiIp = _nguoiDung.DiaChiIp,
+            UserAgent = _nguoiDung.UserAgent
+        });
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Unit.Value;
+    }
+
+    private async Task BatBuocTrongPhamViAsync(HoSoSangKien hoSo, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is null)
+        {
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+        }
+
+        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(_nguoiDung.Id.Value, ct)
+            .ConfigureAwait(false);
+
+        if (phamVi.ToanHeThong)
+        {
+            return;
+        }
+
+        var laTacGia = hoSo.NguoiTaoId == _nguoiDung.Id.Value
+                       || (hoSo.DanhSachTacGia?.Any(t => t.NguoiDungId == _nguoiDung.Id.Value) == true);
+
+        if (phamVi.ChiCaNhan)
+        {
+            if (!laTacGia)
+            {
+                throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+            }
+
+            return;
+        }
+
+        var trongDonVi = hoSo.DonViId.HasValue && phamVi.DonViIds.Contains(hoSo.DonViId.Value);
+
+        if (!laTacGia && !trongDonVi)
+        {
+            throw new KhongTimThayException("hồ sơ sáng kiến", hoSo.Id);
+        }
+    }
+}
+
 /// <summary>Chuc nang 23 - Rut ho so (chi khi chua vao buoc cham diem).</summary>
 public sealed record RutHoSoCommand(Guid Id, string LyDo)
     : IRequest<Unit>, ICoYeuCauQuyen, ICoGhiNhatKy

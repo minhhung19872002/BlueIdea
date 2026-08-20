@@ -4,6 +4,59 @@
 
 ---
 
+## [2.4.0] — 2026-08-20
+
+Cùng một dạng lỗi như các bản trước — **khai báo được nhưng không dòng logic nào đọc tới** — lần
+này soi vào chính ma trận phân quyền. Bảy quyền có tên trên màn hình phân quyền nhưng không
+endpoint nào hỏi đến, nên quản trị viên bật hay tắt chúng đều không thay đổi điều gì.
+
+### Thêm — hai chức năng đặc tả có mà hệ thống chưa có
+
+- **Chức năng 43 — xoá tài khoản** (`DELETE /api/v1/he-thong/nguoi-dung/{id}`, quyền
+  `NGUOI_DUNG.XOA`). Đặc tả ghi "CRUD" nhưng hệ thống chỉ có C, R, U. Xoá **mềm** để nhật ký xử
+  lý còn truy nguyên được người chịu trách nhiệm; thu hồi mọi refresh token đang mở — không làm
+  bước này thì tài khoản đã xoá vẫn dùng tiếp được tới khi token hết hạn. Từ chối tự xoá chính
+  mình, và từ chối xoá người **đang giữ một bước xử lý chưa xong** (xoá đi thì hồ sơ kẹt lại
+  giữa chừng, không ai nhận tiếp và cũng không có cảnh báo nào).
+- **Chức năng 23 — xoá hồ sơ nháp** (`DELETE /api/v1/sang-kien/{id}`, quyền `SANG_KIEN.XOA`).
+  Chỉ hồ sơ còn ở trạng thái NHAP và **chưa từng nộp**. Hồ sơ đã nộp vẫn phải đi đường *rút* hoặc
+  *huỷ*: văn bản đã vào hệ thống xét duyệt phải để lại lý do và người chịu trách nhiệm, không
+  được biến mất lặng lẽ khỏi mọi báo cáo.
+
+### Sửa — năm quyền giờ mới thực sự chặn đường
+
+| Quyền | Trước đây | Nay |
+|---|---|---|
+| `TIEP_NHAN.XEM` | Màn hình hàng chờ dùng chung endpoint danh sách hồ sơ (`SANG_KIEN.XEM`) | `GET /sang-kien/cho-tiep-nhan` là endpoint riêng, **ép trạng thái ĐÃ NỘP tại máy chủ** |
+| `TIEP_NHAN.XU_LY` | Bước tiếp nhận thực thi bằng `XU_LY.THUC_THI` chung | Bước có `LoaiBuoc = TIEP_NHAN` đòi thêm quyền này |
+| `XU_LY.UY_QUYEN` | Ai thực thi được bước là uỷ quyền được | Xử lý **thay cho người khác** đòi quyền riêng |
+| `DANH_MUC.NHAP` | Nhập Excel danh mục dùng `DANH_MUC.SUA` | Đòi `DANH_MUC.NHAP` |
+| `BAO_CAO.CAU_HINH` | Biểu mẫu thống kê dùng `DANH_MUC.THEM/SỬA/XOÁ` | Đòi `BAO_CAO.CAU_HINH` |
+
+Tham số `trangThaiTong` do máy khách gửi lên endpoint tiếp nhận bị **bỏ qua**. Nhận nó thì
+`TIEP_NHAN.XEM` trở thành đường vòng lấy trọn danh sách hồ sơ: người chỉ được phép thấy hàng chờ
+lại đọc được cả hồ sơ đã phê duyệt, đã rút, đang chấm điểm.
+
+Loại bước đọc từ **quy trình snapshot** của hồ sơ chứ không từ định nghĩa quy trình hiện hành,
+theo ADR 0002 — hồ sơ chạy bằng bản chụp lúc nộp.
+
+### Bù quyền cho hệ thống đã cài đặt
+
+Siết một quyền vừa tách ra sẽ làm hỏng chức năng **đang chạy tốt**: trên CSDL đã cài, chưa vai trò
+nào cầm quyền mới, nên ngay khi bản mới lên là 403 cho tất cả mọi người trừ quản trị hệ thống — và
+không ai biết vì sao, vì chẳng ai đổi gì cả.
+
+`BuQuyenTachMoiAsync` cấp quyền mới cho đúng những vai trò **đang có quyền anh em** của nó
+(`DANH_MUC.NHAP` ← `DANH_MUC.SUA`, `XU_LY.UY_QUYEN` ← `XU_LY.THUC_THI`, …), giữ nguyên khả năng
+hiện tại. Chỉ chạy **một lần** cho mỗi quyền, đánh dấu bằng khoá cấu hình ẩn — chạy lại mỗi lần
+khởi động sẽ đắp lên quyết định của quản trị viên khi họ cố ý gỡ quyền đó ra. Bước này chạy cả
+trên CSDL vừa cài để ma trận quyền của bản cài mới và bản nâng cấp giống nhau; khác đi thì một lỗi
+chỉ xuất hiện ở một trong hai loại triển khai.
+
+277/277 kiểm thử tích hợp (10 mới), 526/526 đơn vị (2 mới).
+
+---
+
 ## [1.6.0] — 2026-08-20
 
 Rà soát lại theo đúng chiều của bản 1.5.0 — **cấu hình khai báo được nhưng không dòng logic nào

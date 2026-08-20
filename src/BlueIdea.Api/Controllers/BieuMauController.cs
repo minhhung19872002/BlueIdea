@@ -170,7 +170,7 @@ public sealed class BieuMauThongKeController : ControllerBase
         => Ok(PhanHoiApi<BieuMauThongKe>.Ok(await _dichVu.LayTheoIdAsync(id, ct)));
 
     [HttpPost]
-    [Authorize(Policy = MaQuyen.DanhMucThem)]
+    [Authorize(Policy = MaQuyen.BaoCaoCauHinh)]
     public async Task<IActionResult> ThemAsync(
         [FromBody] LuuBieuMauThongKeDto duLieu, CancellationToken ct)
     {
@@ -181,7 +181,7 @@ public sealed class BieuMauThongKeController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = MaQuyen.DanhMucSua)]
+    [Authorize(Policy = MaQuyen.BaoCaoCauHinh)]
     public async Task<IActionResult> SuaAsync(
         Guid id, [FromBody] LuuBieuMauThongKeDto duLieu, CancellationToken ct)
     {
@@ -192,7 +192,7 @@ public sealed class BieuMauThongKeController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Policy = MaQuyen.DanhMucXoa)]
+    [Authorize(Policy = MaQuyen.BaoCaoCauHinh)]
     public async Task<IActionResult> XoaAsync(Guid id, CancellationToken ct)
     {
         await _dichVu.XoaAsync(id, ct);

@@ -43,13 +43,19 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
     private readonly IDichVuThongBao _thongBao;
     private readonly IDongHoHeThong _dongHo;
     private readonly DichVuDieuPhaiHanhDong _dieuPhai;
+    private readonly IDichVuPhanQuyen _phanQuyen;
+    private readonly IBoChuyenDoiSnapshotQuyTrinh _snapshot;
     private readonly ILogger<ThucThiBuocCommandHandler> _logger;
 
     public ThucThiBuocCommandHandler(
         IWorkflowEngine engine, INguoiDungHienTai nguoiDung, IAppDbContext db,
         IDichVuThongBao thongBao, IDongHoHeThong dongHo,
-        DichVuDieuPhaiHanhDong dieuPhai, ILogger<ThucThiBuocCommandHandler> logger)
+        DichVuDieuPhaiHanhDong dieuPhai, IDichVuPhanQuyen phanQuyen,
+        IBoChuyenDoiSnapshotQuyTrinh snapshot,
+        ILogger<ThucThiBuocCommandHandler> logger)
     {
+        _phanQuyen = phanQuyen;
+        _snapshot = snapshot;
         _engine = engine;
         _nguoiDung = nguoiDung;
         _db = db;
@@ -87,6 +93,10 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
         // chiu trach nhiem — dung thu ma ho so nghiem thu dua vao de truy nguoc.
         if (request.NguoiUyQuyenId.HasValue)
         {
+            // Xu ly THAY cho nguoi khac la dac quyen rieng, khong phai he qua cua XU_LY.THUC_THI:
+            // nhat ky ghi "A xu ly, uy quyen boi B" nen no quyet dinh ai chiu trach nhiem chuyen mon.
+            await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.XuLyUyQuyen, ct).ConfigureAwait(false);
+
             var hoSo = await _db.SangKien.AsNoTracking()
                 .Where(x => x.Id == request.SangKienId)
                 .Select(x => new { x.BuocHienTaiId })
@@ -110,6 +120,8 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
                     "Người uỷ quyền không phải tác nhân được cấu hình xử lý bước hiện tại.");
             }
         }
+
+        await BatBuocLaCanBoTiepNhanAsync(request.SangKienId, ct).ConfigureAwait(false);
 
         await BatBuocDaKiemPhieuAsync(request, ct).ConfigureAwait(false);
 
@@ -168,6 +180,37 @@ public sealed class ThucThiBuocCommandHandler : IRequestHandler<ThucThiBuocComma
     /// hoi dong va khong rang buoc gi voi buoc quy trinh. Nghia la mot buoc ten "Bo phieu" van
     /// bam qua duoc khi chua ai bo mot la phieu nao — bien bien ban thanh giay to hinh thuc.
     /// </summary>
+    /// <summary>
+    /// Chuc nang 27 — buoc TIEP_NHAN doi quyen <c>TIEP_NHAN.XU_LY</c> ngoai quyen thuc thi chung.
+    ///
+    /// Tiep nhan la cua ngo: nguoi tiep nhan quyet dinh ho so co duoc vao he thong xet duyet hay
+    /// bi tra lai. Yeu cau ky thuat tach no thanh chuc nang rieng, nen quyen cung phai tach —
+    /// khong phai ai xu ly duoc mot buoc bat ky cung duoc quyen gac cua.
+    /// </summary>
+    private async Task BatBuocLaCanBoTiepNhanAsync(Guid sangKienId, CancellationToken ct)
+    {
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Where(x => x.Id == sangKienId)
+            .Select(x => new { x.BuocHienTaiId, x.QuyTrinhSnapshot })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (hoSo?.BuocHienTaiId is null)
+        {
+            return;
+        }
+
+        // Doc SNAPSHOT chu khong doc quy trinh hien hanh (ADR 0002): ho so chay bang ban quy trinh
+        // chup luc nop, nen loai buoc phai lay tu chinh ban do.
+        var quyTrinh = _snapshot.DocSnapshot(hoSo.QuyTrinhSnapshot);
+        var buoc = quyTrinh?.DanhSachBuoc.FirstOrDefault(b => b.Id == hoSo.BuocHienTaiId.Value);
+
+        if (buoc?.LoaiBuoc == LoaiBuoc.TiepNhan)
+        {
+            await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.TiepNhanXuLy, ct).ConfigureAwait(false);
+        }
+    }
+
     private async Task BatBuocDaKiemPhieuAsync(ThucThiBuocCommand request, CancellationToken ct)
     {
         var hoSo = await _db.SangKien.AsNoTracking()

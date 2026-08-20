@@ -501,6 +501,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/NhanhXuLyPhuTests.cs"
     gaps:
     notes:
+      - "Ra soat 20/08/2026 (dot 2): bo sung XOA HO SO NHAP (DELETE /sang-kien/{id}, quyen SANG_KIEN.XOA). Quyen SANG_KIEN.XOA co ten trong ma tran phan quyen tu dau nhung khong endpoint nao doi den — bat hay tat deu khong doi gi. Nay chi xoa duoc ho so con o trang thai NHAP va chua tung nop (xoa mem, ghi lich su); ho so da nop van phai di duong RUT hoac HUY de con dau vet va nguoi chiu trach nhiem. Bang chung: QuyenTachRiengTests (3 test)."
       - "Ra soat 20/08/2026: bo sung luong HUY HO SO (POST /sang-kien/{id}/huy, quyen SANG_KIEN.HUY). Trang thai DA_HUY truoc do co trong danh muc va hien tren bao cao nhung khong chuc nang nao dat ho so ve trang thai do. Huy dong moi luot xu ly dang mo, bao tac gia, giu ho so tra cuu duoc; chan huy ho so da gan quyet dinh. Bang chung: LuongDieuPhoiHoSoTests (3 test huy)."
       - "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
@@ -583,7 +584,9 @@ requirements:
       backend: ["src/BlueIdea.Application/XuLy/ThucThiBuocCommand.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/LuongNghiepVuTests.cs"]
     gaps: []
-    notes: "Tests verify TAC_GIA gets empty actions, CAN_BO_TIEP_NHAN gets reception actions."
+    notes:
+      - "Ra soat 20/08/2026 (dot 2): TIEP_NHAN.XEM va TIEP_NHAN.XU_LY truoc day chi la ten trong ma tran phan quyen. Man hinh hang cho tiep nhan dung chung endpoint danh sach ho so (quyen SANG_KIEN.XEM) va buoc TIEP_NHAN thuc thi bang XU_LY.THUC_THI chung, nen go hai quyen nay khoi mot vai tro cung khong chan duoc gi. Nay: GET /sang-kien/cho-tiep-nhan la endpoint rieng doi TIEP_NHAN.XEM va EP trang thai DA_NOP tai may chu (bo qua trangThaiTong may khach gui len, de no khong thanh duong vong lay tron danh sach ho so); thuc thi buoc co LoaiBuoc=TIEP_NHAN doi them TIEP_NHAN.XU_LY, doc loai buoc tu quy trinh SNAPSHOT theo ADR 0002. Bang chung: QuyenTachRiengTests (2 test) + ChinhSachPhanQuyenControllerTests."
+      - "Tests verify TAC_GIA gets empty actions, CAN_BO_TIEP_NHAN gets reception actions."
 
   - id: REQ-28
     source_number: 28
@@ -885,6 +888,7 @@ requirements:
       tests: ["tests/BlueIdea.IntegrationTests/QuyetDinhVaQuanTriTests.cs", "tests/BlueIdea.IntegrationTests/NhapXuatVaCauHinhTests.cs"]
     gaps:
     notes:
+      - "Ra soat 20/08/2026 (dot 2): bo sung XOA TAI KHOAN (DELETE /he-thong/nguoi-dung/{id}, quyen NGUOI_DUNG.XOA) — dac ta chuc nang 43 ghi 'CRUD' nhung he thong chi co C, R, U. Xoa MEM de nhat ky xu ly con truy nguoc duoc; thu hoi moi refresh token dang mo (khong thi tai khoan da xoa van dung tiep den het han token); tu choi tu xoa chinh minh va tu choi xoa nguoi dang giu buoc xu ly chua xong. Bang chung: QuyenTachRiengTests (4 test)."
       - "Ra soat 20/08/2026 — LO HONG LEO THANG DAC QUYEN da sua: LayPhamViTruyCapAsync mo pham vi ra toan he thong khi nguoi dung co quyen SANG_KIEN.XEM_TAT_CA, va ham do duoc dung chung cho ca phep kiem pham vi khi QUAN TRI TAI KHOAN. Hau qua: vai tro Quan tri don vi (co XEM_TAT_CA de nhin ho so moi don vi) dat lai duoc mat khau va go duoc MFA cua BAT KY ai trong he thong. Nay tach LayPhamViDonViAsync (chi doc pham_vi_du_lieu) dung cho quan tri tai khoan va sua cay don vi. Bang chung: PhamViQuanTriNguoiDungTests (5 test, co ca phep doi chung trong pham vi)."
       - "Excel import with dry-run mode and row-level error reporting verified by tests. Run-002-B15: DatLaiMatKhauAsync cross-tenant IDOR fixed — BatBuocNguoiDungTrongPhamViAsync added after user lookup to enforce org-scope. Same pattern as GoMfaChoNguoiKhacAsync fix."
       - "Bo sung 19/08/2026: nguoi dung tu cap nhat ho so ca nhan (khong thay the quan ly nguoi dung cua quan tri vien)."

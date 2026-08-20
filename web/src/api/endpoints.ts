@@ -363,6 +363,11 @@ export const apiSangKien = {
       `/api/v1/sang-kien/${id}/nop`,
     ),
   rut: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/rut`, { lyDo }),
+  /** Chức năng 23 — xoá hồ sơ còn ở dạng nháp. Hồ sơ đã nộp thì dùng rút/huỷ. */
+  xoa: (id: string) => xoaDuLieu(`/api/v1/sang-kien/${id}`),
+  /** Chức năng 27 — hàng chờ tiếp nhận, quyền riêng TIEP_NHAN.XEM. */
+  choTiepNhan: (thamSo?: Record<string, unknown>) =>
+    layPhanTrang<SangKienTomTat>('/api/v1/sang-kien/cho-tiep-nhan', thamSo),
   /** Huỷ hồ sơ đã nộp — việc của cán bộ điều phối, khác "rút" của tác giả. */
   huy: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/huy`, { lyDo }),
   /** Chức năng 37 — tìm theo ý nghĩa câu hỏi, không cần trùng từ khoá. */
@@ -1075,6 +1080,8 @@ export const apiHeThong = {
     ),
   datLaiMatKhau: (id: string) =>
     guiDuLieu<{ matKhauTam: string }>(`/api/v1/he-thong/nguoi-dung/${id}/dat-lai-mat-khau`),
+  /** Chức năng 43 — xoá tài khoản (xoá mềm). Khác khoá tài khoản: khoá mở lại được. */
+  xoaNguoiDung: (id: string) => xoaDuLieu(`/api/v1/he-thong/nguoi-dung/${id}`),
 
   // Thông báo trong ứng dụng
   thongBao: (thamSo?: { trang?: number; soDong?: number; chuaDoc?: boolean }) =>
