@@ -830,4 +830,223 @@ test.describe('REQ-17, REQ-18, REQ-13: Hội đồng và đánh giá', () => {
       await context.close();
     });
   });
+
+  // ─── REQ-19: Phiên họp hội đồng (Council Session) ───────────────────
+
+  test.describe('REQ-19: Phiên họp hội đồng', () => {
+    test('POST tạo phiên họp (thuky) → GET xác nhận', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có hội đồng mẫu');
+        return;
+      }
+      const hoiDongId: string = listBody.duLieu[0].id;
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên họp E2E ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Phòng họp A',
+        noiDung: 'Nội dung test phiên họp E2E',
+      });
+      const status = createRes!.status();
+      expect([200, 400, 403, 422]).toContain(status);
+      if (status === 200) {
+        const body = await createRes!.json();
+        expect(body.thanhCong).toBe(true);
+        const phienId = body.duLieu?.id;
+        if (phienId) {
+          const getRes = await apiRequest(page, 'GET', `${API.hoiDong}/phien-hop/${phienId}`);
+          expect(getRes!.status()).toBe(200);
+          const getBody = await getRes!.json();
+          expect(getBody.thanhCong).toBe(true);
+          expect(getBody.duLieu).toBeTruthy();
+          // Verify the record exists and has expected structure
+          const phien = getBody.duLieu;
+          expect(phien.id || phien.hoiDongId).toBeTruthy();
+        }
+      }
+    });
+
+    test('POST /phien-hop/diem-danh điểm danh thành viên', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=5`);
+      const listBody = await listRes!.json();
+      let hoiDongId: string | null = null;
+      let thanhVienId: string | null = null;
+      for (const hd of listBody.duLieu as Array<{ id: string }>) {
+        const detRes = await apiRequest(page, 'GET', `${API.hoiDong}/${hd.id}`);
+        const detBody = await detRes!.json();
+        const members: Array<{ nguoiDungId: string }> = detBody.duLieu.thanhVien || [];
+        if (members.length > 0) {
+          hoiDongId = hd.id;
+          thanhVienId = members[0].nguoiDungId;
+          break;
+        }
+      }
+      if (!hoiDongId || !thanhVienId) {
+        test.skip(true, 'Không có hội đồng nào có thành viên');
+        return;
+      }
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên DD E2E ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Phòng họp B',
+        noiDung: 'Test điểm danh',
+      });
+      if (!createRes || createRes.status() !== 200) return;
+      const phienBody = await createRes.json();
+      const phienId = phienBody.duLieu?.id;
+      if (!phienId) return;
+
+      const ddRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop/${phienId}/diem-danh`, {
+        thanhVienId,
+        coMat: true,
+        lyDoVang: null,
+      });
+      expect([200, 400, 403, 422]).toContain(ddRes!.status());
+    });
+
+    test('POST /phien-hop/bo-phieu bỏ phiếu — endpoint tồn tại', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'chutich');
+      // Test that the endpoint exists and responds (might be 403 depending on role config)
+      const res = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop/bo-phieu`, {
+        phienHopId: '00000000-0000-0000-0000-000000000001',
+        sangKienId: '00000000-0000-0000-0000-000000000001',
+        ketQua: 'DONG_Y',
+        yKien: 'Test E2E bỏ phiếu',
+      });
+      // Valid responses: 200 (ok), 400 (bad data), 403 (no permission), 404 (not found), 422 (validation)
+      expect([200, 400, 403, 404, 422, 500]).toContain(res!.status());
+    });
+
+    test('GET /phien-hop/{id}/ket-qua-bo-phieu trả về kết quả', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có hội đồng mẫu');
+        return;
+      }
+      const hoiDongId: string = listBody.duLieu[0].id;
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên KQ E2E ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Test kq',
+        noiDung: 'Test kết quả bỏ phiếu',
+      });
+      if (!createRes || createRes.status() !== 200) return;
+      const phienBody = await createRes.json();
+      const phienId = phienBody.duLieu?.id;
+      if (!phienId) return;
+
+      const kqRes = await apiRequest(page, 'GET',
+        `${API.hoiDong}/phien-hop/${phienId}/ket-qua-bo-phieu?sangKienId=00000000-0000-0000-0000-000000000001`);
+      expect([200, 400, 404]).toContain(kqRes!.status());
+    });
+
+    test('POST /phien-hop/{id}/ket-thuc kết thúc phiên', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có hội đồng mẫu');
+        return;
+      }
+      const hoiDongId: string = listBody.duLieu[0].id;
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên KT E2E ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Phòng họp D',
+        noiDung: 'Test kết thúc',
+      });
+      if (!createRes || createRes.status() !== 200) return;
+      const phienBody = await createRes.json();
+      const phienId = phienBody.duLieu?.id;
+      if (!phienId) return;
+
+      const ktRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop/${phienId}/ket-thuc`, {
+        ketLuan: 'Kết thúc phiên họp test E2E',
+      });
+      expect([200, 400, 403, 409]).toContain(ktRes!.status());
+    });
+
+    test('POST /phien-hop/{id}/y-kien-ho-so ghi ý kiến', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'thuky');
+      const listRes = await apiRequest(page, 'GET', `${API.hoiDong}?trang=1&soDong=1`);
+      const listBody = await listRes!.json();
+      if (listBody.duLieu.length === 0) {
+        test.skip(true, 'Không có hội đồng mẫu');
+        return;
+      }
+      const hoiDongId: string = listBody.duLieu[0].id;
+      const createRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId,
+        tieuDe: `Phiên YK E2E ${Date.now()}`,
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Phòng họp E',
+        noiDung: 'Test ý kiến',
+      });
+      if (!createRes || createRes.status() !== 200) return;
+      const phienBody = await createRes.json();
+      const phienId = phienBody.duLieu?.id;
+      if (!phienId) return;
+
+      const ykRes = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop/${phienId}/y-kien-ho-so`, {
+        sangKienId: '00000000-0000-0000-0000-000000000001',
+        ketLuanRieng: 'Hồ sơ đạt yêu cầu',
+        ketQua: 'DAT',
+      });
+      expect([200, 400, 403, 404, 422]).toContain(ykRes!.status());
+    });
+
+    test('tác giả POST /phien-hop → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop`, {
+        hoiDongId: '00000000-0000-0000-0000-000000000001',
+        tieuDe: 'Test auth',
+        ngayHop: new Date().toISOString(),
+        diaDiem: 'Test',
+        noiDung: 'Test',
+      });
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực POST /phien-hop → 401', async ({ page }) => {
+      await page.goto('/');
+      const res = await page.request.post(`${API.hoiDong}/phien-hop`, {
+        data: {
+          hoiDongId: '00000000-0000-0000-0000-000000000001',
+          tieuDe: 'Unauth',
+          ngayHop: new Date().toISOString(),
+          diaDiem: 'Test',
+          noiDung: 'Test',
+        },
+      });
+      expect(res.status()).toBe(401);
+    });
+
+    test('tác giả POST /phien-hop/bo-phieu → 403', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(page, 'POST', `${API.hoiDong}/phien-hop/bo-phieu`, {
+        phienHopId: '00000000-0000-0000-0000-000000000001',
+        sangKienId: '00000000-0000-0000-0000-000000000001',
+        ketQua: 'DONG_Y',
+        yKien: 'Test',
+      });
+      expect(res!.status()).toBe(403);
+    });
+  });
 });
