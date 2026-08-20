@@ -41,6 +41,7 @@ public static class MaQuyen
     public const string SangKienXoa = "SANG_KIEN.XOA";
     public const string SangKienNop = "SANG_KIEN.NOP";
     public const string SangKienRut = "SANG_KIEN.RUT";
+    public const string SangKienHuy = "SANG_KIEN.HUY";
     public const string SangKienXuat = "SANG_KIEN.XUAT";
     public const string SangKienXemTatCa = "SANG_KIEN.XEM_TAT_CA";
 
@@ -51,6 +52,7 @@ public static class MaQuyen
     public const string XuLyThucThi = "XU_LY.THUC_THI";
     public const string XuLyThuHoi = "XU_LY.THU_HOI";
     public const string XuLyUyQuyen = "XU_LY.UY_QUYEN";
+    public const string XuLyGiaHan = "XU_LY.GIA_HAN";
 
     // Danh gia
     public const string DanhGiaXem = "DANH_GIA.XEM";

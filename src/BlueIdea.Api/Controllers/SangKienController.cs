@@ -270,6 +270,21 @@ public sealed class SangKienController : ControllerBase
         return Ok(PhanHoiApi.Ok("Đã rút hồ sơ"));
     }
 
+    /// <summary>
+    /// Huỷ một hồ sơ đã nộp (nộp nhầm đợt, nộp trùng, phát hiện sai sót sau khi tiếp nhận).
+    ///
+    /// Khác "rút hồ sơ" — việc của tác giả và chỉ trước bước chấm điểm. Huỷ là việc của cán bộ
+    /// điều phối, dành cho hồ sơ không thể đi tiếp nhưng tác giả không còn quyền rút.
+    /// </summary>
+    [HttpPost("{id:guid}/huy")]
+    [Authorize(Policy = MaQuyen.SangKienHuy)]
+    public async Task<IActionResult> HuyAsync(
+        Guid id, [FromBody] RutHoSoDto duLieu, CancellationToken ct)
+    {
+        await _mediator.Send(new HuyHoSoCommand(id, duLieu.LyDo), ct);
+        return Ok(PhanHoiApi.Ok("Đã huỷ hồ sơ"));
+    }
+
     /// <summary>Xuất danh sách hồ sơ ra Excel theo bộ lọc hiện tại.</summary>
     [HttpGet("xuat-excel")]
     [Authorize(Policy = MaQuyen.SangKienXuat)]
@@ -366,6 +381,23 @@ public sealed class XuLyController : ControllerBase
             $"Đã xử lý {ketQua.ThanhCong}/{ketQua.TongSo} hồ sơ"));
     }
 
+    /// <summary>
+    /// Gia hạn xử lý cho bước hiện tại của hồ sơ.
+    ///
+    /// Chỉ kéo dài được, không rút ngắn: ép tiến độ người đang xử lý là một việc khác về nghiệp
+    /// vụ, không được núp dưới cái tên "gia hạn".
+    /// </summary>
+    [HttpPost("gia-han")]
+    [Authorize(Policy = MaQuyen.XuLyGiaHan)]
+    public async Task<IActionResult> GiaHanAsync(
+        [FromBody] GiaHanDto duLieu, CancellationToken ct)
+    {
+        await _mediator.Send(
+            new GiaHanXuLyCommand(duLieu.SangKienId, duLieu.HanMoi, duLieu.LyDo), ct);
+
+        return Ok(PhanHoiApi.Ok("Đã gia hạn xử lý"));
+    }
+
     /// <summary>Thu hồi bước đã xử lý (nếu bước cho phép).</summary>
     [HttpPost("thu-hoi")]
     [Authorize(Policy = MaQuyen.XuLyThuHoi)]
@@ -375,6 +407,15 @@ public sealed class XuLyController : ControllerBase
         await _mediator.Send(new ThuHoiBuocCommand(duLieu.SangKienId, duLieu.LyDo), ct);
         return Ok(PhanHoiApi.Ok("Đã thu hồi bước xử lý"));
     }
+}
+
+public sealed class GiaHanDto
+{
+    public Guid SangKienId { get; set; }
+
+    public DateTimeOffset HanMoi { get; set; }
+
+    public string LyDo { get; set; } = string.Empty;
 }
 
 public sealed class ThucThiBuocDto

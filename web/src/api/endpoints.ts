@@ -363,6 +363,8 @@ export const apiSangKien = {
       `/api/v1/sang-kien/${id}/nop`,
     ),
   rut: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/rut`, { lyDo }),
+  /** Huỷ hồ sơ đã nộp — việc của cán bộ điều phối, khác "rút" của tác giả. */
+  huy: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/huy`, { lyDo }),
   /** Chức năng 37 — tìm theo ý nghĩa câu hỏi, không cần trùng từ khoá. */
   timNguNghia: (thamSo: {
     cauHoi: string;
@@ -454,6 +456,9 @@ export const apiXuLy = {
     ),
   thuHoi: (sangKienId: string, lyDo: string) =>
     guiDuLieu('/api/v1/xu-ly/thu-hoi', { sangKienId, lyDo }),
+  /** Gia hạn xử lý cho bước hiện tại — chỉ kéo dài được, không rút ngắn. */
+  giaHan: (sangKienId: string, hanMoi: string, lyDo: string) =>
+    guiDuLieu('/api/v1/xu-ly/gia-han', { sangKienId, hanMoi, lyDo }),
 };
 
 // --- Đánh giá --------------------------------------------------------------

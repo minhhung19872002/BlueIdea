@@ -24,12 +24,14 @@ import {
 } from 'antd';
 import {
   CalculatorOutlined,
+  ClockCircleOutlined,
   DownloadOutlined,
   EditOutlined,
   FilePdfOutlined,
   FileTextOutlined,
   ReloadOutlined,
   RollbackOutlined,
+  StopOutlined,
   TeamOutlined,
   UndoOutlined,
 } from '@ant-design/icons';
@@ -109,6 +111,8 @@ export default function TrangChiTietHoSo() {
   const [moPhanCong, setMoPhanCong] = useState(false);
 
   const duocThuHoi = useAuthStore((st) => st.coQuyen('XU_LY.THU_HOI'));
+  const duocGiaHan = useAuthStore((st) => st.coQuyen('XU_LY.GIA_HAN'));
+  const duocHuy = useAuthStore((st) => st.coQuyen('SANG_KIEN.HUY'));
   const duocPhanCong = useAuthStore((st) => st.coQuyen('DANH_GIA.PHAN_CONG'));
   const duocTongHop = useAuthStore((st) => st.coQuyen('DANH_GIA.TONG_HOP'));
   const duocXemXetTrungLap = useAuthStore((st) => st.coQuyen('TRUNG_LAP.XEM_XET'));
@@ -201,6 +205,40 @@ export default function TrangChiTietHoSo() {
       }),
   });
 
+  /**
+   * Gia hạn xử lý: đổi mốc hạn của chính lượt xử lý đang mở.
+   *
+   * Không phải sửa quy trình — quy trình vẫn nguyên; đây là việc điều phối tiến độ, có lý do bắt
+   * buộc và ghi nhật ký để sau còn đối chiếu vì sao hồ sơ này chậm.
+   */
+  const giaHan = useMutation({
+    mutationFn: (duLieu: { hanMoi: string; lyDo: string }) =>
+      apiXuLy.giaHan(id, duLieu.hanMoi, duLieu.lyDo),
+    onSuccess: () => {
+      message.success('Đã gia hạn xử lý');
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
+    },
+    onError: (loi) =>
+      modal.error({
+        title: 'Không gia hạn được',
+        content: loi instanceof LoiApi ? loi.message : 'Đã xảy ra lỗi.',
+      }),
+  });
+
+  /** Huỷ hồ sơ đã nộp (nộp nhầm đợt, nộp trùng, phát hiện sai sót sau khi tiếp nhận). */
+  const huyHoSo = useMutation({
+    mutationFn: (lyDo: string) => apiSangKien.huy(id, lyDo),
+    onSuccess: () => {
+      message.success('Đã huỷ hồ sơ');
+      void queryClient.invalidateQueries({ queryKey: ['sang-kien', id] });
+    },
+    onError: (loi) =>
+      modal.error({
+        title: 'Không huỷ được hồ sơ',
+        content: loi instanceof LoiApi ? loi.message : 'Đã xảy ra lỗi.',
+      }),
+  });
+
   /** Chức năng 32 — tổng hợp điểm của hội đồng cho hồ sơ này. */
   const tongHop = useMutation({
     mutationFn: (hoiDongId: string) => apiDanhGia.tongHop(id, hoiDongId),
@@ -280,6 +318,14 @@ export default function TrangChiTietHoSo() {
 
   const hs = chiTiet.data!;
 
+  /*
+   * Huỷ chỉ áp cho hồ sơ đã nộp và chưa kết thúc. Hồ sơ nháp thì tác giả tự xoá; hồ sơ đã rút /
+   * đã huỷ / đã có kết quả thì máy chủ chặn, nên không bày nút ra cho bấm rồi ăn lỗi.
+   */
+  const coTheHuy = !['NHAP', 'DA_RUT', 'DA_HUY', 'DA_PHE_DUYET', 'KHONG_DAT'].includes(
+    hs.trangThaiTong,
+  );
+
   function moHopThoaiThuHoi() {
     let lyDo = '';
 
@@ -310,6 +356,92 @@ export default function TrangChiTietHoSo() {
         }
 
         return thuHoi.mutateAsync(lyDo.trim());
+      },
+    });
+  }
+
+  function moHopThoaiGiaHan() {
+    let hanMoi = '';
+    let lyDo = '';
+
+    modal.confirm({
+      title: 'Gia hạn xử lý',
+      width: 520,
+      content: (
+        <div>
+          <p>
+            Đổi hạn xử lý của bước hiện tại. Chỉ kéo dài được — muốn ép tiến độ sớm hơn thì đó là
+            việc khác, không đi bằng đường này.
+          </p>
+          <Input
+            type="datetime-local"
+            aria-label="Hạn mới"
+            onChange={(e) => {
+              hanMoi = e.target.value;
+            }}
+          />
+          <Input.TextArea
+            rows={3}
+            style={{ marginTop: 8 }}
+            placeholder="Lý do gia hạn (bắt buộc)"
+            onChange={(e) => {
+              lyDo = e.target.value;
+            }}
+          />
+        </div>
+      ),
+      okText: 'Gia hạn',
+      cancelText: 'Huỷ',
+      onOk: () => {
+        if (!hanMoi) {
+          message.warning('Vui lòng chọn hạn mới.');
+          return Promise.reject(new Error('thieu-han'));
+        }
+
+        if (!lyDo.trim()) {
+          message.warning('Vui lòng nhập lý do gia hạn.');
+          return Promise.reject(new Error('thieu-ly-do'));
+        }
+
+        return giaHan.mutateAsync({
+          hanMoi: new Date(hanMoi).toISOString(),
+          lyDo: lyDo.trim(),
+        });
+      },
+    });
+  }
+
+  function moHopThoaiHuy() {
+    let lyDo = '';
+
+    modal.confirm({
+      title: 'Huỷ hồ sơ',
+      width: 520,
+      content: (
+        <div>
+          <p>
+            Hồ sơ chuyển sang trạng thái <b>Đã huỷ</b>, đóng mọi lượt xử lý đang mở và tác giả
+            được thông báo. Hồ sơ vẫn tra cứu được và vẫn nằm trong báo cáo với nhãn "Đã huỷ".
+          </p>
+          <Input.TextArea
+            rows={3}
+            placeholder="Lý do huỷ (bắt buộc)"
+            onChange={(e) => {
+              lyDo = e.target.value;
+            }}
+          />
+        </div>
+      ),
+      okText: 'Huỷ hồ sơ',
+      okButtonProps: { danger: true },
+      cancelText: 'Đóng',
+      onOk: () => {
+        if (!lyDo.trim()) {
+          message.warning('Vui lòng nhập lý do huỷ.');
+          return Promise.reject(new Error('thieu-ly-do'));
+        }
+
+        return huyHoSo.mutateAsync(lyDo.trim());
       },
     });
   }
@@ -499,7 +631,7 @@ export default function TrangChiTietHoSo() {
           </Card>
         )}
 
-        {(duocThuHoi || duocPhanCong || duocTongHop) && (
+        {(duocThuHoi || duocPhanCong || duocTongHop || duocGiaHan || (duocHuy && coTheHuy)) && (
           <Card
             size="small"
             title="Nghiệp vụ hội đồng"
@@ -529,6 +661,25 @@ export default function TrangChiTietHoSo() {
                   onClick={moHopThoaiThuHoi}
                 >
                   Thu hồi bước
+                </Button>
+              )}
+              {duocGiaHan && hs.buocHienTaiId && (
+                <Button
+                  icon={<ClockCircleOutlined />}
+                  loading={giaHan.isPending}
+                  onClick={moHopThoaiGiaHan}
+                >
+                  Gia hạn xử lý
+                </Button>
+              )}
+              {duocHuy && coTheHuy && (
+                <Button
+                  icon={<StopOutlined />}
+                  danger
+                  loading={huyHoSo.isPending}
+                  onClick={moHopThoaiHuy}
+                >
+                  Huỷ hồ sơ
                 </Button>
               )}
             </Space>

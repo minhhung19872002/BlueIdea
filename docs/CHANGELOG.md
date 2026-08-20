@@ -184,6 +184,65 @@ riêng.
 
 ---
 
+## [2.0.0] — 2026-08-20
+
+Ba luồng nghiệp vụ còn thiếu, phát hiện khi rà soát theo góc nhìn người dùng chứ không theo mã.
+
+### Gia hạn xử lý (mới)
+
+Hạn xử lý vốn chỉ do máy chạy quy trình đặt khi hồ sơ vào bước — không màn hình nào, không API
+nào sửa được. Thực tế hành chính thì luôn có lý do chính đáng phải kéo dài: cán bộ nghỉ, đợt cao
+điểm, phải chờ ý kiến đơn vị khác. Trước đây chỉ còn hai lối xấu: để hồ sơ quá hạn (báo đỏ + nhắc
+mỗi sáng), hoặc thu hồi bước rồi làm lại từ đầu.
+
+- `POST /api/v1/xu-ly/gia-han`, quyền mới `XU_LY.GIA_HAN`, nút **Gia hạn xử lý** trên trang hồ sơ.
+- **Chỉ kéo dài được, không rút ngắn**: ép tiến độ người đang xử lý là việc khác về nghiệp vụ,
+  không được núp dưới cái tên "gia hạn".
+- Bắt buộc nhập lý do; ghi nhật ký hệ thống và lịch sử hồ sơ (hạn cũ → hạn mới, lý do); đổi cả
+  mốc hạn của lượt xử lý đang mở nên tiến độ và cờ quá hạn không còn theo mốc cũ; báo cho người
+  đang giữ bước.
+
+### Huỷ hồ sơ (mới)
+
+Trạng thái `DA_HUY` có trong danh mục, hiển thị được trên báo cáo, nhưng **không một chức năng
+nào** đặt hồ sơ về trạng thái đó — nộp nhầm đợt, nộp trùng, phát hiện sai sót sau khi tiếp nhận
+đều không có lối ra.
+
+- `POST /api/v1/sang-kien/{id}/huy`, quyền mới `SANG_KIEN.HUY`, nút **Huỷ hồ sơ** trên trang hồ sơ.
+- Khác *rút hồ sơ* (việc của tác giả, chỉ trước bước chấm điểm): huỷ là việc của cán bộ điều phối.
+- Đóng mọi lượt xử lý đang mở nên hồ sơ đã huỷ không còn nằm trong "việc cần xử lý" của ai; báo
+  cho tác giả; ghi lịch sử kèm lý do. Không xoá mềm — hồ sơ vẫn tra cứu được với nhãn "Đã huỷ".
+- Chặn huỷ hồ sơ đã gán vào quyết định công nhận: việc đó phải đi bằng đường quyết định, có văn
+  bản hành chính kèm theo.
+
+### Hai loại bước nay làm đúng cái tên của nó
+
+Trình thiết kế cho chọn 10 loại bước, nhưng chỉ CHẤM_ĐIỂM và PHÊ_DUYỆT thực sự đổi hành vi.
+
+- **CÔNG_BỐ**: trước đây không một dòng logic nào đọc tới — ai khai một bước "Công bố" sẽ tưởng
+  hệ thống tự công bố, thực tế nó chỉ là bước bấm qua. Nay đi qua bước loại này là kết quả được
+  công bố ngay (đánh dấu đã công bố, mở hiển thị công khai), chỉ áp cho hồ sơ **Đạt**.
+- **BỎ_PHIẾU**: trước đây chỉ dùng để chặn rút hồ sơ, nên một bước tên "Bỏ phiếu" vẫn bấm qua
+  được khi chưa ai bỏ một lá phiếu nào — biến biên bản thành giấy tờ hình thức. Nay kết luận
+  "Đạt" ở bước loại này bị chặn nếu hội đồng chưa bỏ phiếu hoặc tỷ lệ chưa đạt ngưỡng thông qua.
+  Các nhánh trả lại / bổ sung / không đạt vẫn đi được, nếu không hồ sơ thiếu phiếu sẽ kẹt cứng.
+
+### Kiểm thử
+
+`LuongDieuPhoiHoSoTests` — 9 test: gia hạn (thành công, hạn sớm hơn bị chặn, thiếu lý do bị chặn,
+tác giả 403), huỷ (trạng thái + đóng lượt đang mở + lịch sử, huỷ lần hai 409, tác giả 403), bước
+BỎ_PHIẾU chưa kiểm phiếu bị chặn, bước CÔNG_BỐ tự công bố.
+
+240/240 kiểm thử tích hợp, 524/524 đơn vị, 405/405 E2E.
+
+### Ghi chú kỹ thuật
+
+Kiểm thử bắt được một lỗi thật khi viết: `SangKienXuLy.DaHoanThanh` là thuộc tính **tính** trong
+.NET, EF Core không dịch sang SQL được — mọi truy vấn lọc lượt xử lý đang mở phải viết theo
+`ThoiGianXuLy == null`.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

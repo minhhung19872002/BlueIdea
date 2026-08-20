@@ -273,6 +273,7 @@ requirements:
     gaps:
       - "2 action types (TAO_QUYET_DINH, YEU_CAU_KY_SO) log warnings — require future implementation"
     notes:
+      - "Ra soat 20/08/2026: hai loai buoc CONG_BO va BO_PHIEU truoc day khai duoc tren trinh thiet ke nhung may chay quy trinh khong xu ly rieng. Nay qua buoc CONG_BO la ket qua duoc cong bo (chi ho so Dat), va buoc BO_PHIEU chan ket luan Dat khi hoi dong chua bo phieu hoac chua dat nguong thong qua. Bang chung: LuongDieuPhoiHoSoTests.Buoc_Bo_Phieu_Chua_Kiem_Phieu_Thi_Khong_Ket_Luan_Dat_Duoc va Qua_Buoc_Cong_Bo_Thi_Ket_Qua_Duoc_Cong_Bo."
       - "Run-002-B5: Feature toggle enforcement added to BoMayQuyTrinh. Run-002-B6: GuiThongBaoAsync now gates EMAIL/SMS channels via LayKenhChoPhep(ChucNangBat). Run-002-B10: Batch handler dispatches notifications + integration sync per transition. Run-002-B16: Centralized DichVuDieuPhaiHanhDong replaces duplicated dispatch in both handlers. All 10 HanhDongCanChay action types routed — DONG_BO_LIEN_THONG and KIEM_TRA_TRUNG_LAP implemented, CAP_NHAT_KET_QUA deferred to engine (BoMayQuyTrinh already writes KetQua), 5 actions log warnings. Per-action error isolation."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to TieuChiController for controller-layer defense-in-depth"
       - "Iteration-23: PHAN_CONG_CHAM automated — CongViecPhanCongCham background job auto-assigns council members to score innovations when workflow transitions to a scoring step. Conflict-of-interest exclusion (authors can't score their own work), idempotent assignment (no duplicates), deadline from step config, notifications to assigned members. 4 remaining unimplemented actions: TAO_QUYET_DINH (needs admin input), YEU_CAU_KY_SO (interactive signing), TAO_BIEN_BAN, CONG_BO_KET_QUA."
@@ -508,6 +509,7 @@ requirements:
     gaps:
       - "No test for diff accuracy (before/after values)"
     notes:
+      - "Ra soat 20/08/2026: bo sung luong HUY HO SO (POST /sang-kien/{id}/huy, quyen SANG_KIEN.HUY). Trang thai DA_HUY truoc do co trong danh muc va hien tren bao cao nhung khong chuc nang nao dat ho so ve trang thai do. Huy dong moi luot xu ly dang mo, bao tac gia, giu ho so tra cuu duoc; chan huy ho so da gan quyet dinh. Bang chung: LuongDieuPhoiHoSoTests (3 test huy)."
       - "Run-002-B1: IDOR fix — BatBuocTrongPhamViAsync scope check added to LayChiTietAsync, LayTienDoAsync, LayLichSuAsync. 13 IDOR tests added (neg+pos). Tests compile but not executed (env lacks .NET 8 runtime). Run-002-B12: LayHanhDongKhaDungQuery now implements ICoYeuCauQuyen with MaQuyen.SangKienXem + DoiTuongId for pipeline permission gate and audit context. GoiYAsync now calls BatBuocCoQuyenAsync(SangKienXem) — all 5 read methods in DichVuTruyVanSangKien are now gated."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
       - "Iteration-21 TD-005: IDOR scope checks added to CapNhatHoSoCommand, NopHoSoCommand, RutHoSoCommand, LayHanhDongKhaDungQuery handlers. DoiTuongId removed from ICoYeuCauQuyen (was discarded in KiemTraQuyenAsync), moved to ICoGhiNhatKy for audit log. 4 integration tests added to IdorBaoVeTests.cs."
@@ -649,6 +651,7 @@ requirements:
         - "tests/BlueIdea.IntegrationTests/IdorBaoVeTests.cs"
     gaps: []
     notes:
+      - "Ra soat 20/08/2026: bo sung luong GIA HAN xu ly (POST /xu-ly/gia-han, quyen XU_LY.GIA_HAN). Truoc do han xu ly chi do may chay quy trinh dat, khong co duong nao doi. Chi cho keo dai, bat buoc ly do, ghi nhat ky va lich su ho so, doi ca han cua luot xu ly dang mo. Bang chung: LuongDieuPhoiHoSoTests (4 test gia han)."
       - "Run-002-P0: Action-level [Authorize(Policy)] added to SangKienController for controller-layer defense-in-depth"
       - "Iteration-28: Supporting evidence added — GiamSatVaChiuLoiTests: Prometheus metrics endpoint (internal-only, returns http_request metrics), circuit-breaker policies on external HTTP clients (4/4). ThongBaoSuKienTests: in-app notifications for council meetings with venue/time, navigable links (4/4)."
       - "Iteration-29: Verified — LuongNghiepVuTests: GET tien-do returns ≥6 timeline entries covering full lifecycle (NHAP→TIEP_NHAN→THAM_DINH→CHAM_DIEM→KET_LUAN→CONG_BO). IdorBaoVeTests: cross-org user blocked from viewing tien-do (404 IDOR protection). All tests run against real PostgreSQL via Testcontainers."

@@ -201,6 +201,7 @@ public sealed partial class DuLieuMau
         (MaQuyen.SangKienThem, "Tạo hồ sơ sáng kiến", "Sáng kiến"),
         (MaQuyen.SangKienSua, "Sửa hồ sơ sáng kiến", "Sáng kiến"),
         (MaQuyen.SangKienXoa, "Xóa hồ sơ sáng kiến", "Sáng kiến"),
+        (MaQuyen.SangKienHuy, "Huỷ hồ sơ đã nộp", "Sáng kiến"),
         (MaQuyen.SangKienNop, "Nộp hồ sơ sáng kiến", "Sáng kiến"),
         (MaQuyen.SangKienRut, "Rút hồ sơ sáng kiến", "Sáng kiến"),
         (MaQuyen.SangKienXuat, "Xuất danh sách sáng kiến", "Sáng kiến"),
@@ -212,6 +213,7 @@ public sealed partial class DuLieuMau
         (MaQuyen.XuLyThucThi, "Thực thi bước xử lý", "Xử lý"),
         (MaQuyen.XuLyThuHoi, "Thu hồi bước đã xử lý", "Xử lý"),
         (MaQuyen.XuLyUyQuyen, "Ủy quyền xử lý", "Xử lý"),
+        (MaQuyen.XuLyGiaHan, "Gia hạn xử lý", "Xử lý"),
 
         (MaQuyen.DanhGiaXem, "Xem hồ sơ đánh giá", "Đánh giá"),
         (MaQuyen.DanhGiaChamDiem, "Chấm điểm hồ sơ", "Đánh giá"),
@@ -274,8 +276,9 @@ public sealed partial class DuLieuMau
             new[]
             {
                 MaQuyen.SangKienXem, MaQuyen.SangKienXemTatCa, MaQuyen.SangKienXuat,
+                MaQuyen.SangKienHuy,
                 MaQuyen.TiepNhanXem, MaQuyen.TiepNhanXuLy,
-                MaQuyen.XuLyXem, MaQuyen.XuLyThucThi, MaQuyen.XuLyThuHoi,
+                MaQuyen.XuLyXem, MaQuyen.XuLyThucThi, MaQuyen.XuLyThuHoi, MaQuyen.XuLyGiaHan,
                 MaQuyen.TrungLapXem, MaQuyen.TrungLapXemXet,
                 MaQuyen.DanhMucXem, MaQuyen.BaoCaoXem
             },

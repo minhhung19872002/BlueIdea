@@ -35,7 +35,7 @@ thiện, đều được ghi rõ.
 | 9 | Cấu hình quy trình | ✅ | CRUD, **sao chép**, tạo phiên bản mới, kích hoạt, ngừng áp dụng, **xuất sơ đồ ra PNG và PDF**, **xem toàn màn hình** — tất cả có nút trên màn hình |
 | 10 | Cấu hình trường hợp | ✅ | Nhánh rẽ có điều kiện jsonb; rule evaluator đầy đủ toán tử; xem trên designer |
 | 11 | Cấu hình bước xử lý | ✅ | Panel cấu hình bước trên trình thiết kế ReactFlow |
-| 12 | Chức năng bổ sung | ✅ | Bật/tắt 9 chức năng ngay trên trình thiết kế quy trình |
+| 12 | Chức năng bổ sung | ✅ | Bật/tắt 9 chức năng ngay trên trình thiết kế quy trình. **Loại bước CÔNG_BỐ và BỎ_PHIẾU có hành vi thật**: qua bước Công bố là kết quả được công bố (hồ sơ Đạt); bước Bỏ phiếu chặn kết luận "Đạt" khi hội đồng chưa bỏ phiếu hoặc chưa đạt ngưỡng thông qua |
 | 13 | Thành phần hồ sơ | ✅ | **Màn hình cấu hình riêng ghi qua API riêng từng thành phần**: bấm Lưu chỉ gửi những dòng thực sự đổi (thêm → POST, sửa → PUT, xoá → DELETE, đổi thứ tự → sắp xếp), không gửi lại cả sơ đồ nên hai người cùng mở một quy trình không ghi đè lên nhau; có nhãn *Mới* / *Đã sửa* trên từng dòng và **nút lên/xuống đổi thứ tự checklist**; chặn cấu hình số ký tự tối thiểu > tối đa và chặn sửa khi quy trình đang áp dụng; checklist kiểm tra khi nộp. **Cờ *dùng để kiểm tra trùng lặp* có hiệu lực thật**: bỏ tick thành phần nào thì nội dung và tệp của thành phần đó không đi vào pipeline so khớp |
 | 14 | Trạng thái bước | ✅ | Trạng thái theo bước và trạng thái toàn cục. **Cờ *là trạng thái kết thúc* có hiệu lực thật**: trường hợp nào gán trạng thái đó thì hồ sơ dừng hẳn tại đó — không sang bước kế tiếp, không đặt hạn mới, ghi ngày hoàn thành. **Cờ *hiển thị cho tác giả* có hiệu lực thật**: trạng thái tắt cờ thì tác giả chỉ thấy nhãn trung tính "Đang xử lý", tiến độ ẩn ý kiến nội bộ — máy chủ không trả dữ liệu đó về, không phải ẩn ở giao diện |
 | 15 | Tác nhân xử lý | ✅ | 7 loại tác nhân, quy tắc MỘT_NGƯỜI / TẤT_CẢ / ĐA_SỐ đã kiểm chứng |
@@ -61,7 +61,7 @@ thiện, đều được ghi rõ.
 |---|---|---|---|
 | 21 | Đăng nhập | ✅ | **Trang *Thông tin cá nhân* mới** và lối tắt tới *Bảo mật tài khoản* ngay trong menu người dùng (mục này vốn đã có ở menu bên trái); người dùng tự sửa được họ tên, email, điện thoại, chức vụ, ngày sinh — đơn vị và vai trò vẫn chỉ quản trị viên đổi được. Argon2id, JWT + refresh xoay vòng, khoá tài khoản, buộc đổi mật khẩu lần đầu, **SSO qua OIDC** (Authorization Code + PKCE), **MFA TOTP** (RFC 6238, chống dùng lại mã, 10 mã khôi phục), **CAPTCHA** ảnh SVG tự sinh sau 3 lần sai, **quên mật khẩu qua OTP email**. Nút "Đăng nhập một lần (SSO)" hiện trên trang đăng nhập khi máy chủ đã cấu hình nhà cung cấp, kèm trang nhận mã trả về `/dang-nhap/sso` |
 | 22 | Đăng ký nộp sáng kiến | ✅ | Wizard 6 bước, tự lưu nháp 30 giây, kiểm tra tỷ lệ đóng góp 100%, **phiếu tiếp nhận PDF** in được ngay sau khi nộp |
-| 23 | Quản lý hồ sơ sáng kiến | ✅ | Danh sách, sửa, rút, tab lịch sử chỉnh sửa có diff trước/sau |
+| 23 | Quản lý hồ sơ sáng kiến | ✅ | Danh sách, sửa, rút, tab lịch sử chỉnh sửa có diff trước/sau. **Huỷ hồ sơ** (việc của cán bộ điều phối, khác *rút* của tác giả): đóng mọi lượt xử lý đang mở, báo tác giả, giữ hồ sơ tra cứu được với nhãn "Đã huỷ"; chặn huỷ hồ sơ đã gán quyết định |
 | 24 | Thành phần hồ sơ | ✅ | Checklist trực quan ✓/✗/⚠, chặn nộp và nêu rõ mục còn thiếu. **Ô soạn nội dung dài có thanh định dạng** (đậm/nghiêng/danh sách), đếm ký tự + từ, thanh tiến độ số ký tự tối thiểu và tab xem trước — lưu văn bản thường, không lưu HTML |
 | 25 | Tệp tin đính kèm | ✅ | Magic number, chặn tệp thực thi, SHA-256, **quét mã độc ClamAV trước khi ghi xuống kho**. **Tải tệp lớn theo mảnh 5MB** (rớt mạng chỉ gửi lại mảnh hỏng), **xem trước PDF/ảnh ngay trong trình duyệt** (cố ý không mở inline .html/.svg), **liên kết tải xuống có thời hạn và có ký HMAC**; kho lưu trữ chọn được đĩa cục bộ hoặc MinIO (presigned URL) |
 | 26 | Kiểm tra trùng lặp | ✅ | Pipeline đầy đủ, giao diện đối chiếu 2 cột highlight. OCR đã nối vào luồng nộp: tệp PDF/ảnh tự trích xuất văn bản rồi mới chạy so khớp. **Hội đồng ghi ý kiến và đánh dấu *Đã xem xét*** ngay trên tab (có ghi nhật ký ai/khi nào), **xuất báo cáo trùng lặp ra PDF** kèm trích dẫn đoạn trùng để đính kèm hồ sơ hội đồng |
@@ -73,7 +73,7 @@ thiện, đều được ghi rõ.
 | 27 | Tiếp nhận hồ sơ | ✅ | Nút hành động sinh động theo quy trình |
 | 28 | Danh sách hồ sơ | ✅ | Bộ lọc đa tiêu chí, lưu trong URL, **lưu bộ lọc yêu thích**, **chọn cột hiển thị** (nhớ lựa chọn cho lần sau), **sắp xếp theo cột ở phía máy chủ** (mã, tên, điểm, trùng lặp, hạn xử lý — hồ sơ chưa có giá trị luôn nằm cuối), chọn nhiều, xuất Excel. Bảng dùng chung ở 4 màn hình: Hồ sơ của tôi, Tiếp nhận/Xử lý, Tra cứu, Chi tiết đợt |
 | 29 | Xử lý hồ sơ | ✅ | Thực thi bước, xử lý hàng loạt, **thu hồi bước có nút và bắt buộc nhập lý do**, Idempotency-Key. **Uỷ quyền xử lý có giao diện**: bước bật *cho phép uỷ quyền* thì hộp thoại hiện ô "Xử lý thay cho", danh sách chỉ gồm tác nhân của bước; máy chủ chặn uỷ quyền cho người không phải tác nhân |
-| 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
+| 30 | Theo dõi hồ sơ | ✅ | Timeline đầy đủ, badge quá hạn. **Gia hạn xử lý**: đổi được hạn của bước đang mở, bắt buộc nhập lý do, chỉ kéo dài chứ không rút ngắn, ghi nhật ký và báo cho người đang giữ bước. Job nhắc hạn tự động chạy 7h hằng ngày, chống nhắc trùng trong 20 giờ |
 | 31/36 | Đính kèm quyết định | ✅ | Màn hình ban hành quyết định, chọn sáng kiến đủ điều kiện, xuất PDF theo mẫu hành chính |
 | 32 | Kết quả sáng kiến | ✅ | Công bố kết quả hàng loạt theo quyết định, mở hiển thị công khai và gửi thông báo tới tác giả |
 
@@ -157,6 +157,9 @@ Luồng liên thông: khai báo hệ thống ngoài → xem trước dữ liệu
 
 Luồng nhánh: yêu cầu bổ sung, từ chối, rút hồ sơ, sửa và nộp lại, xử lý hàng loạt,
 phân công tự động chia đều, lưu và áp dụng bộ lọc yêu thích trên màn hình danh sách.
+
+Luồng điều phối: gia hạn hạn xử lý (bắt buộc lý do, chỉ kéo dài), huỷ hồ sơ đã nộp (đóng lượt xử
+lý đang mở, báo tác giả, chặn khi hồ sơ đã gán quyết định), thu hồi bước, uỷ quyền xử lý.
 
 Luồng xác thực: đăng nhập nội bộ, SSO OIDC, single logout, MFA TOTP (bật/tắt/mã khôi phục/
 quản trị viên gỡ hộ), CAPTCHA sau 3 lần sai, quên mật khẩu qua OTP email.

@@ -232,8 +232,11 @@ public sealed class DichVuBaoCao
                 TongSo = g.Count(),
                 SoDat = g.Count(x => x.KetQua == KetQuaXetDuyetGiaTri.Dat),
                 SoKhongDat = g.Count(x => x.KetQua == KetQuaXetDuyetGiaTri.KhongDat),
+                // Ho so da rut / da huy khong con "dang xu ly" — dem vao thi bao cao tien do
+                // luon cao hon thuc te va khong bao gio ve 0.
                 SoDangXuLy = g.Count(x => x.KetQua == null
-                                          && x.TrangThaiTong != TrangThaiTongHoSo.DaRut)
+                                          && x.TrangThaiTong != TrangThaiTongHoSo.DaRut
+                                          && x.TrangThaiTong != TrangThaiTongHoSo.DaHuy)
             })
             .ToListAsync(ct)
             .ConfigureAwait(false);
