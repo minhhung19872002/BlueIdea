@@ -44,6 +44,52 @@ Known limitations and improvement opportunities. Items are ordered by priority.
 **Resolution**: Wire the vendor's browser plugin/local port once the unit picks a CA provider. No server change needed.
 **Priority**: Low (depends on external vendor choice)
 
+### TD-011: Remaining Config Flags With No Runtime Effect
+
+**Area**: Cross-cutting (same defect class as TD-009)
+**Description**: A sweep on 2026-08-20 found further admin-settable flags that are stored but never
+read at runtime. The council ones (`LaPhieuKin`, `QuyenNhanXet`, `QuyenKetLuan`) were fixed in
+v1.6.0; these remain:
+
+| Flag | Where it is set | What is missing |
+|---|---|---|
+| `quy_trinh_trang_thai.la_trang_thai_ket_thuc` | Workflow designer | Engine ends a case on the *step* flag `LaBuocKetThuc` (`BoMayQuyTrinh.cs:305`); the status-level flag is snapshotted but never read |
+| `quy_trinh_lien_thong_buoc.dong_bo_hai_chieu` | `/quan-tri/quy-trinh/:id/lien-thong` | Sync service never reads it — every sync is one-way |
+| `cau_hinh_menu.mo_tab_moi` | `/quan-tri/cau-hinh/menu` | `BoCucChinh.tsx` renders menu rows without `target="_blank"` |
+| `bo_tieu_chi.cho_phep_cham_doc_lap`, `bo_tieu_chi.tu_dong_tong_hop` | API only (no screen) | Accepted and stored by `QuyTrinhVaTieuChiController`, read by nothing |
+| `don_vi.la_don_vi_phe_duyet` | Unit form | Displayed only; approval levels are driven by `cau_hinh_cap_phe_duyet` |
+
+**Impact**: An administrator toggles the option, the system reports success, behaviour does not
+change. This is the most dangerous defect class at acceptance.
+**Resolution**: For each flag, either wire it to real behaviour or remove it from the UI/API so no
+one can set something inert.
+**Priority**: Medium (`la_trang_thai_ket_thuc` and `dong_bo_hai_chieu` first — both sit on
+configurable business behaviour)
+
+### TD-012: Per-Component CRUD API For Dossier Components Has No Caller
+
+**Area**: Workflow configuration (REQ-13)
+**Description**: `QuyTrinhVaTieuChiController.cs:71-102` exposes GET/POST/PUT/DELETE plus reorder
+for a single dossier component, but `TrangThanhPhanHoSo.tsx:53` still saves through
+`apiQuyTrinh.luuSoDo(...)`, i.e. it re-sends the whole diagram. These are the only endpoints in the
+API with no frontend caller.
+**Impact**: The concurrency benefit claimed in `TRANG-THAI-TRIEN-KHAI.md` (two people editing
+without overwriting each other) is not realised in the running application.
+**Resolution**: Point the screen at the per-component endpoints.
+**Priority**: Medium
+
+### TD-013: Dead Application Code
+
+**Area**: Housekeeping
+**Description**: Three public service methods are never called: `DichVuWorkflow.KhoiTaoAsync`
+(duplicates the submission path in `SangKienCommands.cs:402`), `DichVuCaptcha.DonDepAsync` (no job
+schedules it, so captcha rows are never purged), and
+`DichVuKiemTraTrungLap.DanhDauDaXemXetAsync` (only the `...TheoSangKienAsync` variant is wired).
+**Impact**: Captcha table grows without bound; the duplicate workflow entry point can drift from
+the real one.
+**Resolution**: Schedule the captcha cleanup, delete the two unused methods.
+**Priority**: Low
+
 ## Resolved Items
 
 ### TD-006: WAL Archiving Not Enabled (RESOLVED)

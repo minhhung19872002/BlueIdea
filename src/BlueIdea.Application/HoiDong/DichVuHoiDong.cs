@@ -279,9 +279,63 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
             .Include(x => x.DiemDanh)
             .Include(x => x.PhieuBoPhieu)
             .FirstOrDefaultAsync(x => x.Id == phienHopId, ct)
+            .ConfigureAwait(false)
+            ?? throw new KhongTimThayException("phiên họp", phienHopId);
+
+        await AnDanhTinhPhieuKinAsync(phien, ct).ConfigureAwait(false);
+
+        return phien;
+    }
+
+    /// <summary>
+    /// Xoa danh tinh nguoi bo phieu khoi cac la phieu KIN truoc khi tra ve.
+    ///
+    /// Danh dau "phieu kin" ma van tra ve ThanhVienId thi phieu khong con kin chut nao: bat ky ai
+    /// co quyen HOI_DONG.XEM goi thang API la doc duoc ai bo phieu gi — an o giao dien khong
+    /// tinh la an. Chinh chu van thay lai la phieu cua minh de biet minh da bo hay chua.
+    ///
+    /// Truy van goc dung AsNoTracking nen sua doi tuong o day khong ghi nguoc xuong CSDL.
+    /// </summary>
+    private async Task AnDanhTinhPhieuKinAsync(PhienHopHoiDong phien, CancellationToken ct)
+    {
+        if (!phien.PhieuBoPhieu.Any(x => x.LaPhieuKin))
+        {
+            return;
+        }
+
+        var thanhVienCuaToi = await LayThanhVienCuaToiAsync(phien.HoiDongId, ct)
             .ConfigureAwait(false);
 
-        return phien ?? throw new KhongTimThayException("phiên họp", phienHopId);
+        foreach (var phieu in phien.PhieuBoPhieu)
+        {
+            if (!phieu.LaPhieuKin || phieu.ThanhVienId == thanhVienCuaToi?.Id)
+            {
+                continue;
+            }
+
+            phieu.ThanhVienId = Guid.Empty;
+            phieu.GhiChu = null;
+        }
+    }
+
+    /// <summary>
+    /// Ban ghi thanh vien cua nguoi dang dang nhap trong mot hoi dong, null neu ho khong phai
+    /// thanh vien hoi dong do.
+    ///
+    /// Bat buoc co Id nguoi dung: hoi dong duoc phep co thanh vien ngoai he thong
+    /// (NguoiDungId = null), so sanh voi mot Id rong se khop nham vao dung nhung nguoi do.
+    /// </summary>
+    private async Task<HoiDongThanhVien?> LayThanhVienCuaToiAsync(
+        Guid hoiDongId, CancellationToken ct)
+    {
+        if (_nguoiDung.Id is not { } nguoiDungId)
+        {
+            return null;
+        }
+
+        return await Db.HoiDongThanhVien.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.HoiDongId == hoiDongId && x.NguoiDungId == nguoiDungId, ct)
+            .ConfigureAwait(false);
     }
 
     public async Task DiemDanhAsync(
@@ -405,6 +459,33 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
                 $"Kết quả '{ketQua}' không hợp lệ (chỉ DAT, KHONG_DAT, HOAN).");
         }
 
+        // Hai o tick "Nhan xet" / "Ket luan" tren bang thanh vien phai co hieu luc that o day.
+        // Chi kiem quyen vai tro thi quan tri vien bo tick xong he thong bao luu thanh cong ma
+        // khong chan ai ca.
+        //
+        // Nguoi KHONG phai thanh vien hoi dong (quan tri vien, thu ky he thong nhap ho) van di
+        // tiep bang quyen vai tro HOI_DONG.HOP_PHIEN nhu truoc — co tick chi rang buoc nguoi
+        // dang ngoi trong hoi dong.
+        var thanhVien = await LayThanhVienCuaToiAsync(phien.HoiDongId, ct).ConfigureAwait(false);
+
+        if (thanhVien is not null)
+        {
+            var doiYKien = !string.Equals(dong.KetLuanRieng, ketLuanRieng, StringComparison.Ordinal);
+            var doiKetQua = !string.Equals(dong.KetQua, ketQua, StringComparison.Ordinal);
+
+            if (doiYKien && !thanhVien.QuyenNhanXet)
+            {
+                throw new NghiepVuException(MaLoiHeThong.KhongCoQuyen,
+                    "Bạn không có quyền nhận xét trong hội đồng này.");
+            }
+
+            if (doiKetQua && !thanhVien.QuyenKetLuan)
+            {
+                throw new NghiepVuException(MaLoiHeThong.KhongCoQuyen,
+                    "Bạn không có quyền kết luận trong hội đồng này.");
+            }
+        }
+
         dong.KetLuanRieng = ketLuanRieng;
         dong.KetQua = ketQua;
 
@@ -442,6 +523,16 @@ public sealed class DichVuHoiDong : DichVuDanhMucCoSo<HoiDongSangKien>
 
         var phien = await Db.PhienHop.FirstOrDefaultAsync(x => x.Id == phienHopId, ct)
             .ConfigureAwait(false) ?? throw new KhongTimThayException("phiên họp", phienHopId);
+
+        // Ket luan phien la viec cua nguoi duoc hoi dong giao quyen ket luan, khong phai cua moi
+        // thanh vien co quyen vai tro. Nguoi ngoai hoi dong van di tiep bang quyen vai tro.
+        var thanhVien = await LayThanhVienCuaToiAsync(phien.HoiDongId, ct).ConfigureAwait(false);
+
+        if (thanhVien is not null && !thanhVien.QuyenKetLuan)
+        {
+            throw new NghiepVuException(MaLoiHeThong.KhongCoQuyen,
+                "Bạn không có quyền kết luận trong hội đồng này.");
+        }
 
         phien.TrangThaiPhien = TrangThaiPhienHop.DaKetThuc;
         phien.KetLuan = ketLuan;

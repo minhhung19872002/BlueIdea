@@ -52,8 +52,8 @@ thiện, đều được ghi rõ.
 
 | # | Chức năng | Mức | Ghi chú |
 |---|---|---|---|
-| 19 | Danh sách hội đồng | ✅ | Màn hình `/hoi-dong`: CRUD hội đồng; trang chi tiết có tab Phiên họp — tạo phiên, chọn hồ sơ đưa ra xét, điểm danh, bỏ phiếu và kiểm phiếu theo ngưỡng thông qua, kết luận và kết thúc phiên. **Tab Biên bản**: lập biên bản sinh từ dữ liệu phiên họp, ký nhận theo chức danh, xuất PDF và ký số biên bản |
-| 20 | Thành viên hội đồng | ✅ | Tab Thành viên sửa trực tiếp trên bảng; chặn lưu khi không đúng 1 chủ tịch hoặc thiếu số thành viên tối thiểu. **Phòng họp realtime**: điểm danh / bỏ phiếu / ghi ý kiến của một người hiện ngay trên màn hình những người đang mở phiên, không phải bấm tải lại |
+| 19 | Danh sách hội đồng | ✅ | Màn hình `/hoi-dong`: CRUD hội đồng; trang chi tiết có tab Phiên họp — tạo phiên, chọn hồ sơ đưa ra xét, điểm danh, bỏ phiếu và kiểm phiếu theo ngưỡng thông qua, kết luận và kết thúc phiên. **Tab Biên bản**: lập biên bản sinh từ dữ liệu phiên họp, ký nhận theo chức danh, xuất PDF và ký số biên bản. **Phiếu kín kín cả ở API**: phiếu tick *Phiếu kín* thì người khác chỉ thấy có một lá phiếu, không thấy ai bỏ và không đọc được ghi chú kèm phiếu — máy chủ không trả dữ liệu đó về, chính chủ vẫn thấy lại phiếu của mình; số liệu kiểm phiếu tổng hợp không đổi |
+| 20 | Thành viên hội đồng | ✅ | Tab Thành viên sửa trực tiếp trên bảng; chặn lưu khi không đúng 1 chủ tịch hoặc thiếu số thành viên tối thiểu. **Bốn ô tick quyền của thành viên đều có hiệu lực thật**: *Chấm điểm*, *Bỏ phiếu*, *Nhận xét* (ghi ý kiến cho hồ sơ trong phiên) và *Kết luận* (chốt kết quả xét của hồ sơ, kết thúc phiên) — máy chủ chặn theo từng ô, giao diện chỉ mờ nút đi. Người không phải thành viên hội đồng (quản trị viên nhập hộ) vẫn đi tiếp bằng quyền vai trò. **Phòng họp realtime**: điểm danh / bỏ phiếu / ghi ý kiến của một người hiện ngay trên màn hình những người đang mở phiên, không phải bấm tải lại |
 
 ## Nhóm V — Đăng ký nộp hồ sơ
 

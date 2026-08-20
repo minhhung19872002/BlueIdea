@@ -856,9 +856,26 @@ function ModalDieuHanhPhien({
 }) {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
-  const duocHopPhien = useAuthStore((s) => s.coQuyen('HOI_DONG.HOP_PHIEN'));
-  const duocBoPhieu = useAuthStore((s) => s.coQuyen('HOI_DONG.BO_PHIEU'));
-  const duocKetLuan = useAuthStore((s) => s.coQuyen('HOI_DONG.KET_LUAN'));
+  const nguoiDungId = useAuthStore((s) => s.nguoiDung?.id);
+  const coQuyenHopPhien = useAuthStore((s) => s.coQuyen('HOI_DONG.HOP_PHIEN'));
+  const coQuyenBoPhieu = useAuthStore((s) => s.coQuyen('HOI_DONG.BO_PHIEU'));
+  const coQuyenKetLuan = useAuthStore((s) => s.coQuyen('HOI_DONG.KET_LUAN'));
+
+  /*
+   * Quyền vai trò mới là một nửa: hội đồng còn khai riêng từng thành viên được nhận xét / bỏ
+   * phiếu / kết luận hay không. Máy chủ chặn theo đúng hai lớp này (DichVuHoiDong), ở đây chỉ
+   * mờ nút đi cho khỏi bấm rồi ăn lỗi. Người ngoài hội đồng — quản trị viên nhập hộ chẳng hạn —
+   * không có dòng thành viên nào nên vẫn đi tiếp bằng quyền vai trò.
+   */
+  const thanhVienCuaToi = useMemo(
+    () => (nguoiDungId ? thanhVien.find((tv) => tv.nguoiDungId === nguoiDungId) : undefined),
+    [thanhVien, nguoiDungId],
+  );
+
+  const duocHopPhien = coQuyenHopPhien;
+  const duocBoPhieu = coQuyenBoPhieu && (thanhVienCuaToi?.quyenBoPhieu ?? true);
+  const duocKetLuan = coQuyenKetLuan && (thanhVienCuaToi?.quyenKetLuan ?? true);
+  const duocNhanXet = coQuyenHopPhien && (thanhVienCuaToi?.quyenNhanXet ?? true);
 
   const [ketLuan, setKetLuan] = useState('');
 
@@ -1026,6 +1043,7 @@ function ModalDieuHanhPhien({
                           ketQuaBanDau={hs.ketQua ?? undefined}
                           duocBoPhieu={duocBoPhieu && !daKetThuc}
                           duocKetLuan={duocKetLuan && !daKetThuc}
+                          duocNhanXet={duocNhanXet && !daKetThuc}
                         />
                       ))}
                   </Space>
@@ -1081,6 +1099,7 @@ function TheHoSoBoPhieu({
   ketQuaBanDau,
   duocBoPhieu,
   duocKetLuan,
+  duocNhanXet,
 }: {
   phienHopId: string;
   sangKienId: string;
@@ -1090,6 +1109,7 @@ function TheHoSoBoPhieu({
   ketQuaBanDau?: string;
   duocBoPhieu: boolean;
   duocKetLuan: boolean;
+  duocNhanXet: boolean;
 }) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -1227,7 +1247,7 @@ function TheHoSoBoPhieu({
               rows={2}
               placeholder="Ý kiến / kết luận riêng cho hồ sơ này — nội dung này vào biên bản họp"
               value={ketLuanRieng}
-              disabled={!duocKetLuan}
+              disabled={!duocNhanXet}
               onChange={(e) => setKetLuanRieng(e.target.value)}
             />
             <Space wrap>
@@ -1245,7 +1265,7 @@ function TheHoSoBoPhieu({
                 onChange={(v) => setKetQuaHoSo(v)}
               />
               <Button
-                disabled={!duocKetLuan}
+                disabled={!duocNhanXet && !duocKetLuan}
                 loading={ghiYKien.isPending}
                 onClick={() => ghiYKien.mutate({})}
               >

@@ -4,6 +4,38 @@
 
 ---
 
+## [1.6.0] — 2026-08-20
+
+Rà soát lại theo đúng chiều của bản 1.5.0 — **cấu hình khai báo được nhưng không dòng logic nào
+đọc tới** — lần này quét riêng khối hội đồng. Ba thiếu sót được xử lý.
+
+### Sửa
+
+- **Chức năng 19 — phiếu kín không kín.** Ô tick *Phiếu kín* được lưu xuống CSDL nhưng
+  `GET /api/v1/hoi-dong/phien-hop/{id}` vẫn trả nguyên danh sách phiếu kèm `thanhVienId` và ghi
+  chú cho **mọi người có quyền `HOI_DONG.XEM`**. Giao diện không vẽ ra, nhưng gọi thẳng API là
+  đọc được ai bỏ phiếu gì. Nay máy chủ xoá danh tính và ghi chú khỏi các lá phiếu kín trước khi
+  trả về; chính chủ vẫn thấy lại phiếu của mình, số liệu kiểm phiếu tổng hợp không đổi.
+- **Chức năng 20 — hai ô tick quyền thành viên không có tác dụng.** `QuyenNhanXet` và
+  `QuyenKetLuan` sửa được trên bảng thành viên nhưng không nơi nào kiểm (trong khi `QuyenBoPhieu`
+  và `QuyenChamDiem` thì có). Nay ghi ý kiến cho hồ sơ trong phiên cần *Nhận xét*, chốt kết quả
+  xét của hồ sơ và kết thúc phiên cần *Kết luận*. Chỉ so sánh trên trường thực sự thay đổi, nên
+  người chỉ có quyền nhận xét vẫn sửa được ý kiến của mình mà không vướng ô kết quả.
+  Người **không phải thành viên** hội đồng (quản trị viên, thư ký hệ thống nhập hộ) vẫn đi tiếp
+  bằng quyền vai trò như trước — hai ô tick chỉ ràng buộc người đang ngồi trong hội đồng.
+- Giao diện phòng họp mờ nút theo đúng hai lớp quyền trên để không bấm rồi mới ăn lỗi. Đây là
+  cải thiện thao tác; chặn thật vẫn nằm ở máy chủ.
+
+### Kiểm thử
+
+- `HoiDongTests.Phieu_Kin_Khong_Lo_Danh_Tinh_Nguoi_Bo_Phieu`
+- `HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Ket_Luan_Khong_Ket_Thuc_Duoc_Phien`
+- `HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Nhan_Xet_Khong_Ghi_Y_Kien_Duoc`
+
+225/225 kiểm thử tích hợp, 512/512 kiểm thử đơn vị, 22/22 E2E hội đồng đều đạt.
+
+---
+
 ## [1.5.0] — 2026-08-19
 
 Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện

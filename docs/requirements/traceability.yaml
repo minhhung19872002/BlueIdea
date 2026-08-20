@@ -416,7 +416,9 @@ requirements:
       backend: ["src/BlueIdea.Api/Controllers/HoiDongController.cs", "src/BlueIdea.Application/HoiDong/DichVuHoiDong.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/HoiDongTests.cs"]
     gaps: []
-    notes: "Tests cover sessions, attendance, voting, conclusion."
+    notes:
+      - "Tests cover sessions, attendance, voting, conclusion."
+      - "Ra soat 20/08/2026: la phieu danh dau KIN van tra ve ThanhVienId va GhiChu cho moi nguoi co quyen HOI_DONG.XEM. Da che danh tinh trong LayPhienHopAsync (chinh chu van thay la phieu cua minh); so lieu kiem phieu tong hop khong doi. Bang chung: HoiDongTests.Phieu_Kin_Khong_Lo_Danh_Tinh_Nguoi_Bo_Phieu."
 
   - id: REQ-20
     source_number: 20
@@ -431,7 +433,9 @@ requirements:
       backend: ["src/BlueIdea.Application/HoiDong/DichVuHoiDong.cs"]
       tests: ["tests/BlueIdea.IntegrationTests/HoiDongTests.cs"]
     gaps: []
-    notes: "Tests verify exactly-1-chairman and min-member-count constraints."
+    notes:
+      - "Tests verify exactly-1-chairman and min-member-count constraints."
+      - "Ra soat 20/08/2026: hai co quyen thanh vien QuyenNhanXet va QuyenKetLuan duoc luu nhung khong noi vao xu ly (QuyenBoPhieu va QuyenChamDiem thi co). Nay GhiYKienHoSoAsync kiem QuyenNhanXet khi doi y kien va QuyenKetLuan khi doi ket qua xet; KetThucPhienHopAsync kiem QuyenKetLuan. Nguoi khong phai thanh vien hoi dong van di tiep bang quyen vai tro. Bang chung: HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Ket_Luan_Khong_Ket_Thuc_Duoc_Phien, HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Nhan_Xet_Khong_Ghi_Y_Kien_Duoc."
 
   # ── Nhom V: Dang ky nop ho so ──────────────────────────────────────
 
