@@ -841,6 +841,31 @@ test.describe('REQ-50: Cấu hình gửi tin', () => {
     }
   });
 
+  test('API: POST gui-thu gửi thử email → 200 hoặc lỗi cấu hình SMTP', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', API.guiTin);
+    expect(listRes!.status()).toBe(200);
+    const listBody = await listRes!.json();
+    const configs = listBody.duLieu as Array<{ id: string; loai: string }>;
+    const emailConfig = configs.find(c => c.loai === 'EMAIL' || c.loai === 'SMTP');
+    if (!emailConfig) { test.skip(true, 'Không có cấu hình email'); return; }
+
+    const res = await apiRequest(page, 'POST', `${API.guiTin}/${emailConfig.id}/gui-thu?nguoiNhan=test@example.com`);
+    expect([200, 400, 422, 500, 502, 503]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+    }
+  });
+
+  test('API: POST gui-thu không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await page.request.post(`${API.guiTin}/${fakeId}/gui-thu?nguoiNhan=test@example.com`);
+    expect(res.status()).toBe(401);
+  });
+
   test('Auth: tác giả → 403', async ({ page }) => {
     await page.goto('/');
     await loginViaAPI(page, 'tacgia1');

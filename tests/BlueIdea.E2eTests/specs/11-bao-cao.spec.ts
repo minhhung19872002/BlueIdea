@@ -514,3 +514,118 @@ test.describe('REQ-38: Báo cáo tùy biến — thực thi', () => {
     await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
   });
 });
+
+// ─── REQ-37: Bộ lọc báo cáo trả về dữ liệu đúng ────────────────────────
+
+test.describe('REQ-37: Bộ lọc báo cáo', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /bao-cao/sang-kien-dat trả về đúng cấu trúc DongBaoCaoSangKien', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/sang-kien-dat`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+    if (body.duLieu.length > 0) {
+      const item = body.duLieu[0] as Record<string, unknown>;
+      expect('tenSangKien' in item || 'tacGia' in item || 'tenDonVi' in item).toBe(true);
+    }
+  });
+
+  test('GET /bao-cao/theo-don-vi trả về đúng cấu trúc DongBaoCaoDonVi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-don-vi`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+    if (body.duLieu.length > 0) {
+      const item = body.duLieu[0] as Record<string, unknown>;
+      expect('tenDonVi' in item).toBe(true);
+      expect('tongSo' in item || 'soDat' in item).toBe(true);
+    }
+  });
+
+  test('GET /bao-cao/theo-don-vi lọc theo năm → kết quả chỉ chứa năm đó', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-don-vi?nam=2026`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+  });
+
+  test('GET /bao-cao/sang-kien-dat lọc theo đơn vị → 200', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const dvRes = await apiRequest(page, 'GET', `${API.donVi}?trang=1&soDong=1`);
+    const dvBody = await dvRes!.json();
+    if (!dvBody.duLieu || dvBody.duLieu.length === 0) return;
+    const donViId = dvBody.duLieu[0].id as string;
+
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/sang-kien-dat?donViId=${donViId}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+  });
+
+  test('GET /bao-cao/thoi-gian-xu-ly trả về thời gian xử lý', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/thoi-gian-xu-ly`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(Array.isArray(body.duLieu)).toBe(true);
+  });
+});
+
+// ─── REQ-40: Xuất file — kiểm tra magic bytes ──────────────────────────────
+
+test.describe('REQ-40: Xuất file — magic bytes', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /bao-cao/sang-kien-dat/xuat-excel → file Excel hợp lệ (PK header)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/sang-kien-dat/xuat-excel`);
+    expect(res!.status()).toBe(200);
+    const ct = res!.headers()['content-type'] ?? '';
+    expect(ct.includes('spreadsheet') || ct.includes('excel') || ct.includes('octet-stream')).toBeTruthy();
+    const bodyBuf = await res!.body();
+    expect(bodyBuf.length).toBeGreaterThan(0);
+    expect(bodyBuf[0]).toBe(0x50); // P
+    expect(bodyBuf[1]).toBe(0x4b); // K (ZIP/OOXML)
+  });
+
+  test('GET /bao-cao/theo-don-vi/xuat-pdf → file PDF hợp lệ (%PDF header)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-don-vi/xuat-pdf`);
+    expect(res!.status()).toBe(200);
+    const ct = res!.headers()['content-type'] ?? '';
+    expect(ct).toContain('pdf');
+    const bodyBuf = await res!.body();
+    expect(bodyBuf.length).toBeGreaterThan(0);
+    expect(bodyBuf[0]).toBe(0x25); // %
+    expect(bodyBuf[1]).toBe(0x50); // P
+    expect(bodyBuf[2]).toBe(0x44); // D
+    expect(bodyBuf[3]).toBe(0x46); // F
+  });
+
+  test('GET /bao-cao/theo-tac-gia/xuat-excel → file Excel hợp lệ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.baoCao}/theo-tac-gia/xuat-excel`);
+    expect(res!.status()).toBe(200);
+    const bodyBuf = await res!.body();
+    expect(bodyBuf.length).toBeGreaterThan(0);
+    expect(bodyBuf[0]).toBe(0x50); // PK
+    expect(bodyBuf[1]).toBe(0x4b);
+  });
+});

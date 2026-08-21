@@ -565,4 +565,83 @@ test.describe('REQ-21: Bảo mật tài khoản (MFA)', () => {
     const res = await apiRequest(page, 'POST', `${API.mfa}/xac-nhan-ghi-danh`, { ma: '000000' });
     expect([400, 422]).toContain(res!.status());
   });
+
+  test('API: POST mfa/bat-dau-ghi-danh → trả về biMat và uriGhiDanh', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia3');
+    const res = await apiRequest(page, 'POST', `${API.mfa}/bat-dau-ghi-danh`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu.biMat).toBeTruthy();
+    expect(typeof body.duLieu.biMat).toBe('string');
+    expect(body.duLieu.biMat.length).toBeGreaterThanOrEqual(16);
+    expect(body.duLieu.uriGhiDanh).toBeTruthy();
+    expect(body.duLieu.uriGhiDanh).toContain('otpauth://totp/');
+  });
+
+  test('API: POST mfa/xac-nhan-ghi-danh mã sai → MFA vẫn chưa bật', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia3');
+    const startRes = await apiRequest(page, 'POST', `${API.mfa}/bat-dau-ghi-danh`);
+    if (startRes!.status() !== 200) {
+      test.skip(true, 'Không bắt đầu ghi danh MFA được');
+      return;
+    }
+    const confirmRes = await apiRequest(page, 'POST', `${API.mfa}/xac-nhan-ghi-danh`, { ma: '000000' });
+    expect([400, 401, 422]).toContain(confirmRes!.status());
+    const statusRes = await apiRequest(page, 'GET', `${API.mfa}/trang-thai`);
+    if (statusRes!.status() === 200) {
+      const statusBody = await statusRes!.json();
+      expect(statusBody.duLieu.daBat).toBe(false);
+    }
+  });
+});
+
+// ─── REQ-21: Refresh token rotation ─────────────────────────────────────────
+
+test.describe('REQ-21: Refresh token rotation', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('lam-moi-token trả về token mới, old token bị thu hồi', async ({ page }) => {
+    await page.goto('/');
+    const loginRes = await page.request.post(API.login, {
+      data: { tenDangNhap: ACCOUNTS.tacgia2.username, matKhau: ACCOUNTS.tacgia2.password },
+    });
+    expect(loginRes.ok()).toBeTruthy();
+    const loginBody = await loginRes.json();
+    const oldRefreshToken: string = loginBody.duLieu.refreshToken;
+
+    const refreshRes = await page.request.post(API.refreshToken, {
+      data: { refreshToken: oldRefreshToken },
+    });
+    expect(refreshRes.ok()).toBeTruthy();
+    const refreshBody = await refreshRes.json();
+    expect(refreshBody.duLieu.accessToken).toBeTruthy();
+    expect(refreshBody.duLieu.refreshToken).toBeTruthy();
+    expect(refreshBody.duLieu.refreshToken).not.toBe(oldRefreshToken);
+
+    const replayRes = await page.request.post(API.refreshToken, {
+      data: { refreshToken: oldRefreshToken },
+    });
+    expect([400, 401]).toContain(replayRes.status());
+  });
+});
+
+// ─── REQ-21: Ngăn mật khẩu trùng ───────────────────────────────────────────
+
+test.describe('REQ-21: Ngăn mật khẩu trùng', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('đổi mật khẩu giống mật khẩu cũ → lỗi validation', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia2');
+    const res = await apiRequest(page, 'POST', API.doiMatKhau, {
+      matKhauCu: ACCOUNTS.tacgia2.password,
+      matKhauMoi: ACCOUNTS.tacgia2.password,
+    });
+    expect([400, 422]).toContain(res!.status());
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(false);
+  });
 });

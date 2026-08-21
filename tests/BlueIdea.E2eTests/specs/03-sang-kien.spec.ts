@@ -1119,4 +1119,122 @@ test.describe('REQ-25: Bảo mật tệp tin', () => {
     const url = typeof body.duLieu === 'string' ? body.duLieu : body.duLieu?.url;
     expect(url).toContain('chuKy');
   });
+
+  test('tải lên file PNG → response chứa hashSha256 hợp lệ (64 hex chars)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'hash-test.png', mimeType: 'image/png', buffer: MINIMAL_PNG },
+      },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.thanhCong).toBe(true);
+    const file = body.duLieu;
+    const hash: string = typeof file === 'object' ? file.hashSha256 : undefined;
+    expect(hash).toBeTruthy();
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  test('tải lên 2 file giống nhau → cùng hashSha256 (dedup)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const upload = async (name: string) => {
+      const r = await page.request.post(`${API.tepTin}/tai-len`, {
+        headers: { Authorization: `Bearer ${token}` },
+        multipart: { tep: { name, mimeType: 'image/png', buffer: MINIMAL_PNG } },
+      });
+      return r.json();
+    };
+    const body1 = await upload('dedup-1.png');
+    const body2 = await upload('dedup-2.png');
+    if (body1.thanhCong && body2.thanhCong) {
+      const hash1 = typeof body1.duLieu === 'object' ? body1.duLieu.hashSha256 : undefined;
+      const hash2 = typeof body2.duLieu === 'object' ? body2.duLieu.hashSha256 : undefined;
+      if (hash1 && hash2) {
+        expect(hash1).toBe(hash2);
+      }
+    }
+  });
+
+  test('GET /tep-tin/{id}/xem-truoc cho file PNG → inline content', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const uploadRes = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: { tep: { name: 'preview-test.png', mimeType: 'image/png', buffer: MINIMAL_PNG } },
+    });
+    if (uploadRes.status() !== 200) return;
+    const uploadBody = await uploadRes.json();
+    const fileId = typeof uploadBody.duLieu === 'string' ? uploadBody.duLieu : uploadBody.duLieu?.id;
+    if (!fileId) return;
+
+    const res = await apiRequest(page, 'GET', `${API.tepTin}/${fileId}/xem-truoc`);
+    expect(res!.status()).toBe(200);
+    const ct = res!.headers()['content-type'] ?? '';
+    expect(ct).toContain('image/png');
+    const disposition = res!.headers()['content-disposition'] ?? '';
+    expect(disposition).toContain('inline');
+    expect(res!.headers()['x-content-type-options']).toBe('nosniff');
+  });
+});
+
+// ─── REQ-26: Kiểm tra trùng lặp — API ────────────────────────────────────
+
+test.describe('REQ-26: Kiểm tra trùng lặp', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /sang-kien/{id}/trung-lap cho sáng kiến thực → 200 với cấu trúc hợp lệ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+    expect(listRes!.status()).toBe(200);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const skId: string = listBody.duLieu[0].id;
+
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${skId}/trung-lap`);
+    expect([200, 404]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      expect(body.thanhCong).toBe(true);
+    }
+  });
+
+  test('GET /sang-kien/{id}/trung-lap không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await page.request.get(`${API.sangKien}/${fakeId}/trung-lap`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /sang-kien/{id}/trung-lap/xem-xet không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await page.request.post(`${API.sangKien}/${fakeId}/trung-lap/xem-xet`, {
+      data: { yKienHoiDong: 'Test' },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /sang-kien/{id}/trung-lap/xuat-pdf → PDF hoặc 404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const listRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+    const listBody = await listRes!.json();
+    if (listBody.duLieu.length === 0) { test.skip(true, 'Không có sáng kiến'); return; }
+    const skId: string = listBody.duLieu[0].id;
+
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${skId}/trung-lap/xuat-pdf`);
+    expect([200, 404]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const ct = res!.headers()['content-type'] ?? '';
+      expect(ct).toContain('pdf');
+    }
+  });
 });

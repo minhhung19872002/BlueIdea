@@ -2032,4 +2032,132 @@ test.describe('REQ-03: Hạn nộp hồ sơ', () => {
       }
     }
   });
+
+  test('tạo đợt với hạn nộp quá khứ → nộp hồ sơ bị chặn QUA_HAN_NOP_HO_SO', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const pastDate = '2020-01-01T00:00:00+07:00';
+    const createDotRes = await apiRequest(page, 'POST', API.dotDeNghi, {
+      ten: `E2E Quá hạn ${Date.now()}`,
+      nam: 2020,
+      hanNopHoSo: pastDate,
+      trangThaiDot: 'DangMo',
+    });
+    if (createDotRes!.status() !== 200) {
+      test.skip(true, 'Không tạo được đợt với hạn quá khứ');
+      return;
+    }
+    const dotBody = await createDotRes!.json();
+    const dotId = typeof dotBody.duLieu === 'string' ? dotBody.duLieu : dotBody.duLieu?.id;
+    if (!dotId) return;
+
+    await loginViaAPI(page, 'tacgia1');
+    const lvRes = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=1&soDong=1`);
+    const lvBody = await lvRes!.json();
+    if (lvBody.duLieu.length === 0) return;
+
+    const createRes = await apiRequest(page, 'POST', API.sangKien, {
+      tenSangKien: `E2E Deadline ${Date.now()}`,
+      dotDeNghiId: dotId,
+      linhVucId: lvBody.duLieu[0].id,
+      moTaGiaiPhap: 'Test deadline',
+      tinhTrangTruocKhiApDung: 'Test',
+      noiDungGiaiPhap: 'Test',
+      tinhMoi: 'Test',
+      khaNangApDung: 'Test',
+      phamViApDung: 'Test',
+      hieuQuaKinhTe: 'Test',
+      hieuQuaXaHoi: 'Test',
+      thoiGianApDungTu: '2020-01-01',
+      thoiGianApDungDen: '2020-12-31',
+      danhSachTacGia: [{ hoTen: 'Trần Thị Lan', tyLeDongGop: 100, laTacGiaChinh: true }],
+    });
+    expect([400, 422]).toContain(createRes!.status());
+    const errBody = await createRes!.json();
+    expect(errBody.thanhCong).toBe(false);
+  });
+});
+
+// ─── REQ-06: Biểu mẫu — quét placeholder & mẫu import ─────────────────────
+
+test.describe('REQ-06: Biểu mẫu — quét placeholder', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('POST quet-placeholder không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post('/api/v1/nhap-xuat/bieu-mau/quet-placeholder', {
+      multipart: {
+        tep: { name: 'test.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('invalid') },
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST quet-placeholder với file không phải docx → lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post('/api/v1/nhap-xuat/bieu-mau/quet-placeholder', {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'test.txt', mimeType: 'text/plain', buffer: Buffer.from('hello {{ten}}') },
+      },
+    });
+    expect([400, 415, 422]).toContain(res.status());
+  });
+});
+
+// ─── Catalog import — nhập danh mục Excel ─────────────────────────────────
+
+test.describe('Catalog import — nhập danh mục', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test('GET /nhap-xuat/danh-muc/mau?loai=linh-vuc → tải mẫu Excel', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', '/api/v1/nhap-xuat/danh-muc/mau?loai=linh-vuc');
+    expect(res!.status()).toBe(200);
+    const ct = res!.headers()['content-type'] ?? '';
+    expect(ct.includes('spreadsheet') || ct.includes('excel') || ct.includes('octet-stream')).toBeTruthy();
+    const bodyBuf = await res!.body();
+    expect(bodyBuf.length).toBeGreaterThan(0);
+    expect(bodyBuf[0]).toBe(0x50); // PK header
+    expect(bodyBuf[1]).toBe(0x4b);
+  });
+
+  test('POST /nhap-xuat/danh-muc với file không phải Excel → lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post('/api/v1/nhap-xuat/danh-muc?loai=linh-vuc&chayThu=true', {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'test.txt', mimeType: 'text/plain', buffer: Buffer.from('not excel') },
+      },
+    });
+    expect([400, 415, 422]).toContain(res.status());
+  });
+
+  test('POST /nhap-xuat/danh-muc không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post('/api/v1/nhap-xuat/danh-muc?loai=linh-vuc&chayThu=true', {
+      multipart: {
+        tep: { name: 'test.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('PK') },
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('POST /nhap-xuat/danh-muc với loại không hợp lệ → lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post('/api/v1/nhap-xuat/danh-muc?loai=khong-ton-tai&chayThu=true', {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'test.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('PK\x03\x04') },
+      },
+    });
+    expect([400, 422]).toContain(res.status());
+  });
 });
