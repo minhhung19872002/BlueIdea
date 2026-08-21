@@ -537,3 +537,46 @@ test.describe('REQ-30: Theo dõi hồ sơ', () => {
     });
   });
 });
+
+// ─── P2: REQ-27 Organization scope (IDOR) ────────────────────────────────────
+
+test.describe('REQ-27: Phạm vi đơn vị tiếp nhận', () => {
+  test('tiepnhan chỉ xem sáng kiến thuộc đơn vị mình (hoặc cấp dưới)', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tiepnhan');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/cho-tiep-nhan?trang=1&soDong=50`);
+    expect([200, 404]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const body = await res!.json();
+      expect(body.duLieu).toBeInstanceOf(Array);
+    }
+  });
+
+  test('tacgia1 không xem được danh sách chờ tiếp nhận → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/cho-tiep-nhan?trang=1&soDong=10`);
+    expect(res!.status()).toBe(403);
+  });
+
+  test('GET /sang-kien/cho-tiep-nhan không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.get(`${API.sangKien}/cho-tiep-nhan?trang=1&soDong=5`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('phiếu tiếp nhận PDF cho sáng kiến hợp lệ trả về PDF', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const skRes = await apiRequest(page, 'GET', `${API.sangKien}?trang=1&soDong=1`);
+    const skBody = await skRes!.json();
+    if (skBody.duLieu.length === 0) return;
+    const sangKienId: string = skBody.duLieu[0].id;
+    const res = await apiRequest(page, 'GET', `${API.sangKien}/${sangKienId}/phieu-tiep-nhan`);
+    expect([200, 400, 404, 422]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const ct = res!.headers()['content-type'] ?? '';
+      expect(ct.includes('pdf') || ct.includes('json')).toBeTruthy();
+    }
+  });
+});

@@ -421,3 +421,96 @@ test.describe('REQ-40: Thống kê theo đơn vị', () => {
     });
   });
 });
+
+// ─── REQ-38: Báo cáo tùy biến — thực thi ────────────────────────────────────
+
+test.describe('REQ-38: Báo cáo tùy biến — thực thi', () => {
+  const baoCaoTuyBien = '/api/v1/nhap-xuat/bao-cao-tuy-bien';
+
+  test('GET /bao-cao-tuy-bien/nguon-du-lieu trả về danh sách trường dữ liệu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${baoCaoTuyBien}/nguon-du-lieu`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeInstanceOf(Array);
+    expect(body.duLieu.length).toBeGreaterThan(0);
+  });
+
+  test('GET /bao-cao-tuy-bien/{bieuMauId} chạy báo cáo với biểu mẫu thực', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const bmRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}?trang=1&soDong=1`);
+    expect(bmRes!.status()).toBe(200);
+    const bmBody = await bmRes!.json();
+    if (bmBody.duLieu.length === 0) { test.skip(true, 'Không có biểu mẫu thống kê'); return; }
+    const bieuMauId: string = bmBody.duLieu[0].id;
+
+    const res = await apiRequest(page, 'GET', `${baoCaoTuyBien}/${bieuMauId}`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+  });
+
+  test('GET /bao-cao-tuy-bien/{bieuMauId}/xuat-excel trả file Excel hợp lệ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const bmRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}?trang=1&soDong=1`);
+    const bmBody = await bmRes!.json();
+    if (bmBody.duLieu.length === 0) { test.skip(true, 'Không có biểu mẫu thống kê'); return; }
+    const bieuMauId: string = bmBody.duLieu[0].id;
+
+    const res = await apiRequest(page, 'GET', `${baoCaoTuyBien}/${bieuMauId}/xuat-excel`);
+    expect(res!.status()).toBe(200);
+    const ct = res!.headers()['content-type'] ?? '';
+    expect(ct.includes('spreadsheet') || ct.includes('excel') || ct.includes('octet-stream')).toBeTruthy();
+    const cl = parseInt(res!.headers()['content-length'] ?? '0', 10);
+    expect(cl).toBeGreaterThan(0);
+  });
+
+  test('GET /bao-cao-tuy-bien/{bieuMauId}/xuat-pdf trả file PDF hợp lệ', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const bmRes = await apiRequest(page, 'GET', `${API.bieuMauThongKe}?trang=1&soDong=1`);
+    const bmBody = await bmRes!.json();
+    if (bmBody.duLieu.length === 0) { test.skip(true, 'Không có biểu mẫu thống kê'); return; }
+    const bieuMauId: string = bmBody.duLieu[0].id;
+
+    const res = await apiRequest(page, 'GET', `${baoCaoTuyBien}/${bieuMauId}/xuat-pdf`);
+    expect(res!.status()).toBe(200);
+    expect(res!.headers()['content-type'] ?? '').toContain('pdf');
+  });
+
+  test('GET /bao-cao-tuy-bien/{id} không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const fakeId = '00000000-0000-0000-0000-000000000000';
+    const res = await page.request.get(`${baoCaoTuyBien}/${fakeId}`);
+    expect(res.status()).toBe(401);
+  });
+
+  test('tác giả GET /bao-cao-tuy-bien/nguon-du-lieu → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${baoCaoTuyBien}/nguon-du-lieu`);
+    expect(res!.status()).toBe(403);
+  });
+
+  test('GET /bao-cao-tuy-bien/{id} với id không tồn tại → 404', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const fakeId = '00000000-0000-0000-0000-000000000001';
+    const res = await apiRequest(page, 'GET', `${baoCaoTuyBien}/${fakeId}`);
+    expect([400, 404]).toContain(res!.status());
+  });
+
+  test('trang báo cáo tùy biến tải không lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    await page.goto(ROUTES.baoCaoTuyBien);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('Lỗi hệ thống');
+  });
+});

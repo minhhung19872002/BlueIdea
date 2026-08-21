@@ -643,6 +643,40 @@ test.describe('REQ-08: Quyết định — CRUD API', () => {
   });
 });
 
+// ─── P2: REQ-31 — Sort verification ────────────────────────────────────────
+
+test.describe('REQ-31: Sắp xếp kiểm tra thứ tự thực', () => {
+  test('sapXep=ngayBanHanh&huong=desc → item[0].ngayBanHanh >= item[1].ngayBanHanh', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=10&sapXep=ngayBanHanh&huong=desc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ ngayBanHanh?: string }>;
+    for (let i = 0; i < items.length - 1; i++) {
+      if (items[i].ngayBanHanh && items[i + 1].ngayBanHanh) {
+        expect(new Date(items[i].ngayBanHanh!).getTime())
+          .toBeGreaterThanOrEqual(new Date(items[i + 1].ngayBanHanh!).getTime());
+      }
+    }
+  });
+
+  test('sapXep=ngayBanHanh&huong=asc → item[0].ngayBanHanh <= item[1].ngayBanHanh', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.quyetDinh}?trang=1&soDong=10&sapXep=ngayBanHanh&huong=asc`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ ngayBanHanh?: string }>;
+    for (let i = 0; i < items.length - 1; i++) {
+      if (items[i].ngayBanHanh && items[i + 1].ngayBanHanh) {
+        expect(new Date(items[i].ngayBanHanh!).getTime())
+          .toBeLessThanOrEqual(new Date(items[i + 1].ngayBanHanh!).getTime());
+      }
+    }
+  });
+});
+
 // ─── REQ-08: Quyết định — auth ───────────────────────────────────────────────
 
 test.describe('REQ-08: Quyết định — auth', () => {

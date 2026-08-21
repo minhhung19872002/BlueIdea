@@ -579,3 +579,65 @@ test.describe('REQ-34: Trang chấm điểm chi tiết (TrangChamDiem)', () => {
     await context.close();
   });
 });
+
+// ─── P2: REQ-33 Filter verification — trangThai=DA_CHAM ────────────────────
+
+test.describe('REQ-33: Kiểm tra kết quả lọc trạng thái', () => {
+  test('lọc trangThai=CHUA_CHAM → mỗi item đều có trangThai CHUA_CHAM', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const res = await apiRequest(
+      page, 'GET',
+      `${API.danhGia}/viec-cua-toi?trang=1&soDong=50&trangThai=CHUA_CHAM`
+    );
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ trangThai?: string; trangThaiCham?: string }>;
+    for (const item of items) {
+      const status = item.trangThai ?? item.trangThaiCham;
+      if (status) {
+        expect(status).toBe('CHUA_CHAM');
+      }
+    }
+  });
+
+  test('lọc trangThai=DA_CHAM → mỗi item đều có trangThai DA_CHAM', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'hoidong01');
+    const res = await apiRequest(
+      page, 'GET',
+      `${API.danhGia}/viec-cua-toi?trang=1&soDong=50&trangThai=DA_CHAM`
+    );
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    const items = body.duLieu as Array<{ trangThai?: string; trangThaiCham?: string }>;
+    for (const item of items) {
+      const status = item.trangThai ?? item.trangThaiCham;
+      if (status) {
+        expect(status).toBe('DA_CHAM');
+      }
+    }
+  });
+});
+
+// ─── P2: Organization scope (IDOR) — đánh giá ────────────────────────────────
+
+test.describe('REQ-33: Phạm vi đơn vị (IDOR)', () => {
+  test('tacgia1 không xem được ma-tran-diem → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'GET', `${API.danhGia}/ma-tran-diem`);
+    expect(res!.status()).toBe(403);
+  });
+
+  test('tacgia1 không phân công chấm điểm được → 403', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const res = await apiRequest(page, 'POST', `${API.danhGia}/phan-cong`, {
+      hoiDongId: '00000000-0000-0000-0000-000000000001',
+      sangKienIds: ['00000000-0000-0000-0000-000000000001'],
+      tuDongChiaDeu: true,
+    });
+    expect(res!.status()).toBe(403);
+  });
+});

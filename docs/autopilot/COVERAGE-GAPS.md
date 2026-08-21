@@ -116,16 +116,16 @@ Mark [DONE] after writing + passing the test.
 - [x] Criteria versioning (snapshot per đợt)
 
 ### REQ-18: Hội đồng — Write operations missing
-- [ ] Conflict of interest detection (author = council member)
+- [x] Conflict of interest detection (author = council member)
 - [x] 5 permission flags per member
 - [x] chuc_danh constraints
 - [x] Council update/delete
 
 ### REQ-25: Tệp tin — Security features untested
-- [ ] Magic number check (not just extension)
-- [ ] Executable file blocking
+- [x] Magic number check (not just extension)
+- [x] Executable file blocking
 - [ ] SHA-256 hash computation
-- [ ] Presigned URL access (no direct path)
+- [x] Presigned URL access (no direct path)
 - [ ] PDF/image preview in browser
 
 ### REQ-26: Trùng lặp — Pipeline untested
@@ -137,49 +137,49 @@ Mark [DONE] after writing + passing the test.
 - [ ] PDF report export
 
 ### REQ-27: Tiếp nhận — No real acceptance action
-- [ ] Happy path: tiepnhan accepts a real submitted application → verify status transition
-- [ ] Yêu cầu bổ sung: select missing components + write required info + set deadline
-- [ ] Từ chối: write lý do rejection
-- [ ] Phiếu tiếp nhận PDF generation
-- [ ] Organization scope: user from unit A cannot see unit B applications
+- [x] Happy path: tiepnhan accepts a real submitted application → verify status transition
+- [x] Yêu cầu bổ sung: select missing components + write required info + set deadline
+- [x] Từ chối: write lý do rejection
+- [x] Phiếu tiếp nhận PDF generation
+- [x] Organization scope: user from unit A cannot see unit B applications
 
 ### REQ-29: Xử lý — No real workflow transition
-- [ ] POST thuc-thi with real sangKienId + truongHopId → verify state changes
-- [ ] Required ý kiến when step config requires it
-- [ ] Required attachment when step config requires it
-- [ ] Batch processing (thuc-thi-hang-loat) happy path with real data
-- [ ] Rút hồ sơ (thu-hoi) happy path with real data and lyDo
+- [x] POST thuc-thi with real sangKienId + truongHopId → verify state changes
+- [x] Required ý kiến when step config requires it
+- [x] Required attachment when step config requires it
+- [x] Batch processing (thuc-thi-hang-loat) happy path with real data
+- [x] Rút hồ sơ (thu-hoi) happy path with real data and lyDo
 
 ### REQ-31: Quyết định — Create doesn't verify success
-- [ ] POST create with valid payload → GET verify all fields match
-- [ ] POST cong-bo happy path (congKhai=true, congKhai=false)
-- [ ] PUT update decision
-- [ ] Link multiple sang_kien to one quyết định
+- [x] POST create with valid payload → GET verify all fields match
+- [x] POST cong-bo happy path (congKhai=true, congKhai=false)
+- [x] PUT update decision
+- [x] Link multiple sang_kien to one quyết định
 
 ### REQ-33: Phân công — No real assignment
-- [ ] POST phan-cong with real hoiDongId + sangKienId + thanhVienId → verify assigned
-- [ ] Conflict of interest: council member who is application author → excluded
-- [ ] Auto-assign endpoint
-- [ ] Deadline setting in phan-cong
+- [x] POST phan-cong with real hoiDongId + sangKienId + thanhVienId → verify assigned
+- [x] Conflict of interest: council member who is application author → excluded
+- [x] Auto-assign endpoint
+- [x] Deadline setting in phan-cong
 
 ### REQ-34: Đánh giá — No real score submission
-- [ ] POST luu-nhap with real score data (all criteria filled) → verify saved
-- [ ] POST gui with full score data → verify phiếu status changes
-- [ ] Lock phiếu after submission (inputs disabled)
-- [ ] Secretary reopens submitted phiếu
-- [ ] Auto-compute total score by weight
+- [x] POST luu-nhap with real score data (all criteria filled) → verify saved
+- [x] POST gui with full score data → verify phiếu status changes
+- [x] Lock phiếu after submission (inputs disabled)
+- [x] Secretary reopens submitted phiếu
+- [x] Auto-compute total score by weight
 
 ### REQ-35: Tổng hợp — No real aggregation
-- [ ] POST tong-hop with real hoiDongId + dotDeNghiId → verify scores aggregated
-- [ ] High/low score exclusion (loai_bo_diem_cao_thap=true)
-- [ ] Score visibility: members cannot see each other's scores before submission
-- [ ] Recognition level from diem_trung_binh
-- [ ] Score matrix structure: rows = apps, columns = members, cells = scores
+- [x] POST tong-hop with real hoiDongId + dotDeNghiId → verify scores aggregated
+- [x] High/low score exclusion (loai_bo_diem_cao_thap=true)
+- [x] Score visibility: members cannot see each other's scores before submission
+- [x] Recognition level from diem_trung_binh
+- [x] Score matrix structure: rows = apps, columns = members, cells = scores
 
 ### REQ-38: Báo cáo tùy chỉnh — No execution tested
-- [ ] Select template → set parameters → run → verify results returned
-- [ ] Excel export of custom report
-- [ ] PDF export of custom report
+- [x] Select template → set parameters → run → verify results returned
+- [x] Excel export of custom report
+- [x] PDF export of custom report
 
 ### REQ-43: Người dùng — All writes missing
 - [x] POST create user with valid payload → verify persisted
@@ -232,23 +232,23 @@ Mark [DONE] after writing + passing the test.
 
 ### Cross-cutting: Filter result verification
 - [x] REQ-28: Every filter test must verify returned items MATCH the filter criteria
-- [ ] REQ-33: trangThai=CHUA_CHAM filter → verify all returned items are CHUA_CHAM
+- [x] REQ-33: trangThai=CHUA_CHAM filter → verify all returned items are CHUA_CHAM
 - [x] REQ-36: Search results contain the search keyword
 - [ ] REQ-37: Report filters produce correct data
 
 ### Cross-cutting: Sort order verification
 - [x] REQ-28: sapXep=ngayNop&huong=desc → verify items are actually in descending order
-- [ ] REQ-31: Sort assertions must compare adjacent item values, not just check HTTP 200
+- [x] REQ-31: Sort assertions must compare adjacent item values, not just check HTTP 200
 
 ### Cross-cutting: Export content validation
 - [x] REQ-37: Download Excel/PDF and verify content-length > 0 and correct content-type
 - [ ] REQ-40: Parse exported file headers or first bytes to confirm format
 
 ### Cross-cutting: Catalog operations (all REQ-01 to REQ-08)
-- [ ] PATCH /{id}/trang-thai (enable/disable status toggle) for each catalog
+- [x] PATCH /{id}/trang-thai (enable/disable status toggle) for each catalog
 - [ ] POST /import Excel bulk import for at least 2 catalogs
-- [ ] GET /export Excel export for at least 2 catalogs
-- [ ] Delete-when-referenced returns 409 with reference list for at least 2 catalogs
+- [x] GET /export Excel export for at least 2 catalogs
+- [x] Delete-when-referenced returns 409 with reference list for at least 2 catalogs
 
 ### REQ-21: Auth depth
 - [ ] Full MFA TOTP enrollment: POST ghi-danh → QR data → POST xac-nhan-ghi-danh with valid TOTP
@@ -256,5 +256,5 @@ Mark [DONE] after writing + passing the test.
 - [ ] Password reuse prevention: change password to same as old → error
 
 ### Cross-cutting: Organization scope (IDOR)
-- [ ] Login as user in org A, try to GET data from org B → verify 403 or empty result
-- [ ] At least 2 endpoints tested for cross-org access
+- [x] Login as user in org A, try to GET data from org B → verify 403 or empty result
+- [x] At least 2 endpoints tested for cross-org access

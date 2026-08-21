@@ -1014,3 +1014,109 @@ test.describe('P2: Sáng kiến — filter & sort depth verification', () => {
     }
   });
 });
+
+// ─── REQ-25: Tệp tin — Bảo mật tải lên ──────────────────────────────────────
+
+test.describe('REQ-25: Bảo mật tệp tin', () => {
+  const MINIMAL_PNG = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+    0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41,
+    0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00,
+    0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc,
+    0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+    0x44, 0xae, 0x42, 0x60, 0x82,
+  ]);
+
+  test('tải lên file .exe bị chặn', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'malware.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ\x90\x00') },
+      },
+    });
+    expect([400, 415, 422]).toContain(res.status());
+  });
+
+  test('tải lên file .bat bị chặn', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'script.bat', mimeType: 'application/x-bat', buffer: Buffer.from('@echo off\ndir') },
+      },
+    });
+    expect([400, 415, 422]).toContain(res.status());
+  });
+
+  test('tải lên file PNG hợp lệ thành công', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'test-image.png', mimeType: 'image/png', buffer: MINIMAL_PNG },
+      },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeDefined();
+  });
+
+  test('tải lên file với extension giả (png nhưng nội dung exe) → chặn magic number', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const res = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'fake.png', mimeType: 'image/png', buffer: Buffer.from('MZ\x90\x00\x03\x00\x00\x00') },
+      },
+    });
+    expect([400, 415, 422]).toContain(res.status());
+  });
+
+  test('tải lên file không xác thực → 401', async ({ page }) => {
+    await page.goto('/');
+    const res = await page.request.post(`${API.tepTin}/tai-len`, {
+      multipart: {
+        tep: { name: 'test.png', mimeType: 'image/png', buffer: MINIMAL_PNG },
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /tep-tin/{id}/lien-ket-tai-xuong trả về URL có chữ ký', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'tacgia1');
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    // Upload a file first
+    const uploadRes = await page.request.post(`${API.tepTin}/tai-len`, {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        tep: { name: 'presign-test.png', mimeType: 'image/png', buffer: MINIMAL_PNG },
+      },
+    });
+    if (uploadRes.status() !== 200) return;
+    const uploadBody = await uploadRes.json();
+    const fileId = typeof uploadBody.duLieu === 'string' ? uploadBody.duLieu : uploadBody.duLieu?.id;
+    if (!fileId) return;
+
+    const res = await apiRequest(page, 'GET', `${API.tepTin}/${fileId}/lien-ket-tai-xuong?soPhut=5`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    expect(body.thanhCong).toBe(true);
+    expect(body.duLieu).toBeTruthy();
+    const url = typeof body.duLieu === 'string' ? body.duLieu : body.duLieu?.url;
+    expect(url).toContain('chuKy');
+  });
+});

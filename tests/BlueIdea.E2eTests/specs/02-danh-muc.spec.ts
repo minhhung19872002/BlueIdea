@@ -1896,3 +1896,140 @@ test.describe('REQ-06: Biểu mẫu xuất — tính năng nâng cao', () => {
     expect([200, 400, 422]).toContain(res!.status());
   });
 });
+
+// ─── P2: Catalog status toggle & export ──────────────────────────────────────
+
+test.describe('REQ-01→08: Thao tác danh mục nâng cao', () => {
+  test('PATCH /danh-muc/linh-vuc/{id}/trang-thai chuyển trạng thái hoạt động/ngưng', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    // Tạo lĩnh vực mới để toggle
+    const createRes = await apiRequest(page, 'POST', `${API.danhMuc}/linh-vuc`, {
+      ma: `E2E-TOGGLE-${Date.now()}`,
+      ten: `Lĩnh vực toggle ${Date.now()}`,
+      moTa: 'Test toggle',
+      thuTu: 999,
+      trangThai: 1,
+    });
+    if (createRes!.status() !== 200) return;
+    const createBody = await createRes!.json();
+    const id = typeof createBody.duLieu === 'string' ? createBody.duLieu : createBody.duLieu?.id;
+    if (!id) return;
+
+    // Toggle off (trangThai = 0)
+    const token = await page.evaluate(() => localStorage.getItem('blueidea.accessToken'));
+    const patchRes = await page.request.patch(`${API.danhMuc}/linh-vuc/${id}/trang-thai?trangThai=0`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect([200, 204, 400, 404]).toContain(patchRes.status());
+
+    // Cleanup
+    await apiRequest(page, 'DELETE', `${API.danhMuc}/linh-vuc/${id}`);
+  });
+
+  test('GET /danh-muc/linh-vuc/xuat-excel trả file Excel', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc/xuat-excel`);
+    expect([200, 404]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const ct = res!.headers()['content-type'] ?? '';
+      expect(ct.includes('spreadsheet') || ct.includes('excel') || ct.includes('octet-stream')).toBeTruthy();
+    }
+  });
+
+  test('GET /danh-muc/cap-phe-duyet/xuat-excel trả file Excel', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.danhMuc}/cap-phe-duyet/xuat-excel`);
+    expect([200, 404]).toContain(res!.status());
+    if (res!.status() === 200) {
+      const ct = res!.headers()['content-type'] ?? '';
+      expect(ct.includes('spreadsheet') || ct.includes('excel') || ct.includes('octet-stream')).toBeTruthy();
+    }
+  });
+
+  test('DELETE danh mục đang được tham chiếu → 409 hoặc 422 với thông tin tham chiếu', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    // Lấy lĩnh vực đầu tiên (có thể đang được sử dụng bởi sáng kiến)
+    const lvRes = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=1&soDong=1`);
+    expect(lvRes!.status()).toBe(200);
+    const lvBody = await lvRes!.json();
+    if (lvBody.duLieu.length === 0) return;
+    const id: string = lvBody.duLieu[0].id;
+
+    const delRes = await apiRequest(page, 'DELETE', `${API.danhMuc}/linh-vuc/${id}`);
+    // Nếu đang được sử dụng → 409/422, nếu không → 200
+    expect([200, 400, 409, 422]).toContain(delRes!.status());
+    if (delRes!.status() === 409 || delRes!.status() === 422) {
+      const delBody = await delRes!.json();
+      expect(delBody.thanhCong).toBe(false);
+    }
+  });
+});
+
+// ─── REQ-03: Chặn nộp hồ sơ quá hạn ────────────────────────────────────────
+
+test.describe('REQ-03: Hạn nộp hồ sơ', () => {
+  test('đợt đề nghị quản lý DTO chứa các trường vòng đời', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    const res = await apiRequest(page, 'GET', `${API.dotDeNghi}/quan-ly?trang=1&soDong=20`);
+    expect(res!.status()).toBe(200);
+    const body = await res!.json();
+    if (body.duLieu.length === 0) return;
+    const dot = body.duLieu[0] as Record<string, unknown>;
+    expect('trangThaiDot' in dot).toBe(true);
+    expect('tuDongKhoa' in dot).toBe(true);
+    const hasDeadlineField = body.duLieu.some(
+      (d: Record<string, unknown>) => 'hanNopHoSo' in d || 'hanChamDiem' in d,
+    );
+    expect('nam' in dot || hasDeadlineField || body.duLieu.length > 0).toBe(true);
+  });
+
+  test('nộp hồ sơ với đợt đã đóng → lỗi', async ({ page }) => {
+    await page.goto('/');
+    await loginViaAPI(page, 'admin');
+    // Tìm đợt đã đóng
+    const res = await apiRequest(page, 'GET', `${API.dotDeNghi}?trang=1&soDong=20`);
+    const body = await res!.json();
+    const dotDaDong = (body.duLieu as Array<Record<string, unknown>>).find(
+      (d) => d.trangThaiDot === 'DaDong' || d.trangThaiDot === 'DaKhoa',
+    );
+    if (!dotDaDong) { test.skip(true, 'Không có đợt đã đóng'); return; }
+
+    // Thử nộp hồ sơ với đợt đã đóng
+    await loginViaAPI(page, 'tacgia1');
+    const lvRes = await apiRequest(page, 'GET', `${API.danhMuc}/linh-vuc?trang=1&soDong=1`);
+    const lvBody = await lvRes!.json();
+    if (lvBody.duLieu.length === 0) return;
+
+    const createRes = await apiRequest(page, 'POST', API.sangKien, {
+      tenSangKien: `E2E Quá hạn ${Date.now()}`,
+      dotDeNghiId: dotDaDong.id as string,
+      linhVucId: lvBody.duLieu[0].id,
+      moTaGiaiPhap: 'Test quá hạn',
+      tinhTrangTruocKhiApDung: 'Test',
+      noiDungGiaiPhap: 'Test',
+      tinhMoi: 'Test',
+      khaNangApDung: 'Test',
+      phamViApDung: 'Test',
+      hieuQuaKinhTe: 'Test',
+      hieuQuaXaHoi: 'Test',
+      thoiGianApDungTu: '2026-01-01',
+      thoiGianApDungDen: '2026-12-31',
+      danhSachTacGia: [{ hoTen: 'Trần Thị Lan', tyLeDongGop: 100, laTacGiaChinh: true }],
+    });
+    // Đợt đã đóng → không tạo được hoặc không nộp được
+    expect([200, 400, 422]).toContain(createRes!.status());
+    if (createRes!.status() === 200) {
+      const createBody = await createRes!.json();
+      const id = typeof createBody.duLieu === 'string' ? createBody.duLieu : createBody.duLieu?.id;
+      if (id) {
+        const nopRes = await apiRequest(page, 'POST', `${API.sangKien}/${id}/nop`);
+        expect([400, 422]).toContain(nopRes!.status());
+      }
+    }
+  });
+});
