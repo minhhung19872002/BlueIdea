@@ -10,6 +10,7 @@ import {
   Modal,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -40,6 +41,8 @@ const luatBoTieuChi = z
     diemDatToiThieu: soNguyen('Điểm đạt tối thiểu', 0, 1000),
     cachTinh: z.string(),
     lamTron: soNguyen('Làm tròn', 0, 4),
+    tuDongTongHop: z.boolean(),
+    loaiBoDiemCaoThap: z.boolean(),
     trangThai: trangThai,
   })
   .refine((v) => v.diemDatToiThieu <= v.thangDiemToiDa, {
@@ -57,6 +60,8 @@ const MAC_DINH_TIEU_CHI: GiaTriBoTieuChi = {
   diemDatToiThieu: 50,
   cachTinh: 'TONG_DIEM',
   lamTron: 2,
+  tuDongTongHop: true,
+  loaiBoDiemCaoThap: false,
   trangThai: 1,
 };
 
@@ -264,6 +269,30 @@ export default function TrangTieuChi() {
                   { value: 'TRUNG_BINH_TRONG_SO', label: 'Trung bình theo trọng số nhóm' },
                 ]}
               />
+            )}
+          </Truong>
+
+          {/*
+            * Hai công tắc này trước đây chỉ đặt được qua API nên không ai đặt: bộ tiêu chí tạo từ
+            * màn hình luôn nhận giá trị mặc định của DTO. Đưa lên form để người cấu hình chọn.
+            */}
+          <Truong<GiaTriBoTieuChi>
+            ten="tuDongTongHop"
+            label="Tự động tổng hợp điểm"
+            tooltip="Người cuối cùng trong danh sách phân công gửi phiếu là hệ thống tổng hợp ngay, thư ký không phải bấm."
+          >
+            {(o) => (
+              <Switch checked={o.value as boolean} onChange={(v) => o.onChange?.(v)} />
+            )}
+          </Truong>
+
+          <Truong<GiaTriBoTieuChi>
+            ten="loaiBoDiemCaoThap"
+            label="Loại điểm cao nhất và thấp nhất"
+            tooltip="Chỉ áp dụng khi có từ 5 phiếu trở lên."
+          >
+            {(o) => (
+              <Switch checked={o.value as boolean} onChange={(v) => o.onChange?.(v)} />
             )}
           </Truong>
         </BieuMau>

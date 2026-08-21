@@ -2,6 +2,7 @@ using BlueIdea.Application.Chung;
 using BlueIdea.Application.TichHop;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.QuyTrinh;
+using BlueIdea.Domain.SangKien;
 using BlueIdea.Workflow.MoHinh;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,22 @@ public sealed class DichVuDieuPhaiHanhDong
     public async Task DieuPhaiAsync(
         Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)
     {
+        // Buoc loai CONG_BO: di qua buoc nay la ket qua duoc cong bo.
+        //
+        // Truoc day loai buoc CONG_BO khai duoc tren trinh thiet ke nhung khong mot dong logic
+        // nao doc toi — quan tri vien khai mot buoc "Cong bo" trong quy trinh se tuong he thong
+        // tu cong bo, thuc te no chi la mot buoc bam qua nhu buoc thuong.
+        try
+        {
+            await CongBoNeuQuaBuocCongBoAsync(sangKienId, ketQua, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Công bố tự động sau bước CONG_BO thất bại cho sáng kiến {SangKienId}.",
+                sangKienId);
+        }
+
         foreach (var hanhDong in ketQua.HanhDongCanChay)
         {
             if (hanhDong is HanhDongTuDong.GuiEmail or HanhDongTuDong.GuiSms)
@@ -54,6 +71,76 @@ public sealed class DichVuDieuPhaiHanhDong
                     hanhDong, sangKienId);
             }
         }
+    }
+
+    /// <summary>
+    /// Cong bo ket qua cua chinh ho so vua di qua mot buoc loai CONG_BO.
+    ///
+    /// Khac nut "Cong bo" o man hinh Quyet dinh (cong bo ca danh sach theo mot quyet dinh): day
+    /// la cong bo theo QUY TRINH, cho don vi nao khai buoc cong bo trong so do. Hai duong cung
+    /// dat mot ket qua: ket qua xet duyet danh dau da cong bo, ho so mo hien thi cong khai.
+    ///
+    /// Chi cong bo ho so DAT: di qua buoc cong bo voi ket qua khong dat thi khong co gi de cong
+    /// khai, va mo cong khai mot ho so truot la lam lo thong tin khong ai yeu cau.
+    /// </summary>
+    private async Task CongBoNeuQuaBuocCongBoAsync(
+        Guid sangKienId, KetQuaXuLy ketQua, CancellationToken ct)
+    {
+        if (ketQua.BuocTruocId is not { } buocTruocId)
+        {
+            return;
+        }
+
+        var laBuocCongBo = await _db.QuyTrinhBuoc.AsNoTracking()
+            .AnyAsync(x => x.Id == buocTruocId && x.LoaiBuoc == LoaiBuoc.CongBo, ct)
+            .ConfigureAwait(false);
+
+        if (!laBuocCongBo)
+        {
+            return;
+        }
+
+        var hoSo = await _db.SangKien
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false);
+
+        if (hoSo is null || hoSo.KetQua != KetQuaXetDuyetGiaTri.Dat)
+        {
+            return;
+        }
+
+        var bayGio = DateTimeOffset.UtcNow;
+        var coThayDoi = false;
+
+        if (!hoSo.DaCongBoKetQua)
+        {
+            hoSo.DaCongBoKetQua = true;
+            hoSo.NgayCongBoKetQua = bayGio;
+            hoSo.CongKhai = true;
+            coThayDoi = true;
+        }
+
+        var ketQuaXetDuyet = await _db.KetQuaXetDuyet
+            .Where(x => x.SangKienId == sangKienId && !x.DaCongBo)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var k in ketQuaXetDuyet)
+        {
+            k.DaCongBo = true;
+            k.NgayCongBo = bayGio;
+            coThayDoi = true;
+        }
+
+        if (!coThayDoi)
+        {
+            return;
+        }
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Đã công bố kết quả sáng kiến {SangKienId} sau khi qua bước loại CONG_BO.", sangKienId);
     }
 
     private async Task XuLyMotHanhDongAsync(
@@ -110,11 +197,11 @@ public sealed class DichVuDieuPhaiHanhDong
                 break;
 
             case HanhDongTuDong.TaoQuyetDinh:
+                _hangDoi.XepLichTaoQuyetDinh(sangKienId);
+                break;
+
             case HanhDongTuDong.YeuCauKySo:
-                _logger.LogWarning(
-                    "Hành động tự động {HanhDong} được cấu hình nhưng chưa có bộ xử lý tự động " +
-                    "cho sáng kiến {SangKienId}. Cần xử lý thủ công.",
-                    hanhDong, sangKienId);
+                _hangDoi.XepLichYeuCauKySo(sangKienId);
                 break;
 
             default:

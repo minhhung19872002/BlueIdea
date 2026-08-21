@@ -101,8 +101,11 @@ public static class BoKiemTraThanhPhanHoSo
     /// <summary>
     /// Lay noi dung cua mot thanh phan: uu tien truong co dinh tren bang <c>sang_kien</c>,
     /// neu khong co thi lay tu <c>noi_dung_dong</c> (jsonb).
+    ///
+    /// Cong khai vi pipeline kiem tra trung lap (chuc nang 26) phai doc dung mot cach anh xa
+    /// nay - neu moi noi tu anh xa lai thi co ngay hai su that khac nhau ve "noi dung thanh phan".
     /// </summary>
-    private static string? LayNoiDung(HoSoSangKien hoSo, string ma) => ma.ToUpperInvariant() switch
+    public static string? LayNoiDung(HoSoSangKien hoSo, string ma) => ma.ToUpperInvariant() switch
     {
         "MO_TA_GIAI_PHAP" => hoSo.MoTaGiaiPhap,
         "TINH_TRANG_TRUOC" => hoSo.TinhTrangTruocKhiApDung,

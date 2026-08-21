@@ -185,6 +185,98 @@ public class BoMayQuyTrinhTests
         ketQua.HanhDongCanChay.Should().Contain(HanhDongTuDong.KiemTraTrungLap);
     }
 
+    /// <summary>
+    /// Co "la trang thai ket thuc" tren mot trang thai phai co hieu luc that: gan trang thai do
+    /// cho ho so la ho so dung han, du truong hop van khai buoc ke tiep.
+    /// </summary>
+    [Fact]
+    public void Trang_Thai_Ket_Thuc_Dung_Ho_So_Lai_Du_Con_Buoc_Ke_Tiep()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+
+        var trangThaiKetThuc = new QuyTrinhTrangThai
+        {
+            Id = Guid.NewGuid(),
+            QuyTrinhId = quyTrinh.Id,
+            Ma = "DA_TU_CHOI",
+            Ten = "Đã từ chối",
+            LaTrangThaiKetThuc = true
+        };
+
+        quyTrinh.TrangThaiToanCuc.Add(trangThaiKetThuc);
+
+        // Nhánh "Đạt" bình thường đi tiếp sang Thẩm định — nay gán trạng thái kết thúc vào nó.
+        var truongHopDat = buocTiepNhan.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+        truongHopDat.TrangThaiGanId = trangThaiKetThuc.Id;
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var nguCanh = TaoNguCanh(hoSo, quyTrinh, nguoi);
+
+        var ketQua = _boMay.ThucThi(nguCanh, new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id,
+            YKien = "Kết thúc tại bước tiếp nhận."
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.DaKetThucQuyTrinh.Should().BeTrue();
+        ketQua.BuocMoiId.Should().BeNull();
+
+        hoSo.BuocHienTaiId.Should().BeNull("hồ sơ đã kết thúc thì không nằm chờ ở bước nào nữa");
+        hoSo.TrangThaiHienTaiId.Should().Be(trangThaiKetThuc.Id);
+        hoSo.HanXuLyHienTai.Should().BeNull();
+        hoSo.NgayHoanThanh.Should().Be(ThoiDiemTest);
+    }
+
+    /// <summary>
+    /// Trang thai KHONG tick "ket thuc" thi ho so van di tiep nhu cu — chan viec co moi lam doi
+    /// hanh vi cua nhung quy trinh dang chay.
+    /// </summary>
+    [Fact]
+    public void Trang_Thai_Thuong_Van_Cho_Ho_So_Di_Tiep()
+    {
+        var quyTrinh = XuongDuLieuTest.TaoQuyTrinhMau();
+        var buocTiepNhan = quyTrinh.DanhSachBuoc[0];
+
+        var trangThaiThuong = new QuyTrinhTrangThai
+        {
+            Id = Guid.NewGuid(),
+            QuyTrinhId = quyTrinh.Id,
+            Ma = "DA_TIEP_NHAN",
+            Ten = "Đã tiếp nhận",
+            LaTrangThaiKetThuc = false
+        };
+
+        quyTrinh.TrangThaiToanCuc.Add(trangThaiThuong);
+
+        var truongHopDat = buocTiepNhan.TruongHop.First(t => t.Ma == MaTruongHop.Dat);
+        truongHopDat.TrangThaiGanId = trangThaiThuong.Id;
+
+        var hoSo = XuongDuLieuTest.TaoHoSo();
+        _boMay.KhoiTao(hoSo, quyTrinh, ThoiDiemTest, out _);
+
+        var nguoi = NguoiVoiVaiTro(MaVaiTro.CanBoTiepNhan);
+        var nguCanh = TaoNguCanh(hoSo, quyTrinh, nguoi);
+
+        var ketQua = _boMay.ThucThi(nguCanh, new XuLyBuocRequest
+        {
+            SangKienId = hoSo.Id,
+            NguoiDungId = nguoi.NguoiDungId,
+            TruongHopId = truongHopDat.Id
+        }, out _);
+
+        ketQua.ThanhCong.Should().BeTrue(ketQua.ThongBao);
+        ketQua.DaKetThucQuyTrinh.Should().BeFalse();
+        hoSo.BuocHienTaiId.Should().Be(quyTrinh.DanhSachBuoc[1].Id);
+        hoSo.HanXuLyHienTai.Should().NotBeNull();
+    }
+
     [Fact]
     public void Thuc_Thi_Khi_Khong_Phai_Tac_Nhan_Bi_Tu_Choi()
     {

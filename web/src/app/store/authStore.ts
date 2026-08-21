@@ -17,6 +17,12 @@ export interface NguoiDung {
   mfaEnabled: boolean;
   /** Đang bị buộc bật xác thực hai lớp trước khi dùng các chức năng khác. */
   buocBatMfa?: boolean;
+
+  // --- Thông tin cá nhân người dùng tự sửa được (chức năng 21/43) ---
+  dienThoai?: string | null;
+  ngaySinh?: string | null;
+  gioiTinh?: string | null;
+  anhDaiDienId?: string | null;
 }
 
 interface KetQuaDangNhap {

@@ -27,6 +27,9 @@ public static class ChuanChuKySo
 
     /// <summary>Chữ ký tách rời, sinh ra tệp .p7s đi kèm bản gốc.</summary>
     public const string CmsDetached = "CMS_DETACHED";
+
+    /// <summary>Chữ ký XML-DSig/XAdES nhúng ngay trong tệp XML.</summary>
+    public const string Xades = "XADES";
 }
 
 /// <summary>Ket qua xac minh chu ky tren mot tep.</summary>
@@ -162,9 +165,12 @@ public sealed class DichVuKySo
         // PAdES tra ve MOT TEP PDF da nhung chu ky; CMS detached tra ve tep .p7s di kem ban goc.
         // Luu dung phan mo rong va MIME cua tung loai, neu khong trinh duyet tai ve mot tep PDF
         // mang duoi .p7s va nguoi dung khong mo duoc.
-        var laPades = ketQua.ChuanKy == ChuanChuKySo.Pades;
-        var phanMoRong = laPades ? ".pdf" : ".p7s";
-        var mime = laPades ? "application/pdf" : "application/pkcs7-signature";
+        var (phanMoRong, mime) = ketQua.ChuanKy switch
+        {
+            ChuanChuKySo.Pades => (".pdf", "application/pdf"),
+            ChuanChuKySo.Xades => (".xml", "application/xml"),
+            _ => (".p7s", "application/pkcs7-signature")
+        };
 
         // Lưu tệp đã ký thành bản ghi RIÊNG, giữ nguyên bản gốc.
         var tenLuuTru = $"{Guid.NewGuid():N}{phanMoRong}";

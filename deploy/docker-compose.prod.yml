@@ -53,11 +53,22 @@ services:
       -c maintenance_work_mem=48MB
       -c max_connections=50
       -c wal_compression=on
+      -c wal_level=replica
+      -c archive_mode=on
+      -c archive_timeout=300
+      -c archive_command='test ! -f /wal-archive/%f && cp %p /wal-archive/%f'
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/khoi-tao:/docker-entrypoint-initdb.d:ro
+      # Luu tru WAL de khoi phuc theo thoi diem (PITR).
+      #
+      # Chi co ban dump hang ngay thi diem khoi phuc gan nhat la 1h sang hom truoc — moi ho so nop
+      # trong ngay deu mat. WAL day nhat 5 phut (archive_timeout) nen mat mat toi da tinh bang phut.
+      # Thu muc nay PHAI nam ngoai o dia du lieu Postgres, va phai duoc dua vao lich sao chep
+      # ra ngoai may chu cung voi ban dump.
+      - ${THU_MUC_WAL:-/var/backups/blueidea/wal}:/wal-archive
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U blueidea -d blueidea"]
       interval: 10s

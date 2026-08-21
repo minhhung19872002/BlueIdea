@@ -167,6 +167,31 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
     protected override string QuyenSua => MaQuyen.DonViCauHinh;
     protected override string QuyenXoa => MaQuyen.DonViCauHinh;
 
+    /// <summary>
+    /// Danh sach don vi de chon, co the loc chi lay don vi da danh dau "la don vi phe duyet".
+    ///
+    /// Dung cho man hinh khai cap phe duyet: may chu da chan gan cap phe duyet vao don vi khong
+    /// duoc danh dau, nen o do khong duoc bay ra nhung don vi chac chan se bi tu choi.
+    /// </summary>
+    public async Task<IReadOnlyList<DanhMucDto>> LayDanhSachChonAsync(
+        CancellationToken ct, bool chiDonViPheDuyet)
+    {
+        if (!chiDonViPheDuyet)
+        {
+            return await LayDanhSachChonAsync(ct).ConfigureAwait(false);
+        }
+
+        return await Db.DonVi.AsNoTracking()
+            .Where(x => !x.DaXoa
+                        && x.TrangThai == TrangThaiDanhMuc.HoatDong
+                        && x.LaDonViPheDuyet)
+            .OrderBy(x => x.ThuTu).ThenBy(x => x.Ten)
+            .Select(x => new DanhMucDto(
+                x.Id, x.Ma, x.Ten, x.MoTa, x.ThuTu, x.TrangThai, x.NgayTao, null))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<NutCay>> LayCayAsync(CancellationToken ct = default)
     {
         var tatCa = await Db.DonVi.AsNoTracking()
@@ -295,7 +320,7 @@ public sealed class DichVuDonVi : DichVuDanhMucCoSo<DonVi>
         var nguoiGoiId = _nguoiDung.Id
                          ?? throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
 
-        var phamVi = await PhanQuyen.LayPhamViTruyCapAsync(nguoiGoiId, ct).ConfigureAwait(false);
+        var phamVi = await PhanQuyen.LayPhamViDonViAsync(nguoiGoiId, ct).ConfigureAwait(false);
 
         if (phamVi.ToanHeThong) return;
 

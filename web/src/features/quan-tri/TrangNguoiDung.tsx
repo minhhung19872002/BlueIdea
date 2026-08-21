@@ -16,6 +16,7 @@ import {
   Typography,
 } from 'antd';
 import {
+  DeleteOutlined,
   EditOutlined,
   ImportOutlined,
   KeyOutlined,
@@ -29,6 +30,7 @@ import type { Dayjs } from 'dayjs';
 import { z } from 'zod';
 
 import { LoiApi } from '@/api/client';
+import { useAuthStore } from '@/app/store/authStore';
 import { BieuMau, Truong, useBieuMau } from '@/components/bieu-mau/BieuMau';
 import { batBuoc, dienThoai, email, maKyThuat, tuyChon } from '@/components/bieu-mau/luat';
 import { apiDonVi, apiHeThong, type LuuNguoiDung } from '@/api/endpoints';
@@ -93,6 +95,18 @@ export default function TrangNguoiDung() {
     mutationFn: (id: string) => apiHeThong.datLaiMatKhau(id),
     onSuccess: (ketQua) => hienMatKhauTam(ketQua.matKhauTam),
     onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không đặt lại được.'),
+  });
+
+  // Ẩn nút khi không có quyền — máy chủ vẫn là nơi quyết định, đây chỉ để đỡ bấm vào rồi ăn 403.
+  const duocXoa = useAuthStore((st) => st.coQuyen('NGUOI_DUNG.XOA'));
+
+  const xoaNguoiDung = useMutation({
+    mutationFn: (id: string) => apiHeThong.xoaNguoiDung(id),
+    onSuccess: () => {
+      message.success('Đã xoá tài khoản');
+      void queryClient.invalidateQueries({ queryKey: ['nguoi-dung'] });
+    },
+    onError: (loi) => message.error(loi instanceof LoiApi ? loi.message : 'Không xoá được.'),
   });
 
   function hienMatKhauTam(matKhauTam: string) {
@@ -195,7 +209,7 @@ export default function TrangNguoiDung() {
             {
               title: '',
               key: 'thaoTac',
-              width: 170,
+              width: duocXoa ? 208 : 170,
               fixed: 'right',
               render: (_v, dong) => (
                 <Space size={4}>
@@ -241,6 +255,29 @@ export default function TrangNguoiDung() {
                         size="small"
                         icon={<UnlockOutlined />}
                         onClick={() => doiTrangThai.mutate({ id: dong.id, trangThai: 'HOAT_DONG' })}
+                      />
+                    </Tooltip>
+                  )}
+                  {duocXoa && (
+                    <Tooltip title="Xoá tài khoản">
+                      <Button
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        loading={xoaNguoiDung.isPending}
+                        onClick={() =>
+                          modal.confirm({
+                            title: `Xoá tài khoản ${dong.tenDangNhap}?`,
+                            content:
+                              'Tài khoản biến khỏi danh sách và mọi phiên đăng nhập bị thu hồi. '
+                              + 'Lịch sử xử lý hồ sơ vẫn giữ nguyên để truy nguyên trách nhiệm. '
+                              + 'Chỉ muốn ngăn đăng nhập tạm thời thì dùng khoá tài khoản.',
+                            okText: 'Xoá',
+                            okButtonProps: { danger: true },
+                            cancelText: 'Huỷ',
+                            onOk: () => xoaNguoiDung.mutateAsync(dong.id),
+                          })
+                        }
                       />
                     </Tooltip>
                   )}

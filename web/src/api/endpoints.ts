@@ -142,6 +142,9 @@ export const apiDonVi = {
     guiDuLieu<number>(`/api/v1/don-vi/${nguonId}/gop-vao/${dichId}`),
   ...taoApiDanhMuc<DonViChiTiet>('/api/v1/don-vi'),
   cay: () => layDuLieu<NutCay[]>('/api/v1/don-vi/cay'),
+  /** Chỉ đơn vị đã đánh dấu "là đơn vị phê duyệt" — dùng cho màn hình khai cấp phê duyệt. */
+  chonDonViPheDuyet: () =>
+    layDuLieu<DanhMucDto[]>('/api/v1/don-vi/chon', { params: { chiDonViPheDuyet: true } }),
 };
 
 // --- Sáng kiến -------------------------------------------------------------
@@ -268,12 +271,22 @@ export interface HanhDongKhaDung {
   mauNut: string;
   batBuocNhapYKien: boolean;
   batBuocDinhKem: boolean;
+  /** Bước cho phép xử lý thay người khác (chức năng 15/29). */
+  choPhepUyQuyen: boolean;
   tepBatBuoc: string[];
   biChan: boolean;
   lyDoChan?: string | null;
   buocTiepTheoId?: string | null;
   tenBuocTiepTheo?: string | null;
   hanhDongTuDong: string[];
+}
+
+/** Một người có thể xử lý bước hiện tại của hồ sơ. */
+export interface TacNhanBuoc {
+  id: string;
+  hoTen: string;
+  chucVu?: string | null;
+  tenDangNhap: string;
 }
 
 export interface MocTienDo {
@@ -337,6 +350,11 @@ export const apiSangKien = {
   trungLap: (id: string) => layDuLieu<KetQuaTrungLap | null>(`/api/v1/sang-kien/${id}/trung-lap`),
   chayLaiTrungLap: (id: string) =>
     guiDuLieu<KetQuaTrungLap>(`/api/v1/sang-kien/${id}/trung-lap/chay-lai`),
+  /** Chức năng 26 — hội đồng ghi nhận đã xem xét cảnh báo trùng lặp. */
+  xemXetTrungLap: (id: string, yKienHoiDong?: string) =>
+    guiDuLieu<KetQuaTrungLap>(`/api/v1/sang-kien/${id}/trung-lap/xem-xet`, { yKienHoiDong }),
+  /** Chức năng 26 — đường dẫn tải báo cáo trùng lặp bản PDF. */
+  duongDanBaoCaoTrungLap: (id: string) => `/api/v1/sang-kien/${id}/trung-lap/xuat-pdf`,
   tao: (duLieu: NoiDungHoSo) => guiDuLieu<string>('/api/v1/sang-kien', duLieu),
   capNhat: (id: string, duLieu: NoiDungHoSo, phienBan?: number) =>
     capNhatDuLieu(`/api/v1/sang-kien/${id}${phienBan ? `?phienBan=${phienBan}` : ''}`, duLieu),
@@ -345,6 +363,13 @@ export const apiSangKien = {
       `/api/v1/sang-kien/${id}/nop`,
     ),
   rut: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/rut`, { lyDo }),
+  /** Chức năng 23 — xoá hồ sơ còn ở dạng nháp. Hồ sơ đã nộp thì dùng rút/huỷ. */
+  xoa: (id: string) => xoaDuLieu(`/api/v1/sang-kien/${id}`),
+  /** Chức năng 27 — hàng chờ tiếp nhận, quyền riêng TIEP_NHAN.XEM. */
+  choTiepNhan: (thamSo?: Record<string, unknown>) =>
+    layPhanTrang<SangKienTomTat>('/api/v1/sang-kien/cho-tiep-nhan', thamSo),
+  /** Huỷ hồ sơ đã nộp — việc của cán bộ điều phối, khác "rút" của tác giả. */
+  huy: (id: string, lyDo: string) => guiDuLieu(`/api/v1/sang-kien/${id}/huy`, { lyDo }),
   /** Chức năng 37 — tìm theo ý nghĩa câu hỏi, không cần trùng từ khoá. */
   timNguNghia: (thamSo: {
     cauHoi: string;
@@ -418,6 +443,7 @@ export const apiXuLy = {
     truongHopId: string;
     yKien?: string;
     tepDinhKemIds?: string[];
+    nguoiUyQuyenId?: string | null;
     phienBanHoSo?: number;
   }) =>
     guiDuLieu<{ thongBao: string; tenBuocMoi?: string; choThemTacNhan: boolean }>(
@@ -425,6 +451,9 @@ export const apiXuLy = {
       duLieu,
       { headers: { 'Idempotency-Key': crypto.randomUUID() } },
     ),
+  /** Chức năng 15/29 — người có thể xử lý bước hiện tại, dùng cho ô chọn người uỷ quyền. */
+  tacNhanBuoc: (sangKienId: string) =>
+    layDuLieu<TacNhanBuoc[]>(`/api/v1/xu-ly/tac-nhan-buoc/${sangKienId}`),
   thucThiHangLoat: (duLieu: { sangKienIds: string[]; truongHopId: string; yKien?: string }) =>
     guiDuLieu<{ tongSo: number; thanhCong: number; thatBai: number; chiTietLoi: string[] }>(
       '/api/v1/xu-ly/thuc-thi-hang-loat',
@@ -432,6 +461,9 @@ export const apiXuLy = {
     ),
   thuHoi: (sangKienId: string, lyDo: string) =>
     guiDuLieu('/api/v1/xu-ly/thu-hoi', { sangKienId, lyDo }),
+  /** Gia hạn xử lý cho bước hiện tại — chỉ kéo dài được, không rút ngắn. */
+  giaHan: (sangKienId: string, hanMoi: string, lyDo: string) =>
+    guiDuLieu('/api/v1/xu-ly/gia-han', { sangKienId, hanMoi, lyDo }),
 };
 
 // --- Đánh giá --------------------------------------------------------------
@@ -651,6 +683,9 @@ export const apiBaoCao = {
   tongHopNam: (nam: number, thamSo?: Record<string, unknown>) =>
     layDuLieu<BaoCaoTongHopNam>(`/api/v1/bao-cao/tong-hop-nam/${nam}`, { params: thamSo }),
   duongDanTongHopNamPdf: (nam: number) => `/api/v1/bao-cao/tong-hop-nam/${nam}/xuat-pdf`,
+  /** Nhóm X — đặt lệnh xuất báo cáo ở tiến trình nền, nhận thông báo kèm liên kết khi xong. */
+  datLenhXuatNen: (loai: string, thamSo?: Record<string, unknown>) =>
+    guiDuLieu<null>(`/api/v1/bao-cao/${loai}/xuat-nen`, undefined, { params: thamSo }),
 };
 
 export interface DongBaoCaoTacGia {
@@ -700,6 +735,24 @@ export const apiQuyTrinh = {
   phienBanMoi: (id: string) => guiDuLieu<string>(`/api/v1/quy-trinh/${id}/phien-ban-moi`),
   saoChep: (id: string, ma: string, ten: string) =>
     guiDuLieu<string>(`/api/v1/quy-trinh/${id}/sao-chep`, { ma, ten }),
+
+  /*
+   * Thanh phan ho so co API rieng tung ban ghi, khong di qua so do.
+   *
+   * Thanh phan ho so khong phai mot nut tren so do. Neu sua no bang cach gui lai ca so do thi
+   * hai nguoi cung mo mot quy trinh — mot nguoi sua buoc, mot nguoi them thanh phan — se ghi de
+   * len nhau, ai bam Luu sau thi thang.
+   */
+  thanhPhan: (id: string) =>
+    layDuLieu<ThanhPhanHoSoCauHinh[]>(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so`),
+  themThanhPhan: (id: string, duLieu: ThanhPhanHoSoCauHinh) =>
+    guiDuLieu<string>(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so`, duLieu),
+  suaThanhPhan: (id: string, thanhPhanId: string, duLieu: ThanhPhanHoSoCauHinh) =>
+    capNhatDuLieu(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so/${thanhPhanId}`, duLieu),
+  xoaThanhPhan: (id: string, thanhPhanId: string) =>
+    xoaDuLieu(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so/${thanhPhanId}`),
+  sapXepThanhPhan: (id: string, idTheoThuTu: string[]) =>
+    capNhatDuLieu(`/api/v1/quy-trinh/${id}/thanh-phan-ho-so/sap-xep`, idTheoThuTu),
 };
 
 export interface PhatHien {
@@ -906,6 +959,10 @@ export interface KetQuaBoPhieu {
   khongDongY: number;
   yKienKhac: number;
   tyLeDongY: number;
+  /** Bước hiện tại có bật "Bỏ phiếu kín". Do cấu hình quy trình quyết định, không phải người bỏ phiếu. */
+  boPhieuKin: boolean;
+  /** Phiên đã chốt chưa — phiếu kín mà phiên còn mở thì số liệu kiểm phiếu trả về 0. */
+  daChotPhien: boolean;
 }
 
 export const apiHoiDong = {
@@ -1027,6 +1084,8 @@ export const apiHeThong = {
     ),
   datLaiMatKhau: (id: string) =>
     guiDuLieu<{ matKhauTam: string }>(`/api/v1/he-thong/nguoi-dung/${id}/dat-lai-mat-khau`),
+  /** Chức năng 43 — xoá tài khoản (xoá mềm). Khác khoá tài khoản: khoá mở lại được. */
+  xoaNguoiDung: (id: string) => xoaDuLieu(`/api/v1/he-thong/nguoi-dung/${id}`),
 
   // Thông báo trong ứng dụng
   thongBao: (thamSo?: { trang?: number; soDong?: number; chuaDoc?: boolean }) =>
@@ -1234,6 +1293,16 @@ export interface KetQuaQuetPlaceholder {
   nguonGoiY: NguonDuLieuBaoCao[];
 }
 
+/** Chức năng 35 — định dạng xuất phiếu chấm: PDF liền mạch, ZIP mỗi phiếu một tệp, hoặc bản Word. */
+export type DinhDangPhieuCham = 'PDF' | 'ZIP' | 'DOCX';
+
+/** Đuôi tệp tương ứng từng định dạng — đặt một chỗ để hai màn hình không đặt tên lệch nhau. */
+export const DUOI_TEP_PHIEU: Record<DinhDangPhieuCham, string> = {
+  PDF: 'pdf',
+  ZIP: 'zip',
+  DOCX: 'docx',
+};
+
 export const apiNhapXuat = {
   duongDanMauNhapNguoiDung: () => '/api/v1/nhap-xuat/nguoi-dung/mau-nhap',
 
@@ -1280,12 +1349,12 @@ export const apiNhapXuat = {
     return data.duLieu;
   },
 
-  duongDanPhieuChamHoSo: (sangKienId: string, dinhDang?: 'PDF' | 'ZIP') =>
+  duongDanPhieuChamHoSo: (sangKienId: string, dinhDang?: DinhDangPhieuCham) =>
     `/api/v1/nhap-xuat/phieu-cham/ho-so/${sangKienId}` +
-    (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
-  duongDanPhieuChamHoiDong: (hoiDongId: string, dinhDang?: 'PDF' | 'ZIP') =>
+    (dinhDang && dinhDang !== 'PDF' ? `?dinhDang=${dinhDang}` : ''),
+  duongDanPhieuChamHoiDong: (hoiDongId: string, dinhDang?: DinhDangPhieuCham) =>
     `/api/v1/nhap-xuat/phieu-cham/hoi-dong/${hoiDongId}` +
-    (dinhDang === 'ZIP' ? '?dinhDang=ZIP' : ''),
+    (dinhDang && dinhDang !== 'PDF' ? `?dinhDang=${dinhDang}` : ''),
 
   nguonDuLieuBaoCao: () =>
     layDuLieu<NguonDuLieuBaoCao[]>('/api/v1/nhap-xuat/bao-cao-tuy-bien/nguon-du-lieu'),
@@ -1860,7 +1929,6 @@ export interface LienThongBuoc {
   /** KHI_VAO_BUOC | KHI_HOAN_THANH | KHI_PHE_DUYET */
   suKien: string;
   loaiDuLieu?: string | null;
-  dongBoHaiChieu: boolean;
   trangThai: number;
 }
 
@@ -1870,7 +1938,6 @@ export interface LuuLienThongBuoc {
   suKien: string;
   loaiDuLieu?: string | null;
   cauHinhMapping?: Record<string, string> | null;
-  dongBoHaiChieu: boolean;
   trangThai: number;
 }
 

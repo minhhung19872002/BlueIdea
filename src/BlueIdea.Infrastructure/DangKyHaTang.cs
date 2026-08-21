@@ -1,3 +1,4 @@
+using BlueIdea.Ai.Nhung;
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.XacThuc;
 using BlueIdea.Infrastructure.BaoMat;
@@ -50,6 +51,8 @@ public static class DangKyHaTang
 
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<BoChanAudit>();
+
+        ThemBoNhungVanBan(services, cauHinh);
 
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
@@ -150,6 +153,58 @@ public static class DangKyHaTang
     }
 
     /// <summary>
+    /// Chon bo nhung van ban: mo hinh ONNX cua don vi neu da khai bao va co du tep, nguoc lai
+    /// dung bo bam tu vung.
+    ///
+    /// Dang ky o tang Ha tang chu khong phai tang Ung dung vi day la noi biet cau hinh va he tep.
+    /// Tang Ung dung van dang ky bo bam tu vung lam mac dinh, dang ky o day ghi de len.
+    ///
+    /// Thieu tep thi KHONG cho chet luc khoi dong: mat tim ngu nghia con hon ca he thong khong
+    /// vao duoc. Nhung sai SO CHIEU thi phai chet — vector sai so chieu ghi xuong la hong du lieu.
+    /// </summary>
+    private static void ThemBoNhungVanBan(IServiceCollection services, IConfiguration cauHinh)
+    {
+        var duongDanMoHinh = cauHinh["Ai:Nhung:DuongDanMoHinh"];
+        var duongDanTuVung = cauHinh["Ai:Nhung:DuongDanTuVung"];
+
+        if (string.IsNullOrWhiteSpace(duongDanMoHinh) || string.IsNullOrWhiteSpace(duongDanTuVung))
+        {
+            return;
+        }
+
+        services.AddSingleton<IBoNhungVanBan>(sp =>
+        {
+            var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("BoNhungVanBan");
+
+            if (!File.Exists(duongDanMoHinh) || !File.Exists(duongDanTuVung))
+            {
+                log.LogWarning(
+                    "Đã khai báo mô hình nhúng ONNX nhưng không thấy tệp ('{MoHinh}', '{TuVung}') "
+                    + "— tạm dùng bộ băm từ vựng, tìm ngữ nghĩa chỉ bắt được quan hệ từ vựng.",
+                    duongDanMoHinh, duongDanTuVung);
+
+                return new BoNhungBamTuVung(AppDbContext.SoChieuEmbedding);
+            }
+
+            var boNhung = new BoNhungOnnx(new CauHinhNhungOnnx
+            {
+                DuongDanMoHinh = duongDanMoHinh,
+                DuongDanTuVung = duongDanTuVung,
+                TenMoHinh = cauHinh["Ai:Nhung:TenMoHinh"] ?? Path.GetFileNameWithoutExtension(duongDanMoHinh),
+                SoChieuMongDoi = AppDbContext.SoChieuEmbedding,
+                SoTokenToiDa = cauHinh.GetValue("Ai:Nhung:SoTokenToiDa", 256),
+                HaThapChu = cauHinh.GetValue("Ai:Nhung:HaThapChu", true)
+            });
+
+            log.LogInformation(
+                "Đã nạp mô hình nhúng ONNX '{MoHinh}' ({SoChieu} chiều).",
+                boNhung.TenMoHinh, boNhung.SoChieu);
+
+            return boNhung;
+        });
+    }
+
+    /// <summary>
     /// Dang ky bo quet ma doc cho tep tai len (chuc nang 25).
     ///
     /// Tat bang <c>QuetVirus:Bat=false</c> khi chay cuc bo / kiem thu tu dong de khong phai
@@ -189,6 +244,7 @@ public static class DangKyHaTang
             // day de moi tep tai len khong phai cho het 5 phut moi biet dieu do.
             .AddPolicyHandler((sp, _) => ChinhSachChiuLoi(sp, "ocr"));
 
+
         services.AddHttpClient("sms", http => http.Timeout = TimeSpan.FromSeconds(30))
             .AddPolicyHandler((sp, _) => ChinhSachChiuLoi(sp, "sms"));
 
@@ -199,6 +255,12 @@ public static class DangKyHaTang
         services.AddScoped<CongViecNhacHan>();
         services.AddScoped<CongViecDongDotHetHan>();
         services.AddScoped<CongViecGuiHangDoi>();
+        services.AddScoped<CongViecDonMaXacThucTam>();
+        services.AddScoped<CongViecNhungLaiDoanVan>();
+        services.AddScoped<CongViecCanhBaoSucKhoe>();
+        services.AddScoped<CongViecTaoQuyetDinh>();
+        services.AddScoped<CongViecYeuCauKySo>();
+        services.AddScoped<CongViecTaoPhanVungThang>();
 
         if (!cauHinh.GetValue("CongViecNen:BatHangfire", true))
         {

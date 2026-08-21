@@ -342,7 +342,8 @@ public sealed class DichVuThongBao : IDichVuThongBao
 
     public async Task GuiTrongUngDungAsync(
         Guid nguoiNhanId, string tieuDe, string noiDung,
-        string? duongDan = null, string? mucDo = null, CancellationToken ct = default)
+        string? duongDan = null, string? mucDo = null, string? loaiSuKien = null,
+        CancellationToken ct = default)
     {
         _db.ThongBao.Add(new ThongBao
         {
@@ -351,6 +352,7 @@ public sealed class DichVuThongBao : IDichVuThongBao
             NoiDung = noiDung,
             DuongDan = duongDan,
             MucDo = mucDo ?? "BINH_THUONG",
+            LoaiSuKien = loaiSuKien,
             ThoiGian = _dongHo.BayGio
         });
 

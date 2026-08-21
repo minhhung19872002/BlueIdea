@@ -1,16 +1,385 @@
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.HoiDong;
 using BlueIdea.Application.TrungLap;
+using BlueIdea.Ai.Nhung;
+using BlueIdea.Application.XacThuc;
 using BlueIdea.Domain.Ai;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Domain.HoiDong;
+using BlueIdea.Domain.DanhMuc;
 using BlueIdea.Domain.QuanTri;
 using BlueIdea.Domain.SangKien;
+using BlueIdea.Workflow;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace BlueIdea.Infrastructure.CongViecNen;
+
+/// <summary>
+/// Canh bao chu dong cho quan tri he thong khi he thong co dau hieu hong (TD-003).
+///
+/// Truoc day loi chi nam trong bang <c>nhat_ky_loi</c> va trong Seq: ai khong mo man hinh do thi
+/// khong biet gi. Mot dot loi luc 2h sang co the den sang hom sau moi co nguoi phat hien.
+///
+/// Viec nen nay khong thay the mot he APM that su; no giai quyet dung phan nguy hiem nhat — co
+/// nguoi BIET rang dang co chuyen — bang chinh chuong thong bao san co.
+/// </summary>
+public sealed class CongViecCanhBaoSucKhoe
+{
+    private readonly IAppDbContext _db;
+    private readonly IDichVuThongBao _thongBao;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly IConfiguration _cauHinh;
+    private readonly ILogger<CongViecCanhBaoSucKhoe> _logger;
+
+    public CongViecCanhBaoSucKhoe(
+        IAppDbContext db, IDichVuThongBao thongBao, IDongHoHeThong dongHo,
+        IConfiguration cauHinh, ILogger<CongViecCanhBaoSucKhoe> logger)
+    {
+        _db = db;
+        _thongBao = thongBao;
+        _dongHo = dongHo;
+        _cauHinh = cauHinh;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task<int> ChayAsync(CancellationToken ct = default)
+    {
+        var bayGio = _dongHo.BayGio;
+
+        var cuaSo = TimeSpan.FromMinutes(_cauHinh.GetValue("GiamSat:CuaSoPhut", 15));
+        var nguongLoi = _cauHinh.GetValue("GiamSat:NguongLoi", 20);
+        var nguongHangDoi = _cauHinh.GetValue("GiamSat:NguongHangDoiUn", 100);
+        var khongNhacLai = TimeSpan.FromHours(_cauHinh.GetValue("GiamSat:KhongNhacLaiGio", 4));
+
+        var canhBao = new List<string>();
+
+        var soLoi = await _db.NhatKyLoi.AsNoTracking()
+            .CountAsync(x => x.ThoiGian >= bayGio - cuaSo
+                             && !x.DaXuLy
+                             && (x.MucDo == "LOI" || x.MucDo == "NGHIEM_TRONG"), ct)
+            .ConfigureAwait(false);
+
+        if (soLoi >= nguongLoi)
+        {
+            canhBao.Add($"{soLoi} lỗi chưa xử lý trong {cuaSo.TotalMinutes:0} phút gần đây "
+                        + $"(ngưỡng {nguongLoi}).");
+        }
+
+        // Hang doi u dong nghia voi email/SMS khong den tay ai — nguoi dung tuong he thong im
+        // lang chu khong biet la thong bao dang ket.
+        var soChoGui = await _db.HangDoiGuiTin.AsNoTracking()
+            .CountAsync(x => x.TrangThaiGui == "CHO_GUI" || x.TrangThaiGui == "LOI", ct)
+            .ConfigureAwait(false);
+
+        if (soChoGui >= nguongHangDoi)
+        {
+            canhBao.Add($"Hàng đợi gửi tin còn {soChoGui} bản tin chưa gửi được "
+                        + $"(ngưỡng {nguongHangDoi}) — kiểm tra cấu hình SMTP/SMS.");
+        }
+
+        if (canhBao.Count == 0)
+        {
+            return 0;
+        }
+
+        var quanTri = await LayQuanTriHeThongAsync(ct).ConfigureAwait(false);
+
+        if (quanTri.Count == 0)
+        {
+            _logger.LogWarning(
+                "Có cảnh báo hệ thống nhưng không tìm thấy tài khoản quản trị nào để gửi: {CanhBao}",
+                string.Join(" ", canhBao));
+
+            return 0;
+        }
+
+        var khongNhacTruoc = bayGio - khongNhacLai;
+        var noiDung = string.Join(" ", canhBao);
+        var soDaGui = 0;
+
+        foreach (var id in quanTri)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // Chong lap: dot loi keo dai nhieu gio khong duoc bien thanh hang chuc thong bao
+            // giong nhau — bao nhieu lan cung chi la mot viec phai xu ly.
+            var daNhac = await _db.ThongBao.AsNoTracking()
+                .AnyAsync(x => x.NguoiNhanId == id
+                               && x.LoaiSuKien == SuKienThongBao.CanhBaoHeThong
+                               && x.ThoiGian >= khongNhacTruoc, ct)
+                .ConfigureAwait(false);
+
+            if (daNhac)
+            {
+                continue;
+            }
+
+            await _thongBao.GuiTrongUngDungAsync(
+                id,
+                "Cảnh báo sức khoẻ hệ thống",
+                noiDung,
+                "/quan-tri/nhat-ky-loi",
+                "CAO",
+                SuKienThongBao.CanhBaoHeThong,
+                ct).ConfigureAwait(false);
+
+            soDaGui++;
+        }
+
+        if (soDaGui > 0)
+        {
+            _logger.LogWarning(
+                "Đã gửi cảnh báo sức khoẻ hệ thống tới {SoNguoi} quản trị viên: {NoiDung}",
+                soDaGui, noiDung);
+        }
+
+        return soDaGui;
+    }
+
+    private async Task<IReadOnlyList<Guid>> LayQuanTriHeThongAsync(CancellationToken ct)
+    {
+        var vaiTroIds = await _db.VaiTro.AsNoTracking()
+            .Where(x => x.Ma == MaVaiTro.QuanTriHeThong)
+            .Select(x => x.Id)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (vaiTroIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        return await _db.NguoiDungVaiTro.AsNoTracking()
+            .Where(x => vaiTroIds.Contains(x.VaiTroId))
+            .Select(x => x.NguoiDungId)
+            .Distinct()
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+}
+
+/// <summary>
+/// Nhung lai cac doan van con mang vector cua mo hinh CU.
+///
+/// Doi mo hinh nhung (vi du nap ONNX tieng Viet thay cho bo bam tu vung) khong the nhung lai ca
+/// kho trong mot lan: vai chuc nghin doan van chay dong bo se treo tien trinh API. Viec nen nay
+/// gam dan tung lo, nen he thong tu lanh sau vai vong ma khong ai phai chay lenh gi.
+/// </summary>
+public sealed class CongViecNhungLaiDoanVan
+{
+    /// <summary>Moi luot mot lo vua phai: giu do tre cua API on dinh khi kho lon.</summary>
+    private const int SoDoanMoiLuot = 200;
+
+    private readonly IAppDbContext _db;
+    private readonly IBoNhungVanBan _boNhung;
+    private readonly ILogger<CongViecNhungLaiDoanVan> _logger;
+
+    public CongViecNhungLaiDoanVan(
+        IAppDbContext db, IBoNhungVanBan boNhung, ILogger<CongViecNhungLaiDoanVan> logger)
+    {
+        _db = db;
+        _boNhung = boNhung;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task<int> ChayAsync(CancellationToken ct = default)
+    {
+        var tenMoHinh = _boNhung.TenMoHinh;
+
+        var canNhungLai = await _db.SangKienDoanVan
+            .Where(x => x.MoHinhNhung != tenMoHinh)
+            .OrderBy(x => x.NgayTao)
+            .Take(SoDoanMoiLuot)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (canNhungLai.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var doan in canNhungLai)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            doan.Embedding = await _boNhung
+                .TaoVectorAsync(doan.NoiDungChuanHoa, ct)
+                .ConfigureAwait(false);
+
+            doan.MoHinhNhung = tenMoHinh;
+        }
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Đã nhúng lại {SoDoan} đoạn văn theo mô hình '{MoHinh}'.",
+            canNhungLai.Count, tenMoHinh);
+
+        return canNhungLai.Count;
+    }
+}
+
+/// <summary>
+/// Tao truoc phan vung thang cho cac bang nhat ky da phan vung (TD-004).
+///
+/// Bang phan vung ma thieu phan vung cho thang toi thi ban ghi moi roi vao phan vung DEFAULT —
+/// van ghi duoc, nhung phan vung DEFAULT phinh dan va toan bo loi ich cua phan vung mat sach.
+/// Viec nen nay tao truoc vai thang de dieu do khong xay ra.
+///
+/// Bang CHUA phan vung thi khong lam gi: he thong chi phan vung khi du lieu du lon, xem
+/// deploy/phan-vung-nhat-ky.sql. Nho vay viec nen nay bat san duoc o moi ban trien khai.
+/// </summary>
+public sealed class CongViecTaoPhanVungThang
+{
+    /// <summary>Tao truoc bao nhieu thang. 3 thang du de mot lan viec nen chet khong gay hau qua.</summary>
+    private const int SoThangTaoTruoc = 3;
+
+    private static readonly (string Bang, string CotThoiGian)[] CacBang =
+    {
+        ("nhat_ky_he_thong", "thoi_gian"),
+        ("nhat_ky_dang_nhap", "thoi_gian"),
+        ("thong_bao", "thoi_gian")
+    };
+
+    private readonly Persistence.AppDbContext _db;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly ILogger<CongViecTaoPhanVungThang> _logger;
+
+    public CongViecTaoPhanVungThang(
+        Persistence.AppDbContext db, IDongHoHeThong dongHo,
+        ILogger<CongViecTaoPhanVungThang> logger)
+    {
+        _db = db;
+        _dongHo = dongHo;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task<int> ChayAsync(CancellationToken ct = default)
+    {
+        var tong = 0;
+
+        foreach (var (bang, cot) in CacBang)
+        {
+            tong += await TaoPhanVungAsync(bang, cot, ct).ConfigureAwait(false);
+        }
+
+        return tong;
+    }
+
+    /// <summary>
+    /// Bao dam co phan vung cho thang nay va <see cref="SoThangTaoTruoc"/> thang ke tiep.
+    /// Tra ve so phan vung vua tao (0 neu bang chua phan vung hoac da du).
+    /// </summary>
+    public async Task<int> TaoPhanVungAsync(
+        string tenBang, string cotThoiGian, CancellationToken ct = default)
+    {
+        if (!await LaBangPhanVungAsync(tenBang, ct).ConfigureAwait(false))
+        {
+            return 0;
+        }
+
+        var daTao = 0;
+        var moc = new DateTime(_dongHo.BayGio.Year, _dongHo.BayGio.Month, 1);
+
+        for (var i = 0; i <= SoThangTaoTruoc; i++)
+        {
+            var dau = moc.AddMonths(i);
+            var cuoi = dau.AddMonths(1);
+            var tenPhanVung = $"{tenBang}_p{dau:yyyyMM}";
+
+            if (await PhanVungDaCoAsync(tenPhanVung, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            // Ten bang va cot do CHINH ma nguon quyet dinh (hang so CacBang), khong tu dau vao
+            // nguoi dung — nhung van boc qua quote_ident de khong bao gio co duong noi chuoi tho.
+            var sql = $"""
+                CREATE TABLE IF NOT EXISTS {Ten(tenPhanVung)}
+                PARTITION OF {Ten(tenBang)}
+                FOR VALUES FROM ('{dau:yyyy-MM-dd}') TO ('{cuoi:yyyy-MM-dd}')
+                """;
+
+            await _db.Database.ExecuteSqlRawAsync(sql, ct).ConfigureAwait(false);
+
+            daTao++;
+
+            _logger.LogInformation(
+                "Đã tạo phân vùng {PhanVung} cho {Dau:MM/yyyy}.", tenPhanVung, dau);
+        }
+
+        return daTao;
+    }
+
+    private async Task<bool> LaBangPhanVungAsync(string tenBang, CancellationToken ct)
+    {
+        var so = await _db.Database
+            .SqlQuery<int>($"""
+                SELECT count(*)::int AS "Value"
+                FROM pg_partitioned_table pt
+                JOIN pg_class c ON c.oid = pt.partrelid
+                WHERE c.relname = {tenBang}
+                """)
+            .FirstAsync(ct)
+            .ConfigureAwait(false);
+
+        return so > 0;
+    }
+
+    private async Task<bool> PhanVungDaCoAsync(string tenPhanVung, CancellationToken ct)
+    {
+        var so = await _db.Database
+            .SqlQuery<int>($"""
+                SELECT count(*)::int AS "Value"
+                FROM pg_class WHERE relname = {tenPhanVung}
+                """)
+            .FirstAsync(ct)
+            .ConfigureAwait(false);
+
+        return so > 0;
+    }
+
+    /// <summary>Boc dinh danh theo dung cach cua PostgreSQL.</summary>
+    private static string Ten(string dinhDanh)
+        => "\"" + dinhDanh.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+}
+
+/// <summary>
+/// Don bang <c>ma_xac_thuc_tam</c>: xoa cac ma CAPTCHA va OTP quen mat khau da het han.
+///
+/// Moi lan tai trang dang nhap sai 3 lan la sinh them mot ban ghi CAPTCHA, moi lan quen mat khau
+/// la them mot OTP. Khong co viec don thi bang chi phinh ra: ban ghi het han khong con tac dung
+/// gi nhung van nam do mai mai.
+/// </summary>
+public sealed class CongViecDonMaXacThucTam
+{
+    private readonly DichVuCaptcha _captcha;
+    private readonly ILogger<CongViecDonMaXacThucTam> _logger;
+
+    public CongViecDonMaXacThucTam(DichVuCaptcha captcha, ILogger<CongViecDonMaXacThucTam> logger)
+    {
+        _captcha = captcha;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 1)]
+    public async Task ChayAsync(CancellationToken ct = default)
+    {
+        var soDaXoa = await _captcha.DonDepAsync(ct).ConfigureAwait(false);
+
+        if (soDaXoa > 0)
+        {
+            _logger.LogInformation(
+                "Đã dọn {SoBanGhi} mã xác thực tạm hết hạn (CAPTCHA và OTP).", soDaXoa);
+        }
+    }
+}
 
 /// <summary>
 /// Chuc nang 26 - Trich xuat van ban cho tep vua tai len roi luu vao <c>noi_dung_trich_xuat</c>.
@@ -237,20 +606,29 @@ public sealed class CongViecNhacHan
     /// <summary>Khoang lang giua hai lan nhac cho cung mot doi tuong.</summary>
     private const int SoGioKhongNhacLai = 20;
 
+    /// <summary>
+    /// Chan tren khi quet buoc sap den han: khong buoc nao canh bao truoc qua 30 ngay.
+    /// Co chan tren thi truy van van co gioi han, du cau hinh tung buoc dat gia tri vo ly.
+    /// </summary>
+    private const int SoNgayQuetToiDa = 30;
+
     private readonly IAppDbContext _db;
     private readonly IDichVuThongBao _thongBao;
     private readonly IDongHoHeThong _dongHo;
     private readonly IDichVuCauHinh _cauHinh;
+    private readonly IBoChuyenDoiSnapshotQuyTrinh _snapshot;
     private readonly ILogger<CongViecNhacHan> _logger;
 
     public CongViecNhacHan(
         IAppDbContext db, IDichVuThongBao thongBao, IDongHoHeThong dongHo,
-        IDichVuCauHinh cauHinh, ILogger<CongViecNhacHan> logger)
+        IDichVuCauHinh cauHinh, IBoChuyenDoiSnapshotQuyTrinh snapshot,
+        ILogger<CongViecNhacHan> logger)
     {
         _db = db;
         _thongBao = thongBao;
         _dongHo = dongHo;
         _cauHinh = cauHinh;
+        _snapshot = snapshot;
         _logger = logger;
     }
 
@@ -268,14 +646,17 @@ public sealed class CongViecNhacHan
         var soDaNhac = 0;
 
         // --- Han xu ly buoc quy trinh ---
+        // Quet rong theo chan tren roi loc lai trong bo nho: nguong canh bao co the khai rieng cho
+        // tung buoc (canh_bao_truoc_han_gio - chuc nang 11) nen khong loc het duoc bang mot cau SQL.
         var buocSapHetHan = await _db.SangKienXuLy.AsNoTracking()
             .Where(x => x.ThoiGianXuLy == null
                         && x.NguoiXuLyId != null
                         && x.HanXuLy != null
-                        && x.HanXuLy <= nguong)
+                        && x.HanXuLy <= bayGio.AddDays(SoNgayQuetToiDa))
             .Select(x => new
             {
                 x.SangKienId,
+                x.BuocId,
                 x.NguoiXuLyId,
                 x.HanXuLy,
                 x.TenBuocSnapshot
@@ -283,8 +664,20 @@ public sealed class CongViecNhacHan
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        // Snapshot quy trinh dung chung cho nhieu buoc cua cung mot ho so - doc mot lan.
+        var gioCanhBaoTheoHoSo = new Dictionary<Guid, IReadOnlyDictionary<Guid, int>>();
+
         foreach (var buoc in buocSapHetHan)
         {
+            var nguongBuoc = await LayNguongCanhBaoAsync(
+                    buoc.SangKienId, buoc.BuocId, bayGio, nguong, gioCanhBaoTheoHoSo, ct)
+                .ConfigureAwait(false);
+
+            if (buoc.HanXuLy > nguongBuoc)
+            {
+                continue;
+            }
+
             if (await DaNhacGanDayAsync(buoc.SangKienId, buoc.NguoiXuLyId!.Value, khongNhacTruoc, ct)
                     .ConfigureAwait(false))
             {
@@ -405,6 +798,45 @@ public sealed class CongViecNhacHan
                            && x.DoiTuongId == sangKienId
                            && x.LoaiSuKien == SuKienThongBao.SapHetHan
                            && x.ThoiGian >= khongNhacTruoc, ct);
+
+    /// <summary>
+    /// Chuc nang 11 — Moc thoi gian bat dau nhac cho mot buoc.
+    ///
+    /// Uu tien <c>canh_bao_truoc_han_gio</c> khai trong SNAPSHOT quy trinh cua chinh ho so
+    /// (khong doc quy trinh hien hanh — xem ADR 0002). Buoc khong khai thi dung cau hinh chung
+    /// <c>SO_NGAY_NHAC_TRUOC_HAN</c> nhu truoc day.
+    /// </summary>
+    private async Task<DateTimeOffset> LayNguongCanhBaoAsync(
+        Guid sangKienId,
+        Guid buocId,
+        DateTimeOffset bayGio,
+        DateTimeOffset nguongChung,
+        Dictionary<Guid, IReadOnlyDictionary<Guid, int>> boNho,
+        CancellationToken ct)
+    {
+        if (!boNho.TryGetValue(sangKienId, out var theoBuoc))
+        {
+            var snapshot = await _db.SangKien.AsNoTracking()
+                .Where(x => x.Id == sangKienId)
+                .Select(x => x.QuyTrinhSnapshot)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            var quyTrinh = _snapshot.DocSnapshot(snapshot);
+
+            theoBuoc = quyTrinh?.DanhSachBuoc
+                          .Where(b => b.CanhBaoTruocHanGio > 0)
+                          .ToDictionary(b => b.Id, b => b.CanhBaoTruocHanGio)
+                      ?? new Dictionary<Guid, int>();
+
+            boNho[sangKienId] = theoBuoc;
+        }
+
+        // Buoc khai "canh bao truoc N gio" => bat dau nhac khi han con duoi N gio nua.
+        return theoBuoc.TryGetValue(buocId, out var soGio) && soGio > 0
+            ? bayGio.AddHours(soGio)
+            : nguongChung;
+    }
 }
 
 /// <summary>
@@ -725,6 +1157,214 @@ public sealed class CongViecPhanCongCham
             "PHAN_CONG_CHAM tự động: đã phân công {SoLuot} thành viên chấm sáng kiến {MaHoSo} "
             + "trong hội đồng {TenHoiDong}.",
             daPhanCong, hoSo.MaHoSo, hoiDong.Ten);
+    }
+}
+
+/// <summary>
+/// Hanh dong tu dong TAO_QUYET_DINH — dua sang kien vao du thao quyet dinh cong nhan cua dot.
+///
+/// KHONG tao moi mot quyet dinh cho tung ho so: quyet dinh cong nhan la van ban hanh chinh gom
+/// NHIEU sang kien cua cung mot dot. Tu dong dung nghia o day la gom san: ho so nao qua buoc co
+/// hanh dong nay thi duoc gan vao du thao cua dot, can bo chi con soat lai va ban hanh.
+///
+/// Luy dang: goi nhieu lan cho cung ho so khong tao them ban ghi.
+/// </summary>
+public sealed class CongViecTaoQuyetDinh
+{
+    private readonly IAppDbContext _db;
+    private readonly IDongHoHeThong _dongHo;
+    private readonly ILogger<CongViecTaoQuyetDinh> _logger;
+
+    public CongViecTaoQuyetDinh(
+        IAppDbContext db, IDongHoHeThong dongHo, ILogger<CongViecTaoQuyetDinh> logger)
+    {
+        _db = db;
+        _dongHo = dongHo;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })]
+    public async Task ChayAsync(Guid sangKienId, CancellationToken ct = default)
+    {
+        var hoSo = await _db.SangKien
+            .FirstOrDefaultAsync(x => x.Id == sangKienId, ct)
+            .ConfigureAwait(false);
+
+        if (hoSo is null)
+        {
+            return;
+        }
+
+        // Chi gom ho so DAT. Ho so truot ma nam trong quyet dinh cong nhan la sai ban chat van ban.
+        if (hoSo.KetQua != KetQuaXetDuyetGiaTri.Dat)
+        {
+            _logger.LogInformation(
+                "TAO_QUYET_DINH bỏ qua: sáng kiến {MaHoSo} chưa có kết quả Đạt.", hoSo.MaHoSo);
+            return;
+        }
+
+        var daGan = await _db.QuyetDinhSangKien.AsNoTracking()
+            .AnyAsync(x => x.SangKienId == sangKienId, ct)
+            .ConfigureAwait(false);
+
+        if (daGan)
+        {
+            _logger.LogInformation(
+                "TAO_QUYET_DINH bỏ qua: sáng kiến {MaHoSo} đã nằm trong một quyết định.",
+                hoSo.MaHoSo);
+            return;
+        }
+
+        var bayGio = _dongHo.BayGio;
+
+        // Du thao cua dot = quyet dinh chua ky so, chua co so quyet dinh that.
+        var duThao = await _db.QuyetDinh
+            .Where(x => x.DotDeNghiId == hoSo.DotDeNghiId
+                        && !x.DaKySo
+                        && x.SoQuyetDinh.StartsWith(TienToDuThao))
+            .OrderByDescending(x => x.NgayTao)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (duThao is null)
+        {
+            duThao = new QuyetDinh
+            {
+                Id = Guid.NewGuid(),
+                SoQuyetDinh = $"{TienToDuThao}-{bayGio:yyyyMMddHHmmss}",
+                NgayBanHanh = DateOnly.FromDateTime(bayGio.UtcDateTime),
+                TrichYeu = "Dự thảo — hệ thống gom tự động theo bước quy trình, chờ cán bộ hoàn thiện",
+                DotDeNghiId = hoSo.DotDeNghiId,
+                DonViBanHanhId = hoSo.DonViId,
+                TrangThai = TrangThaiDanhMuc.HoatDong
+            };
+
+            _db.QuyetDinh.Add(duThao);
+
+            _logger.LogInformation(
+                "TAO_QUYET_DINH: mở dự thảo quyết định {So} cho đợt {DotId}.",
+                duThao.SoQuyetDinh, hoSo.DotDeNghiId);
+        }
+
+        _db.QuyetDinhSangKien.Add(new QuyetDinhSangKien
+        {
+            Id = Guid.NewGuid(),
+            QuyetDinhId = duThao.Id,
+            SangKienId = sangKienId,
+            MucCongNhanId = hoSo.MucCongNhanId,
+            GhiChu = "Gom tự động khi hồ sơ qua bước có hành động TẠO_QUYẾT_ĐỊNH"
+        });
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "TAO_QUYET_DINH: đã gom sáng kiến {MaHoSo} vào dự thảo {So}.",
+            hoSo.MaHoSo, duThao.SoQuyetDinh);
+    }
+
+    /// <summary>Tien to de phan biet du thao he thong gom voi quyet dinh can bo tu tao.</summary>
+    public const string TienToDuThao = "DU-THAO";
+}
+
+/// <summary>
+/// Hanh dong tu dong YEU_CAU_KY_SO — bao cho nguoi co tham quyen ky rang co van ban dang cho.
+///
+/// Khong the tu dong KY: khoa bi mat nam trong USB token hoac tep PFX cua nguoi ky, may chu khong
+/// ky thay duoc (xem docs/HUONG-DAN-KY-SO-USB.md). Tu dong dung nghia o day la khong de van ban
+/// nam cho ma khong ai biet — dieu tung xay ra khi buoc bao "cho ky so" nhung khong ai duoc nhac.
+/// </summary>
+public sealed class CongViecYeuCauKySo
+{
+    private readonly IAppDbContext _db;
+    private readonly IDichVuThongBao _thongBao;
+    private readonly ILogger<CongViecYeuCauKySo> _logger;
+
+    public CongViecYeuCauKySo(
+        IAppDbContext db, IDichVuThongBao thongBao, ILogger<CongViecYeuCauKySo> logger)
+    {
+        _db = db;
+        _thongBao = thongBao;
+        _logger = logger;
+    }
+
+    [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })]
+    public async Task ChayAsync(Guid sangKienId, CancellationToken ct = default)
+    {
+        var hoSo = await _db.SangKien.AsNoTracking()
+            .Where(x => x.Id == sangKienId)
+            .Select(x => new { x.Id, x.MaHoSo, x.TenSangKien, x.QuyetDinhId })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (hoSo is null)
+        {
+            return;
+        }
+
+        var nguoiKy = await LayNguoiCoQuyenKyAsync(ct).ConfigureAwait(false);
+
+        if (nguoiKy.Count == 0)
+        {
+            _logger.LogWarning(
+                "YEU_CAU_KY_SO: không có tài khoản nào mang quyền {Quyen} để nhắc ký "
+                + "văn bản của sáng kiến {MaHoSo}.",
+                MaQuyen.QuyetDinhKySo, hoSo.MaHoSo);
+
+            return;
+        }
+
+        var duongDan = hoSo.QuyetDinhId is not null
+            ? "/quyet-dinh"
+            : DuongDanGiaoDien.ChiTietHoSo(hoSo.Id);
+
+        foreach (var id in nguoiKy)
+        {
+            await _thongBao.GuiTrongUngDungAsync(
+                id,
+                "Có văn bản chờ ký số",
+                $"Sáng kiến {hoSo.MaHoSo} — {hoSo.TenSangKien} đã qua bước yêu cầu ký số.",
+                duongDan,
+                "CAO",
+                ct: ct).ConfigureAwait(false);
+        }
+
+        _logger.LogInformation(
+            "YEU_CAU_KY_SO: đã nhắc {SoNguoi} người có quyền ký cho sáng kiến {MaHoSo}.",
+            nguoiKy.Count, hoSo.MaHoSo);
+    }
+
+    private async Task<IReadOnlyList<Guid>> LayNguoiCoQuyenKyAsync(CancellationToken ct)
+    {
+        // VaiTroQuyen tro toi bang Quyen qua khoa ngoai, khong luu thang ma quyen.
+        var quyenId = await _db.Quyen.AsNoTracking()
+            .Where(x => x.Ma == MaQuyen.QuyetDinhKySo)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (quyenId == Guid.Empty)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var vaiTroIds = await _db.VaiTroQuyen.AsNoTracking()
+            .Where(x => x.QuyenId == quyenId)
+            .Select(x => x.VaiTroId)
+            .Distinct()
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (vaiTroIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        return await _db.NguoiDungVaiTro.AsNoTracking()
+            .Where(x => vaiTroIds.Contains(x.VaiTroId))
+            .Select(x => x.NguoiDungId)
+            .Distinct()
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
     }
 }
 

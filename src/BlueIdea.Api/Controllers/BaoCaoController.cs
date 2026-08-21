@@ -1,5 +1,6 @@
 using BlueIdea.Api.Chung;
 using BlueIdea.Application.BaoCao;
+using BlueIdea.Application.Chung;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Reporting;
 using Microsoft.AspNetCore.Authorization;
@@ -14,13 +15,54 @@ namespace BlueIdea.Api.Controllers;
 [Produces("application/json")]
 public sealed class BaoCaoController : ControllerBase
 {
+    /// <summary>Cac loai bao cao xuat nen duoc — chan bang danh sach trang, khong nhan chuoi tuy y.</summary>
+    private static readonly HashSet<string> LoaiXuatNenChoPhep = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sang-kien-dat", "sang-kien-chua-dat", "theo-don-vi", "theo-tac-gia", "thoi-gian-xu-ly"
+    };
+
     private readonly DichVuBaoCao _dichVu;
     private readonly BoNhoDemBaoCao _dem;
+    private readonly IHangDoiCongViecNen _hangDoi;
+    private readonly INguoiDungHienTai _nguoiDung;
 
-    public BaoCaoController(DichVuBaoCao dichVu, BoNhoDemBaoCao dem)
+    public BaoCaoController(
+        DichVuBaoCao dichVu, BoNhoDemBaoCao dem, IHangDoiCongViecNen hangDoi,
+        INguoiDungHienTai nguoiDung)
     {
         _dichVu = dichVu;
         _dem = dem;
+        _hangDoi = hangDoi;
+        _nguoiDung = nguoiDung;
+    }
+
+    /// <summary>
+    /// Đặt lệnh xuất báo cáo ở tiến trình nền, hệ thống gửi thông báo kèm liên kết tải về khi xong.
+    ///
+    /// Dùng cho báo cáo nhiều năm / toàn hệ thống: giữ người dùng chờ trên một request HTTP vừa dễ
+    /// time-out ở reverse proxy, vừa chiếm một luồng xử lý của máy chủ suốt thời gian đó.
+    /// </summary>
+    [HttpPost("{loai}/xuat-nen")]
+    [Authorize(Policy = MaQuyen.BaoCaoXuat)]
+    public IActionResult DatLenhXuatNen(
+        string loai, [FromQuery] ThamSoBaoCao thamSo)
+    {
+        if (!LoaiXuatNenChoPhep.Contains(loai))
+        {
+            return BadRequest(PhanHoiApi.Loi(
+                "LOAI_BAO_CAO_KHONG_HO_TRO",
+                $"Loại báo cáo '{loai}' không hỗ trợ xuất nền."));
+        }
+
+        if (_nguoiDung.Id is null)
+        {
+            return Unauthorized(PhanHoiApi.Loi("CHUA_XAC_THUC", "Chưa đăng nhập."));
+        }
+
+        _hangDoi.XepLichXuatBaoCao(loai.ToLowerInvariant(), thamSo, _nguoiDung.Id.Value);
+
+        return Accepted(PhanHoiApi.Ok(
+            "Đã nhận yêu cầu xuất báo cáo. Hệ thống sẽ gửi thông báo kèm liên kết tải về khi xong."));
     }
 
     private static readonly List<CotXuat<DongBaoCaoSangKien>> CotSangKien = new()
@@ -261,4 +303,154 @@ public sealed class BaoCaoController : ControllerBase
 
         return File(tep, ThamSoPhanTrangApi.MimePdf, "sang-kien-dat.pdf");
     }
+    /// <summary>Chức năng 39 — Xuất PDF danh sách sáng kiến chưa đạt (kèm lý do và điểm).</summary>
+    [HttpGet("sang-kien-chua-dat/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.BaoCaoXuat)]
+    public async Task<IActionResult> XuatPdfSangKienChuaDatAsync(
+        [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
+    {
+        var duLieu = await _dichVu.SangKienChuaDatAsync(thamSo, ct);
+
+        var tep = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: "Ủy ban nhân dân thành phố",
+            tenDonVi: "Hội đồng sáng kiến",
+            tieuDe: "Danh sách sáng kiến chưa được công nhận",
+            phuDe: null,
+            thongTin: new List<DongThongTin>
+            {
+                new("Tổng số hồ sơ", duLieu.Count.ToString()),
+                new("Thời điểm lập", ThoiDiemLap())
+            },
+            bang: new List<BangPdf>
+            {
+                new("Danh sách chi tiết",
+                    new[] { "Mã hồ sơ", "Tên sáng kiến", "Tác giả", "Đơn vị", "Điểm", "Lý do" },
+                    duLieu.Select(x => new[]
+                    {
+                        x.MaHoSo,
+                        x.TenSangKien,
+                        x.TacGia,
+                        x.TenDonVi ?? string.Empty,
+                        x.TongDiem?.ToString() ?? string.Empty,
+                        x.LyDo ?? string.Empty
+                    }).ToList())
+            });
+
+        return File(tep, ThamSoPhanTrangApi.MimePdf, "sang-kien-chua-dat.pdf");
+    }
+
+    /// <summary>Chức năng 40 — Xuất PDF thống kê theo đơn vị (phục vụ đánh giá thi đua).</summary>
+    [HttpGet("theo-don-vi/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.BaoCaoXuat)]
+    public async Task<IActionResult> XuatPdfTheoDonViAsync(
+        [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
+    {
+        var duLieu = await _dichVu.TheoDonViAsync(thamSo, ct);
+
+        var tep = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: "Ủy ban nhân dân thành phố",
+            tenDonVi: "Hội đồng sáng kiến",
+            tieuDe: "Thống kê sáng kiến theo đơn vị",
+            phuDe: null,
+            thongTin: new List<DongThongTin>
+            {
+                new("Số đơn vị", duLieu.Count.ToString()),
+                new("Tổng hồ sơ", duLieu.Sum(x => x.TongSo).ToString()),
+                new("Tổng số đạt", duLieu.Sum(x => x.SoDat).ToString()),
+                new("Thời điểm lập", ThoiDiemLap())
+            },
+            bang: new List<BangPdf>
+            {
+                new("Chi tiết theo đơn vị",
+                    new[] { "Mã đơn vị", "Tên đơn vị", "Tổng", "Đạt", "Không đạt", "Đang xử lý", "Tỷ lệ đạt (%)" },
+                    duLieu.Select(x => new[]
+                    {
+                        x.MaDonVi,
+                        x.TenDonVi,
+                        x.TongSo.ToString(),
+                        x.SoDat.ToString(),
+                        x.SoKhongDat.ToString(),
+                        x.SoDangXuLy.ToString(),
+                        x.TyLeDat.ToString()
+                    }).ToList())
+            });
+
+        return File(tep, ThamSoPhanTrangApi.MimePdf, "thong-ke-theo-don-vi.pdf");
+    }
+
+    /// <summary>Xuất PDF thống kê theo tác giả.</summary>
+    [HttpGet("theo-tac-gia/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.BaoCaoXuat)]
+    public async Task<IActionResult> XuatPdfTheoTacGiaAsync(
+        [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
+    {
+        var duLieu = await _dichVu.TheoTacGiaAsync(thamSo, ct);
+
+        var tep = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: "Ủy ban nhân dân thành phố",
+            tenDonVi: "Hội đồng sáng kiến",
+            tieuDe: "Thống kê sáng kiến theo tác giả",
+            phuDe: null,
+            thongTin: new List<DongThongTin>
+            {
+                new("Số tác giả", duLieu.Count.ToString()),
+                new("Thời điểm lập", ThoiDiemLap())
+            },
+            bang: new List<BangPdf>
+            {
+                new("Chi tiết theo tác giả",
+                    new[] { "Họ và tên", "Đơn vị công tác", "Tổng số", "Tác giả chính", "Đạt", "Tỷ lệ đạt (%)" },
+                    duLieu.Select(x => new[]
+                    {
+                        x.HoTen,
+                        x.DonViCongTac ?? string.Empty,
+                        x.TongSo.ToString(),
+                        x.SoLaTacGiaChinh.ToString(),
+                        x.SoDat.ToString(),
+                        x.TyLeDat.ToString()
+                    }).ToList())
+            });
+
+        return File(tep, ThamSoPhanTrangApi.MimePdf, "thong-ke-theo-tac-gia.pdf");
+    }
+
+    /// <summary>Xuất PDF thời gian xử lý trung bình theo bước.</summary>
+    [HttpGet("thoi-gian-xu-ly/xuat-pdf")]
+    [Authorize(Policy = MaQuyen.BaoCaoXuat)]
+    public async Task<IActionResult> XuatPdfThoiGianXuLyAsync(
+        [FromQuery] ThamSoBaoCao thamSo, CancellationToken ct)
+    {
+        var duLieu = await _dichVu.ThoiGianXuLyAsync(thamSo, ct);
+
+        var tep = BoXuatPdf.XuatTaiLieu(
+            tenCoQuanChuQuan: "Ủy ban nhân dân thành phố",
+            tenDonVi: "Hội đồng sáng kiến",
+            tieuDe: "Thời gian xử lý trung bình theo bước",
+            phuDe: null,
+            thongTin: new List<DongThongTin>
+            {
+                new("Số bước thống kê", duLieu.Count.ToString()),
+                new("Tổng lượt quá hạn", duLieu.Sum(x => x.SoLuotQuaHan).ToString()),
+                new("Thời điểm lập", ThoiDiemLap())
+            },
+            bang: new List<BangPdf>
+            {
+                new("Chi tiết theo bước",
+                    new[] { "Bước xử lý", "Số lượt", "TB (ngày)", "Lâu nhất (ngày)", "Quá hạn" },
+                    duLieu.Select(x => new[]
+                    {
+                        x.TenBuoc,
+                        x.SoLuot.ToString(),
+                        x.SoNgayTrungBinh.ToString(),
+                        x.SoNgayLauNhat.ToString(),
+                        x.SoLuotQuaHan.ToString()
+                    }).ToList())
+            });
+
+        return File(tep, ThamSoPhanTrangApi.MimePdf, "thoi-gian-xu-ly.pdf");
+    }
+
+    /// <summary>Thời điểm lập báo cáo theo giờ Việt Nam — in trên mọi bản xuất.</summary>
+    private static string ThoiDiemLap()
+        => DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm");
 }

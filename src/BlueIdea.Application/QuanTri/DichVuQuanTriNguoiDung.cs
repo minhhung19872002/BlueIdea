@@ -321,6 +321,64 @@ public sealed class DichVuQuanTriNguoiDung
 
     // ----------------------------------------------------------------------------- Vai tro
 
+    /// <summary>
+    /// Chuc nang 43 — xoa tai khoan (xoa mem).
+    ///
+    /// Xoa MEM chu khong xoa han: tai khoan da tung xu ly ho so con duoc tham chieu trong nhat ky
+    /// xu ly, lich su chinh sua va nhat ky he thong. Xoa han se lam nhung ban ghi do tro toi mot
+    /// nguoi khong con ton tai — dung thu ma ho so nghiem thu dua vao de truy nguoc trach nhiem.
+    ///
+    /// Khac "khoa tai khoan": khoa la tam thoi, nguoi dung van trong danh sach va mo lai duoc.
+    /// </summary>
+    public async Task XoaNguoiDungAsync(Guid id, CancellationToken ct = default)
+    {
+        await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.NguoiDungXoa, ct).ConfigureAwait(false);
+
+        if (id == _nguoiDungHienTai.Id)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Không tự xoá tài khoản của chính mình.");
+        }
+
+        var nguoiDung = await _db.NguoiDung.FirstOrDefaultAsync(x => x.Id == id, ct)
+            .ConfigureAwait(false) ?? throw new KhongTimThayException("người dùng", id);
+
+        await BatBuocNguoiDungTrongPhamViAsync(nguoiDung, ct).ConfigureAwait(false);
+
+        // Con ho so dang xu ly ma xoa nguoi phu trach thi buoc do ket cung, khong ai nhan tiep.
+        var dangGiuBuoc = await _db.SangKienXuLy.AsNoTracking()
+            .AnyAsync(x => x.NguoiXuLyId == id && x.ThoiGianXuLy == null, ct)
+            .ConfigureAwait(false);
+
+        if (dangGiuBuoc)
+        {
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                "Tài khoản đang giữ bước xử lý của hồ sơ — chuyển việc cho người khác trước khi xoá.");
+        }
+
+        var truoc = new { nguoiDung.TenDangNhap, nguoiDung.HoTen, nguoiDung.TrangThaiTaiKhoan };
+
+        nguoiDung.DaXoa = true;
+        nguoiDung.TrangThaiTaiKhoan = TrangThaiNguoiDung.Khoa;
+
+        // Thu hoi moi phien: xoa mem ma van con refresh token song thi tai khoan van dung duoc.
+        var tokenDangMo = await _db.RefreshToken
+            .Where(x => x.NguoiDungId == id && x.ThoiGianThuHoi == null)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var token in tokenDangMo)
+        {
+            token.ThoiGianThuHoi = _dongHo.BayGio;
+        }
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        await _nhatKy.GhiAsync("XOA_NGUOI_DUNG", "QUAN_TRI", "NguoiDung", id,
+            $"Xoá tài khoản {nguoiDung.TenDangNhap}", duLieuTruoc: truoc, ct: ct)
+            .ConfigureAwait(false);
+    }
+
     public async Task<Guid> ThemVaiTroAsync(LuuVaiTroDto dto, CancellationToken ct = default)
     {
         await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.VaiTroCauHinh, ct: ct).ConfigureAwait(false);
@@ -572,7 +630,7 @@ public sealed class DichVuQuanTriNguoiDung
         var nguoiGoiId = _nguoiDungHienTai.Id
                          ?? throw new NghiepVuException(MaLoiHeThong.ChuaXacThuc, "Chưa đăng nhập.");
 
-        var phamVi = await _phanQuyen.LayPhamViTruyCapAsync(nguoiGoiId, ct).ConfigureAwait(false);
+        var phamVi = await _phanQuyen.LayPhamViDonViAsync(nguoiGoiId, ct).ConfigureAwait(false);
 
         if (phamVi.ToanHeThong) return;
 

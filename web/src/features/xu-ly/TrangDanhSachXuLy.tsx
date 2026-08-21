@@ -38,7 +38,7 @@ export default function TrangDanhSachXuLy() {
     trang,
     soDong,
     tuKhoa: thamSoUrl.get('tuKhoa') ?? undefined,
-    trangThaiTong: thamSoUrl.get('trangThaiTong') ?? (laTiepNhan ? 'DA_NOP' : undefined),
+    trangThaiTong: laTiepNhan ? undefined : (thamSoUrl.get('trangThaiTong') ?? undefined),
     dotDeNghiId: thamSoUrl.get('dotDeNghiId') ?? undefined,
     linhVucId: thamSoUrl.get('linhVucId') ?? undefined,
     chiQuaHan: thamSoUrl.get('chiQuaHan') === 'true' ? true : undefined,
@@ -46,9 +46,11 @@ export default function TrangDanhSachXuLy() {
     huong: thamSoUrl.get('huong') ?? undefined,
   };
 
+  // Hai màn hình, hai endpoint: hàng chờ tiếp nhận là chức năng riêng nên có quyền riêng
+  // (TIEP_NHAN.XEM), không dùng chung SANG_KIEN.XEM với danh sách việc cần xử lý.
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['sang-kien', 'xu-ly', thamSo],
-    queryFn: () => apiSangKien.danhSach(thamSo),
+    queryKey: ['sang-kien', laTiepNhan ? 'tiep-nhan' : 'xu-ly', thamSo],
+    queryFn: () => (laTiepNhan ? apiSangKien.choTiepNhan(thamSo) : apiSangKien.danhSach(thamSo)),
   });
 
   const { data: cacDot } = useQuery({ queryKey: ['dot-chon'], queryFn: apiDotDeNghi.chon });
@@ -121,16 +123,20 @@ export default function TrangDanhSachXuLy() {
             onSearch={(v) => datLoc('tuKhoa', v)}
           />
         </Col>
-        <Col xs={12} md={5}>
-          <Select
-            style={{ width: '100%' }}
-            placeholder="Trạng thái"
-            allowClear
-            value={thamSo.trangThaiTong}
-            options={TRANG_THAI}
-            onChange={(v) => datLoc('trangThaiTong', v)}
-          />
-        </Col>
+        {/* Màn hình tiếp nhận luôn là hàng chờ "đã nộp" — máy chủ ép trạng thái, nên ô lọc
+            trạng thái ở đây chỉ gây hiểu nhầm là chọn được. */}
+        {!laTiepNhan && (
+          <Col xs={12} md={5}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Trạng thái"
+              allowClear
+              value={thamSo.trangThaiTong}
+              options={TRANG_THAI}
+              onChange={(v) => datLoc('trangThaiTong', v)}
+            />
+          </Col>
+        )}
         <Col xs={12} md={5}>
           <Select
             style={{ width: '100%' }}

@@ -283,6 +283,15 @@ public class QuyTrinhLienThong : ThucThe
 
     public Dictionary<string, string>? CauHinhMapping { get; set; }
 
+    /// <summary>
+    /// KHONG DUOC DOC O DAU va API khong con nhan gia tri nay.
+    ///
+    /// Dong bo hai chieu doi mot duong GHI tu he thong ngoai vao he thong nay. API cong khai
+    /// (/api/public/v1) co y chi cho DOC. Mo duong ghi phai co dac ta that cua IOC / Thi dua khen
+    /// thuong (dinh dang goi tin, cach doi chieu ho so, quyen ghi den dau) — REQ-41 dang cho ben
+    /// thanh pho. Giu cot lai de khong phai viet migration xoa tren CSDL dang chay.
+    /// Xem docs/audit/technical-debt.md muc TD-011.
+    /// </summary>
     public bool DongBoHaiChieu { get; set; }
 
     public short TrangThai { get; set; } = TrangThaiDanhMuc.HoatDong;

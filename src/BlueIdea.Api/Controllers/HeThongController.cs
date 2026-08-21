@@ -677,6 +677,15 @@ public sealed class HeThongController : ControllerBase
         return Ok(PhanHoiApi.Ok("Đã cập nhật ma trận phân quyền"));
     }
 
+    /// <summary>Chức năng 43 — xoá tài khoản (xoá mềm, thu hồi mọi phiên đang mở).</summary>
+    [HttpDelete("nguoi-dung/{id:guid}")]
+    [Authorize(Policy = MaQuyen.NguoiDungXoa)]
+    public async Task<IActionResult> XoaNguoiDungAsync(Guid id, CancellationToken ct)
+    {
+        await _quanTri.XoaNguoiDungAsync(id, ct);
+        return Ok(PhanHoiApi.Ok("Đã xoá tài khoản"));
+    }
+
     [HttpDelete("vai-tro/{id:guid}")]
     [Authorize(Policy = MaQuyen.VaiTroCauHinh)]
     public async Task<IActionResult> XoaVaiTroAsync(Guid id, CancellationToken ct)

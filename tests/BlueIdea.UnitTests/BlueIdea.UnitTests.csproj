@@ -38,6 +38,11 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- Mo hinh ONNX ti hon + tu vung di kem, dung de kiem thu duong suy luan that. -->
+  <ItemGroup>
+    <None Include="TaiNguyen\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="FluentAssertions" />

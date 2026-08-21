@@ -1,6 +1,41 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loginViaAPI, apiRequest } from '../helpers/auth';
 import { ACCOUNTS, API, ROUTES } from '../helpers/constants';
+
+/** Quy trình đang áp dụng thì máy chủ chặn sửa thành phần, nên mỗi test dựng bản nháp riêng. */
+async function taoQuyTrinhNhap(page: Page): Promise<string> {
+  const hau = `${Date.now()}`.slice(-8);
+  const res = await apiRequest(page, 'POST', API.quyTrinh, {
+    ma: `E2E_TP_${hau}`,
+    ten: 'Quy trình E2E thành phần hồ sơ',
+    cap: 'CO_SO',
+    trangThai: 1,
+    thuTu: 99,
+  });
+  expect(res!.status()).toBe(200);
+  const body = await res!.json();
+  return typeof body.duLieu === 'string' ? body.duLieu : body.duLieu.id;
+}
+
+async function themThanhPhanQuaApi(
+  page: Page,
+  quyTrinhId: string,
+  ma: string,
+  ten: string,
+  thuTu: number,
+): Promise<string> {
+  const res = await apiRequest(page, 'POST', `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`, {
+    ma,
+    ten,
+    batBuoc: true,
+    loaiDuLieu: 'CA_HAI',
+    dungLuongToiDaMb: 20,
+    soLuongToiDa: 3,
+    thuTu,
+  });
+  expect(res!.status()).toBe(200);
+  return (await res!.json()).duLieu;
+}
 
 test.describe('REQ-10 & REQ-14: Quy trình và Tiêu chí chấm điểm', () => {
   // ─── REQ-10: Cấu hình quy trình (Workflow UI) ──────────────────────
@@ -3067,5 +3102,104 @@ test.describe('REQ-16: Tiêu chí — phiên bản và snapshot', () => {
     const tc = detailBody.duLieu;
     expect(tc.id).toBe(id);
     expect(tc.ten).toBeDefined();
+  });
+
+  // ─── REQ-13: Thành phần hồ sơ ──────────────────────────────────────
+
+  test.describe('REQ-13: Thành phần hồ sơ', () => {
+    test('thêm thành phần trên màn hình gọi POST /thanh-phan-ho-so, không gửi lại cả sơ đồ', async ({
+      page,
+    }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const quyTrinhId = await taoQuyTrinhNhap(page);
+
+      await page.goto(`/quan-tri/quy-trinh/${quyTrinhId}/thanh-phan`);
+      const nutThem = page.getByRole('button', { name: /Thêm thành phần hồ sơ/ });
+      await expect(nutThem).toBeVisible({ timeout: 15_000 });
+
+      const daGoi: string[] = [];
+      page.on('request', (req) => {
+        if (req.url().includes('/api/v1/quy-trinh/')) {
+          daGoi.push(`${req.method()} ${new URL(req.url()).pathname}`);
+        }
+      });
+
+      await nutThem.click();
+
+      const oNhap = page.locator('.ant-table-tbody .ant-input');
+      await oNhap.nth(0).fill('E2E_TP_A');
+      await oNhap.nth(1).fill('Thành phần thêm từ màn hình');
+
+      await page.getByRole('button', { name: /Lưu$/ }).click();
+      await expect(page.getByText('Đã lưu cấu hình thành phần hồ sơ')).toBeVisible({
+        timeout: 15_000,
+      });
+
+      expect(daGoi.some((x) => x.startsWith('POST') && x.endsWith('/thanh-phan-ho-so'))).toBe(true);
+      expect(daGoi.some((x) => x.endsWith('/so-do') && x.startsWith('PUT'))).toBe(false);
+
+      const doc = await apiRequest(page, 'GET', `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`);
+      const danhSach = (await doc!.json()).duLieu as Array<{ ma: string; ten: string }>;
+      expect(danhSach.map((x) => x.ma)).toContain('E2E_TP_A');
+    });
+
+    test('đổi thứ tự trên màn hình gọi API sắp xếp và thứ tự được lưu', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const quyTrinhId = await taoQuyTrinhNhap(page);
+
+      await themThanhPhanQuaApi(page, quyTrinhId, 'E2E_SX_A', 'Thành phần A', 0);
+      await themThanhPhanQuaApi(page, quyTrinhId, 'E2E_SX_B', 'Thành phần B', 1);
+
+      await page.goto(`/quan-tri/quy-trinh/${quyTrinhId}/thanh-phan`);
+      await expect(page.locator('.ant-table-tbody tr.ant-table-row')).toHaveCount(2, {
+        timeout: 15_000,
+      });
+
+      const daGoi: string[] = [];
+      page.on('request', (req) => {
+        if (req.url().includes('/api/v1/quy-trinh/')) {
+          daGoi.push(`${req.method()} ${new URL(req.url()).pathname}`);
+        }
+      });
+
+      await page.getByRole('button', { name: 'Đưa lên trên' }).nth(1).click();
+      await page.getByRole('button', { name: /Lưu$/ }).click();
+      await expect(page.getByText('Đã lưu cấu hình thành phần hồ sơ')).toBeVisible({
+        timeout: 15_000,
+      });
+
+      expect(daGoi.some((x) => x.endsWith('/thanh-phan-ho-so/sap-xep'))).toBe(true);
+
+      const doc = await apiRequest(page, 'GET', `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`);
+      const danhSach = (await doc!.json()).duLieu as Array<{ ma: string }>;
+      expect(danhSach.map((x) => x.ma)).toEqual(['E2E_SX_B', 'E2E_SX_A']);
+    });
+
+    test('tác giả không có QuyTrinhCauHinh — POST thành phần bị từ chối (403)', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const quyTrinhId = await taoQuyTrinhNhap(page);
+
+      await loginViaAPI(page, 'tacgia1');
+      const res = await apiRequest(
+        page,
+        'POST',
+        `${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`,
+        { ma: 'E2E_TP_403', ten: 'Không được phép', batBuoc: true, loaiDuLieu: 'TEP',
+          dungLuongToiDaMb: 20, soLuongToiDa: 1, thuTu: 0 },
+      );
+      expect(res!.status()).toBe(403);
+    });
+
+    test('không xác thực GET /thanh-phan-ho-so trả về 401', async ({ page }) => {
+      await page.goto('/');
+      await loginViaAPI(page, 'admin');
+      const quyTrinhId = await taoQuyTrinhNhap(page);
+
+      const res = await page.request.get(`${API.quyTrinh}/${quyTrinhId}/thanh-phan-ho-so`);
+      expect(res.status()).toBe(401);
+    });
   });
 });

@@ -34,31 +34,14 @@ const SU_KIEN = [
   { value: 'KHI_PHE_DUYET', label: 'Khi được phê duyệt' },
 ];
 
-/**
- * Luật kiểm tra cấu hình liên thông theo bước.
- *
- * Đồng bộ hai chiều bắt buộc phải khai loại dữ liệu: chiều đẩy đi thì hệ thống ngoài tự hiểu qua
- * ngữ cảnh lời gọi, nhưng chiều nhận về đi qua API công khai dùng chung — không có nhãn loại dữ
- * liệu thì gói tin về không biết thuộc luồng nào và bị bỏ lặng.
- */
-const luatLienThong = z
-  .object({
-    buocId: z.string().uuid().optional().nullable(),
-    heThongTichHopId: z.string().uuid('Vui lòng chọn hệ thống liên thông.'),
-    suKien: z.string(),
-    loaiDuLieu: tuyChon(100),
-    trangThai: z.number(),
-    dongBoHaiChieu: z.boolean(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.dongBoHaiChieu && !v.loaiDuLieu?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['loaiDuLieu'],
-        message: 'Đồng bộ hai chiều phải khai loại dữ liệu để định tuyến gói tin nhận về.',
-      });
-    }
-  });
+/** Luật kiểm tra cấu hình liên thông theo bước. */
+const luatLienThong = z.object({
+  buocId: z.string().uuid().optional().nullable(),
+  heThongTichHopId: z.string().uuid('Vui lòng chọn hệ thống liên thông.'),
+  suKien: z.string(),
+  loaiDuLieu: tuyChon(100),
+  trangThai: z.number(),
+});
 
 type GiaTriLienThong = z.infer<typeof luatLienThong>;
 
@@ -66,7 +49,6 @@ const MAC_DINH_LIEN_THONG: GiaTriLienThong = {
   heThongTichHopId: '',
   suKien: 'KHI_HOAN_THANH',
   trangThai: 1,
-  dongBoHaiChieu: false,
 };
 
 /**
@@ -110,7 +92,6 @@ export default function TrangLienThongBuoc() {
         heThongTichHopId: giaTri.heThongTichHopId,
         suKien: giaTri.suKien,
         loaiDuLieu: giaTri.loaiDuLieu || null,
-        dongBoHaiChieu: giaTri.dongBoHaiChieu,
         trangThai: giaTri.trangThai,
       };
 
@@ -239,7 +220,6 @@ export default function TrangLienThongBuoc() {
                       suKien: dong.suKien,
                       loaiDuLieu: dong.loaiDuLieu ?? undefined,
                       trangThai: dong.trangThai,
-                      dongBoHaiChieu: dong.dongBoHaiChieu,
                     });
                     setMoForm(true);
                   }}
@@ -333,23 +313,6 @@ export default function TrangLienThongBuoc() {
                   options={[
                     { value: 1, label: 'Hoạt động' },
                     { value: 0, label: 'Ngừng' },
-                  ]}
-                />
-              )}
-            </Truong>
-            <Truong<GiaTriLienThong>
-              ten="dongBoHaiChieu"
-              label="Đồng bộ hai chiều"
-              tooltip="Bật khi hệ thống ngoài cũng đẩy trạng thái ngược lại qua API công khai."
-            >
-              {(o) => (
-                <Select
-                  {...o}
-                  value={o.value as boolean}
-                  style={{ width: 180 }}
-                  options={[
-                    { value: false, label: 'Một chiều (đẩy đi)' },
-                    { value: true, label: 'Hai chiều' },
                   ]}
                 />
               )}

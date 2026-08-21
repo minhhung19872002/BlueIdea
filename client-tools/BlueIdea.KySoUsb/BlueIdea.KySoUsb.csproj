@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Cong cu ky so bang USB token, chay tren MAY TRAM cua nguoi ky.
+
+    KHONG nam trong BlueIdea.sln: day la tien ich phia nguoi dung, phu thuoc CNG cua Windows va
+    driver cua nha cung cap token, khong co ly do gi bat CI tren Linux phai dung toi no.
+    Cach dung va cach dong goi xem docs/HUONG-DAN-KY-SO-USB.md
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BlueIdea.KySoUsb</RootNamespace>
+    <AssemblyName>blueidea-kyso</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+</Project>

@@ -10,8 +10,6 @@ namespace BlueIdea.Workflow;
 /// </summary>
 public interface IWorkflowEngine
 {
-    Task<WorkflowInstance> KhoiTaoAsync(Guid sangKienId, Guid quyTrinhId, CancellationToken ct);
-
     Task<IReadOnlyList<HanhDongKhaDung>> LayHanhDongKhaDungAsync(
         Guid sangKienId, Guid nguoiDungId, CancellationToken ct);
 

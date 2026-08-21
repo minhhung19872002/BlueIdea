@@ -70,4 +70,10 @@ public static class BienNguCanh
     public const string HanhDongNguoiDung = "hanh_dong_nguoi_dung";
     public const string SoTacGia = "so_tac_gia";
     public const string GiaTriLamLoi = "gia_tri_lam_loi";
+
+    // Chuc nang 5 - cap phe duyet khai trong bang cau_hinh_cap_phe_duyet.
+    public const string SoCapPheDuyet = "so_cap_phe_duyet";
+    public const string CapPheDuyetHienTai = "cap_phe_duyet_hien_tai";
+    public const string ConCapPheDuyetCaoHon = "con_cap_phe_duyet_cao_hon";
+    public const string DonViPheDuyetKeTiep = "don_vi_phe_duyet_ke_tiep";
 }

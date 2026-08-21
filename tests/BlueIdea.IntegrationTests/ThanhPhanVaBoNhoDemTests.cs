@@ -58,6 +58,53 @@ public sealed class ThanhPhanVaBoNhoDemTests
             .Should().NotContain(x => x.GetProperty("id").GetString() == id);
     }
 
+    /// <summary>
+    /// Doi thu tu bang API sap xep rieng, khong phai gui lai ca so do. Thu tu nay chinh la thu tu
+    /// checklist hien ra cho tac gia luc nop ho so.
+    /// </summary>
+    [Fact]
+    public async Task Sap_Xep_Thanh_Phan_Doi_Thu_Tu_Checklist()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var quyTrinhId = await TaoQuyTrinhNhapAsync(admin);
+
+        var id1 = await ThemThanhPhanAsync(admin, quyTrinhId, "KT_SX_A", "Thành phần A", thuTu: 0);
+        var id2 = await ThemThanhPhanAsync(admin, quyTrinhId, "KT_SX_B", "Thành phần B", thuTu: 1);
+        var id3 = await ThemThanhPhanAsync(admin, quyTrinhId, "KT_SX_C", "Thành phần C", thuTu: 2);
+
+        (await LayThanhPhanAsync(admin, quyTrinhId))
+            .Select(x => x.GetProperty("id").GetString())
+            .Should().ContainInOrder(id1, id2, id3);
+
+        // Dua C len dau, A xuong cuoi.
+        var sapXep = await admin.PutAsJsonAsync(
+            $"/api/v1/quy-trinh/{quyTrinhId}/thanh-phan-ho-so/sap-xep",
+            new[] { id3, id2, id1 });
+
+        sapXep.EnsureSuccessStatusCode();
+
+        // Doc lai bang mot request khac: thu tu phai nam trong CSDL chu khong phai trong phan hoi.
+        (await LayThanhPhanAsync(admin, quyTrinhId))
+            .Select(x => x.GetProperty("id").GetString())
+            .Should().ContainInOrder(id3, id2, id1);
+    }
+
+    [Fact]
+    public async Task Sap_Xep_Thanh_Phan_Doi_Hoi_Quyen_Cau_Hinh_Quy_Trinh()
+    {
+        var admin = await _ungDung.TaoClientDaDangNhapAsync("admin");
+        var tacGia = await _ungDung.TaoClientDaDangNhapAsync("gv.lan");
+
+        var quyTrinhId = await TaoQuyTrinhNhapAsync(admin);
+        var id = await ThemThanhPhanAsync(admin, quyTrinhId, "KT_SX_Q", "Thành phần Q", thuTu: 0);
+
+        var phanHoi = await tacGia.PutAsJsonAsync(
+            $"/api/v1/quy-trinh/{quyTrinhId}/thanh-phan-ho-so/sap-xep",
+            new[] { id });
+
+        phanHoi.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     [Fact]
     public async Task So_Ky_Tu_Toi_Thieu_Lon_Hon_Toi_Da_Thi_Bi_Chan()
     {
@@ -151,6 +198,28 @@ public sealed class ThanhPhanVaBoNhoDemTests
 
         return (await phanHoi.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("duLieu").EnumerateArray().ToList();
+    }
+
+    private static async Task<string> ThemThanhPhanAsync(
+        HttpClient client, string quyTrinhId, string ma, string ten, int thuTu)
+    {
+        var phanHoi = await client.PostAsJsonAsync(
+            $"/api/v1/quy-trinh/{quyTrinhId}/thanh-phan-ho-so",
+            new
+            {
+                ma,
+                ten,
+                batBuoc = true,
+                loaiDuLieu = "CA_HAI",
+                dungLuongToiDaMb = 20,
+                soLuongToiDa = 3,
+                thuTu
+            });
+
+        phanHoi.EnsureSuccessStatusCode();
+
+        return (await phanHoi.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("duLieu").GetString()!;
     }
 
     /// <summary>Quy trinh dang ap dung khong sua cau hinh duoc, nen kiem thu tao ban nhap rieng.</summary>

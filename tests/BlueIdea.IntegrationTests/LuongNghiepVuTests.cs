@@ -177,6 +177,13 @@ public sealed class LuongNghiepVuTests
             gui.EnsureSuccessStatusCode();
         }
 
+        // --- 9b. Bo tieu chi bat "tu dong tong hop": nguoi cuoi cung gui phieu xong la diem
+        // da len ho so, KHONG cho ai bam nut tong hop -----------------------------
+        var truocKhiBamTongHop = await LayMotDuLieuAsync(thuKy, $"/api/v1/sang-kien/{hoSoId}");
+
+        truocKhiBamTongHop.GetProperty("tongDiem").GetDecimal().Should().BeGreaterThan(0m,
+            "bộ tiêu chí mẫu bật tự động tổng hợp nên điểm phải có ngay sau phiếu cuối cùng");
+
         // --- 10. Tong hop diem ---------------------------------------------------
         var tongHopPhanHoi = await thuKy.PostAsync(
             $"/api/v1/danh-gia/tong-hop?sangKienId={hoSoId}&hoiDongId={hoiDongId}", null);

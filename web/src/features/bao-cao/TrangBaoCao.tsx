@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Card, Col, Row, Select, Space, Statistic, Table, Typography } from 'antd';
-import { FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { App, Button, Card, Col, Row, Select, Space, Statistic, Table, Typography } from 'antd';
+import { ClockCircleOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { taiTep } from '@/api/client';
+import { LoiApi, taiTep } from '@/api/client';
 import {
   apiBaoCao,
   apiDonVi,
@@ -28,38 +28,57 @@ import { DaiTabTrang } from '@/components/DaiTabTrang';
 
 const CAU_HINH_BAO_CAO: Record<
   string,
-  { tieuDe: string; duongDanXuat: string; tenTep: string; laTheoDonVi?: boolean }
+  {
+    tieuDe: string;
+    duongDanXuat: string;
+    tenTep: string;
+    duongDanXuatPdf?: string;
+    tenTepPdf?: string;
+    laTheoDonVi?: boolean;
+  }
 > = {
   'sang-kien-dat': {
     tieuDe: 'Danh sách sáng kiến được công nhận',
     duongDanXuat: '/api/v1/bao-cao/sang-kien-dat/xuat-excel',
     tenTep: 'sang-kien-dat.xlsx',
+    duongDanXuatPdf: '/api/v1/bao-cao/sang-kien-dat/xuat-pdf',
+    tenTepPdf: 'sang-kien-dat.pdf',
   },
   'sang-kien-chua-dat': {
     tieuDe: 'Danh sách sáng kiến chưa đạt',
     duongDanXuat: '/api/v1/bao-cao/sang-kien-chua-dat/xuat-excel',
     tenTep: 'sang-kien-chua-dat.xlsx',
+    duongDanXuatPdf: '/api/v1/bao-cao/sang-kien-chua-dat/xuat-pdf',
+    tenTepPdf: 'sang-kien-chua-dat.pdf',
   },
   'theo-don-vi': {
     tieuDe: 'Thống kê sáng kiến theo đơn vị',
     duongDanXuat: '/api/v1/bao-cao/theo-don-vi/xuat-excel',
     tenTep: 'thong-ke-theo-don-vi.xlsx',
+    duongDanXuatPdf: '/api/v1/bao-cao/theo-don-vi/xuat-pdf',
+    tenTepPdf: 'thong-ke-theo-don-vi.pdf',
     laTheoDonVi: true,
   },
   'ket-qua': {
     tieuDe: 'Kết quả xét sáng kiến',
     duongDanXuat: '/api/v1/bao-cao/sang-kien-dat/xuat-excel',
     tenTep: 'ket-qua-sang-kien.xlsx',
+    duongDanXuatPdf: '/api/v1/bao-cao/sang-kien-dat/xuat-pdf',
+    tenTepPdf: 'ket-qua-sang-kien.pdf',
   },
   'theo-tac-gia': {
     tieuDe: 'Thống kê sáng kiến theo tác giả',
     duongDanXuat: '/api/v1/bao-cao/theo-tac-gia/xuat-excel',
     tenTep: 'thong-ke-theo-tac-gia.xlsx',
+    duongDanXuatPdf: '/api/v1/bao-cao/theo-tac-gia/xuat-pdf',
+    tenTepPdf: 'thong-ke-theo-tac-gia.pdf',
   },
   'thoi-gian-xu-ly': {
     tieuDe: 'Thời gian xử lý trung bình theo bước',
     duongDanXuat: '/api/v1/bao-cao/thoi-gian-xu-ly/xuat-excel',
     tenTep: 'thoi-gian-xu-ly.xlsx',
+    duongDanXuatPdf: '/api/v1/bao-cao/thoi-gian-xu-ly/xuat-pdf',
+    tenTepPdf: 'thoi-gian-xu-ly.pdf',
   },
   'tong-hop-nam': {
     tieuDe: 'Báo cáo tổng hợp năm',
@@ -67,6 +86,15 @@ const CAU_HINH_BAO_CAO: Record<
     tenTep: 'bao-cao-tong-hop-nam.xlsx',
   },
 };
+
+/** Các báo cáo hỗ trợ xuất nền — khớp danh sách trắng phía máy chủ. */
+const LOAI_XUAT_NEN = [
+  'sang-kien-dat',
+  'sang-kien-chua-dat',
+  'theo-don-vi',
+  'theo-tac-gia',
+  'thoi-gian-xu-ly',
+];
 
 const NAM_HIEN_TAI = new Date().getFullYear();
 const DS_NAM = [NAM_HIEN_TAI + 1, NAM_HIEN_TAI, NAM_HIEN_TAI - 1, NAM_HIEN_TAI - 2];
@@ -85,6 +113,7 @@ const DS_TAB = [
 
 /** Chức năng 38–40 — Các báo cáo bắt buộc. */
 export default function TrangBaoCao() {
+  const { message } = App.useApp();
   const { loai = 'sang-kien-dat' } = useParams<{ loai: string }>();
   /*
    * Loại báo cáo lạ thì báo hẳn ra ở cuối hàm chứ không lặng lẽ hiện "Sáng kiến được công nhận".
@@ -148,6 +177,16 @@ export default function TrangBaoCao() {
     return <KhoiLoi loi={tongHopNam.error} thuLai={tongHopNam.refetch} />;
   }
 
+  const xuatNen = useMutation({
+    mutationFn: () => apiBaoCao.datLenhXuatNen(loai, thamSo),
+    onSuccess: () =>
+      message.success(
+        'Đã nhận yêu cầu. Hệ thống sẽ gửi thông báo kèm liên kết tải về khi xuất xong.',
+      ),
+    onError: (loi) =>
+      message.error(loi instanceof LoiApi ? loi.message : 'Không đặt được lệnh xuất nền.'),
+  });
+
   const duLieu = truyVan.data ?? [];
 
   return (
@@ -161,6 +200,19 @@ export default function TrangBaoCao() {
               onClick={() => taiTep(cauHinh.duongDanXuat, cauHinh.tenTep, thamSo)}
             >
               Xuất Excel
+            </Button>
+          )}
+          {/*
+            Báo cáo nhiều năm / toàn hệ thống có thể mất hàng chục giây. Nút này đặt lệnh cho tiến
+            trình nền rồi trả về ngay; hệ thống gửi thông báo kèm liên kết tải khi xong.
+          */}
+          {LOAI_XUAT_NEN.includes(loai) && (
+            <Button
+              icon={<ClockCircleOutlined />}
+              loading={xuatNen.isPending}
+              onClick={() => xuatNen.mutate()}
+            >
+              Xuất nền
             </Button>
           )}
           {loai === 'tong-hop-nam' ? (
@@ -177,11 +229,11 @@ export default function TrangBaoCao() {
               Xuất PDF
             </Button>
           ) : (
-            !cauHinh.laTheoDonVi && (
+            cauHinh.duongDanXuatPdf && (
               <Button
                 icon={<FilePdfOutlined />}
                 onClick={() =>
-                  taiTep('/api/v1/bao-cao/sang-kien-dat/xuat-pdf', 'bao-cao.pdf', thamSo)
+                  taiTep(cauHinh.duongDanXuatPdf!, cauHinh.tenTepPdf ?? 'bao-cao.pdf', thamSo)
                 }
               >
                 Xuất PDF

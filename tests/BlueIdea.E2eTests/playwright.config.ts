@@ -57,6 +57,12 @@ export default defineConfig({
       port: WEB_PORT,
       timeout: 30_000,
       reuseExistingServer: !process.env.CI,
+      env: {
+        // Máy dev có thể đã chiếm cổng 8080/5173 bởi dự án khác; hai biến này cho phép chạy bộ
+        // kiểm thử vào đúng API và cổng web của BlueIdea mà không sửa cấu hình dự án.
+        PROXY_API_URL: `http://127.0.0.1:${API_PORT}`,
+        WEB_PORT: String(WEB_PORT),
+      },
     },
   ],
 });

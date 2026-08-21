@@ -20,7 +20,6 @@ public sealed record LienThongBuocDto(
     string TenHeThong,
     string SuKien,
     string? LoaiDuLieu,
-    bool DongBoHaiChieu,
     short TrangThai);
 
 public sealed record LuuLienThongBuocDto
@@ -35,8 +34,6 @@ public sealed record LuuLienThongBuocDto
     public string? LoaiDuLieu { get; init; }
 
     public Dictionary<string, string>? CauHinhMapping { get; init; }
-
-    public bool DongBoHaiChieu { get; init; }
 
     public short TrangThai { get; init; } = TrangThaiDanhMuc.HoatDong;
 }
@@ -114,7 +111,7 @@ public sealed class CauHinhQuyTrinhController : ControllerBase
                 x.BuocId.HasValue ? tenBuoc.GetValueOrDefault(x.BuocId.Value) : null,
                 x.HeThongTichHopId,
                 tenHeThong.GetValueOrDefault(x.HeThongTichHopId) ?? "(hệ thống đã xoá)",
-                x.SuKien, x.LoaiDuLieu, x.DongBoHaiChieu, x.TrangThai))
+                x.SuKien, x.LoaiDuLieu, x.TrangThai))
             .ToList();
 
         return Ok(PhanHoiApi<List<LienThongBuocDto>>.Ok(ketQua));
@@ -136,7 +133,6 @@ public sealed class CauHinhQuyTrinhController : ControllerBase
             SuKien = duLieu.SuKien,
             LoaiDuLieu = duLieu.LoaiDuLieu,
             CauHinhMapping = duLieu.CauHinhMapping,
-            DongBoHaiChieu = duLieu.DongBoHaiChieu,
             TrangThai = duLieu.TrangThai
         };
 
@@ -164,7 +160,6 @@ public sealed class CauHinhQuyTrinhController : ControllerBase
         banGhi.SuKien = duLieu.SuKien;
         banGhi.LoaiDuLieu = duLieu.LoaiDuLieu;
         banGhi.CauHinhMapping = duLieu.CauHinhMapping;
-        banGhi.DongBoHaiChieu = duLieu.DongBoHaiChieu;
         banGhi.TrangThai = duLieu.TrangThai;
 
         await _db.SaveChangesAsync(ct);
@@ -331,9 +326,20 @@ public sealed class CauHinhQuyTrinhController : ControllerBase
     private async Task KiemTraCapPheDuyetAsync(
         LuuCapPheDuyetDto duLieu, Guid? ngoaiTru, CancellationToken ct)
     {
-        if (!await _db.DonVi.AsNoTracking().AnyAsync(x => x.Id == duLieu.DonViPheDuyetId, ct))
+        var donVi = await _db.DonVi.AsNoTracking()
+            .Where(x => x.Id == duLieu.DonViPheDuyetId)
+            .Select(x => new { x.Ten, x.LaDonViPheDuyet })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new KhongTimThayException("đơn vị phê duyệt", duLieu.DonViPheDuyetId);
+
+        // O tick "La don vi phe duyet" tren ho so don vi phai co hieu luc that: khong danh dau ma
+        // van gan duoc lam cap phe duyet thi o tick do chi la trang tri, va danh sach cap phe
+        // duyet co the tro vao mot don vi khong co tham quyen ky.
+        if (!donVi.LaDonViPheDuyet)
         {
-            throw new KhongTimThayException("đơn vị phê duyệt", duLieu.DonViPheDuyetId);
+            throw new NghiepVuException(MaLoiHeThong.DuLieuKhongHopLe,
+                $"Đơn vị \"{donVi.Ten}\" chưa được đánh dấu là đơn vị phê duyệt — "
+                + "mở hồ sơ đơn vị và bật ô \"Là đơn vị phê duyệt\" trước khi khai cấp xét.");
         }
 
         if (duLieu.ThuTuCap < 1)

@@ -116,6 +116,13 @@ public static class SuKienThongBao
     public const string HoSoBiTuChoi = "HO_SO_BI_TU_CHOI";
     public const string MoiHopHoiDong = "MOI_HOP_HOI_DONG";
 
+    /// <summary>
+    /// Canh bao ky thuat gui rieng cho quan tri he thong (lo loi tang bat thuong, hang doi gui
+    /// tin bi u). Khong nam trong <see cref="TatCa"/>: day khong phai su kien nghiep vu de quan
+    /// tri vien soan mau thong bao cho tac gia hay hoi dong.
+    /// </summary>
+    public const string CanhBaoHeThong = "CANH_BAO_HE_THONG";
+
     public static readonly IReadOnlyList<string> TatCa = new[]
     {
         HoSoDuocTiepNhan, YeuCauBoSung, DuocPhanCongCham, SapHetHan,

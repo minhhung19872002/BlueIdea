@@ -4,6 +4,564 @@
 
 ---
 
+## [2.6.0] — 2026-08-20
+
+Rà soát chín ô tick "chức năng bổ sung" của bước quy trình (chức năng 12). Sáu ô có tác dụng, **ba
+ô không dòng lệnh nào đọc tới** — quản trị viên tick, hệ thống lưu xuống CSDL, và không có gì xảy ra.
+
+### Sửa — `BO_PHIEU_KIN`: kín hay hở do người bỏ phiếu tự khai
+
+Nặng hơn "không có tác dụng". Trường `laPhieuKin` nằm trong **thân yêu cầu**, máy chủ gán thẳng vào
+bản ghi — nên mỗi thành viên tự quyết phiếu của mình, và ô tick "Bỏ phiếu kín" mà quản trị viên đặt
+trên bước không ép được ai. Gửi `laPhieuKin: false` là phiếu công khai.
+
+- Máy chủ suy ra từ cấu hình bước trong **snapshot quy trình** của hồ sơ (ADR 0002), bỏ qua mọi thứ
+  máy khách gửi lên. Trường này đã gỡ khỏi DTO.
+- Số liệu kiểm phiếu **chỉ lộ sau khi chốt phiên họp**, đúng như mô tả trên giao diện. Che danh tính
+  từng lá phiếu là chưa đủ: đếm số cũng suy ra được khi còn ít người chưa bỏ, và người bỏ sau nhìn
+  bảng điểm rồi bỏ theo. Vẫn trả tổng số người đã bỏ để thư ký biết còn ai để nhắc.
+- Danh tính **không** lộ lại sau khi chốt — kín là kín vĩnh viễn, chỉ số liệu mở ra.
+- Màn hình bỏ phiếu bỏ ô tick, thay bằng nhãn chỉ chế độ đang áp dụng.
+
+### Sửa — `CHAM_DIEM_DOC_LAP`: điểm lộ ngay khi từng người bấm gửi
+
+Đặc tả Mục 5 ghi: *"thành viên không thấy điểm của người khác cho đến khi Thư ký bấm Tổng hợp hoặc
+đủ 100% phiếu"*. Ma trận điểm trước đây chỉ kiểm "phiếu đã gửi", nên ai chưa chấm vẫn mở được ma
+trận và nhìn điểm những người đã chấm — đúng điều mà chấm độc lập sinh ra để ngăn. Chủ tịch hội đồng
+vừa có quyền tổng hợp vừa tự chấm điểm, nên đây không phải lỗ hổng lý thuyết.
+
+Nay giấu điểm (và các số tổng hợp suy ra được từ nó) tới khi **đã tổng hợp** hoặc **đủ 100% phiếu**.
+Trạng thái đã chấm / chưa chấm vẫn hiện — thư ký cần biết còn ai để nhắc.
+
+### Sửa — `XUAT_BIEU_MAU`
+
+Áp cho đường xuất phiếu chấm theo hồ sơ, theo quy ước **"không khai báo gì thì không giới hạn"**. Làm
+ngược lại — mặc định cấm, phải bật mọi chỗ — sẽ khoá cứng chức năng xuất trên mọi hệ thống đang chạy
+ngay khi bản mới lên, vì chưa quy trình nào khai ô tick này.
+
+### Khác
+
+- Quy trình mẫu bật `BO_PHIEU_KIN` ở bước họp hội đồng để dữ liệu mẫu thể hiện được tính năng.
+- `DichVuChucNangBuoc` — một nơi duy nhất trả lời "hồ sơ này có bật chức năng X không", đọc từ
+  snapshot. Trước đây chỉ `BoMayQuyTrinh` đọc bảng này, và chỉ để lọc hành động tự động.
+- Hai phép kiểm cũ phụ thuộc thứ tự chạy đã được sửa: `LaySangKienBatKyAsync` có lúc lấy phải hồ sơ
+  nháp do phép kiểm khác để lại (nháp chưa có snapshot nên mọi luật theo cấu hình bước đều trả
+  "không bật"); và phép kiểm sắp xếp theo điểm báo hỏng khi mọi hồ sơ trong trang đều đã có điểm.
+- Sửa số hiệu phiên bản trùng: mục thêm ở lần trước dùng lại `2.4.0` vốn đã có, nay đổi thành `2.5.0`.
+
+283/283 kiểm thử tích hợp (8 mới), 526/526 đơn vị, 86/86 E2E của ba màn hình bị đụng.
+
+---
+
+## [2.5.0] — 2026-08-20
+
+Cùng một dạng lỗi như các bản trước — **khai báo được nhưng không dòng logic nào đọc tới** — lần
+này soi vào chính ma trận phân quyền. Bảy quyền có tên trên màn hình phân quyền nhưng không
+endpoint nào hỏi đến, nên quản trị viên bật hay tắt chúng đều không thay đổi điều gì.
+
+### Thêm — hai chức năng đặc tả có mà hệ thống chưa có
+
+- **Chức năng 43 — xoá tài khoản** (`DELETE /api/v1/he-thong/nguoi-dung/{id}`, quyền
+  `NGUOI_DUNG.XOA`). Đặc tả ghi "CRUD" nhưng hệ thống chỉ có C, R, U. Xoá **mềm** để nhật ký xử
+  lý còn truy nguyên được người chịu trách nhiệm; thu hồi mọi refresh token đang mở — không làm
+  bước này thì tài khoản đã xoá vẫn dùng tiếp được tới khi token hết hạn. Từ chối tự xoá chính
+  mình, và từ chối xoá người **đang giữ một bước xử lý chưa xong** (xoá đi thì hồ sơ kẹt lại
+  giữa chừng, không ai nhận tiếp và cũng không có cảnh báo nào).
+- **Chức năng 23 — xoá hồ sơ nháp** (`DELETE /api/v1/sang-kien/{id}`, quyền `SANG_KIEN.XOA`).
+  Chỉ hồ sơ còn ở trạng thái NHAP và **chưa từng nộp**. Hồ sơ đã nộp vẫn phải đi đường *rút* hoặc
+  *huỷ*: văn bản đã vào hệ thống xét duyệt phải để lại lý do và người chịu trách nhiệm, không
+  được biến mất lặng lẽ khỏi mọi báo cáo.
+
+### Sửa — năm quyền giờ mới thực sự chặn đường
+
+| Quyền | Trước đây | Nay |
+|---|---|---|
+| `TIEP_NHAN.XEM` | Màn hình hàng chờ dùng chung endpoint danh sách hồ sơ (`SANG_KIEN.XEM`) | `GET /sang-kien/cho-tiep-nhan` là endpoint riêng, **ép trạng thái ĐÃ NỘP tại máy chủ** |
+| `TIEP_NHAN.XU_LY` | Bước tiếp nhận thực thi bằng `XU_LY.THUC_THI` chung | Bước có `LoaiBuoc = TIEP_NHAN` đòi thêm quyền này |
+| `XU_LY.UY_QUYEN` | Ai thực thi được bước là uỷ quyền được | Xử lý **thay cho người khác** đòi quyền riêng |
+| `DANH_MUC.NHAP` | Nhập Excel danh mục dùng `DANH_MUC.SUA` | Đòi `DANH_MUC.NHAP` |
+| `BAO_CAO.CAU_HINH` | Biểu mẫu thống kê dùng `DANH_MUC.THEM/SỬA/XOÁ` | Đòi `BAO_CAO.CAU_HINH` |
+
+Tham số `trangThaiTong` do máy khách gửi lên endpoint tiếp nhận bị **bỏ qua**. Nhận nó thì
+`TIEP_NHAN.XEM` trở thành đường vòng lấy trọn danh sách hồ sơ: người chỉ được phép thấy hàng chờ
+lại đọc được cả hồ sơ đã phê duyệt, đã rút, đang chấm điểm.
+
+Loại bước đọc từ **quy trình snapshot** của hồ sơ chứ không từ định nghĩa quy trình hiện hành,
+theo ADR 0002 — hồ sơ chạy bằng bản chụp lúc nộp.
+
+### Bù quyền cho hệ thống đã cài đặt
+
+Siết một quyền vừa tách ra sẽ làm hỏng chức năng **đang chạy tốt**: trên CSDL đã cài, chưa vai trò
+nào cầm quyền mới, nên ngay khi bản mới lên là 403 cho tất cả mọi người trừ quản trị hệ thống — và
+không ai biết vì sao, vì chẳng ai đổi gì cả.
+
+`BuQuyenTachMoiAsync` cấp quyền mới cho đúng những vai trò **đang có quyền anh em** của nó
+(`DANH_MUC.NHAP` ← `DANH_MUC.SUA`, `XU_LY.UY_QUYEN` ← `XU_LY.THUC_THI`, …), giữ nguyên khả năng
+hiện tại. Chỉ chạy **một lần** cho mỗi quyền, đánh dấu bằng khoá cấu hình ẩn — chạy lại mỗi lần
+khởi động sẽ đắp lên quyết định của quản trị viên khi họ cố ý gỡ quyền đó ra. Bước này chạy cả
+trên CSDL vừa cài để ma trận quyền của bản cài mới và bản nâng cấp giống nhau; khác đi thì một lỗi
+chỉ xuất hiện ở một trong hai loại triển khai.
+
+277/277 kiểm thử tích hợp (10 mới), 526/526 đơn vị (2 mới).
+
+---
+
+## [1.6.0] — 2026-08-20
+
+Rà soát lại theo đúng chiều của bản 1.5.0 — **cấu hình khai báo được nhưng không dòng logic nào
+đọc tới** — lần này quét riêng khối hội đồng. Ba thiếu sót được xử lý.
+
+### Sửa
+
+- **Chức năng 19 — phiếu kín không kín.** Ô tick *Phiếu kín* được lưu xuống CSDL nhưng
+  `GET /api/v1/hoi-dong/phien-hop/{id}` vẫn trả nguyên danh sách phiếu kèm `thanhVienId` và ghi
+  chú cho **mọi người có quyền `HOI_DONG.XEM`**. Giao diện không vẽ ra, nhưng gọi thẳng API là
+  đọc được ai bỏ phiếu gì. Nay máy chủ xoá danh tính và ghi chú khỏi các lá phiếu kín trước khi
+  trả về; chính chủ vẫn thấy lại phiếu của mình, số liệu kiểm phiếu tổng hợp không đổi.
+- **Chức năng 20 — hai ô tick quyền thành viên không có tác dụng.** `QuyenNhanXet` và
+  `QuyenKetLuan` sửa được trên bảng thành viên nhưng không nơi nào kiểm (trong khi `QuyenBoPhieu`
+  và `QuyenChamDiem` thì có). Nay ghi ý kiến cho hồ sơ trong phiên cần *Nhận xét*, chốt kết quả
+  xét của hồ sơ và kết thúc phiên cần *Kết luận*. Chỉ so sánh trên trường thực sự thay đổi, nên
+  người chỉ có quyền nhận xét vẫn sửa được ý kiến của mình mà không vướng ô kết quả.
+  Người **không phải thành viên** hội đồng (quản trị viên, thư ký hệ thống nhập hộ) vẫn đi tiếp
+  bằng quyền vai trò như trước — hai ô tick chỉ ràng buộc người đang ngồi trong hội đồng.
+- Giao diện phòng họp mờ nút theo đúng hai lớp quyền trên để không bấm rồi mới ăn lỗi. Đây là
+  cải thiện thao tác; chặn thật vẫn nằm ở máy chủ.
+
+### Chức năng 13 — màn hình thành phần hồ sơ nay dùng đúng API riêng của nó
+
+Năm endpoint CRUD riêng từng thành phần (`POST/PUT/DELETE /quy-trinh/{id}/thanh-phan-ho-so` và
+`PUT .../sap-xep`) đã có từ trước nhưng **không màn hình nào gọi** — đây là năm endpoint duy nhất
+trong toàn bộ API không có lời gọi từ giao diện. Màn hình vẫn lưu bằng `PUT /so-do`, tức gửi lại
+cả sơ đồ quy trình, nên hai người cùng mở một quy trình (một người sửa bước, một người thêm thành
+phần) sẽ ghi đè lên nhau — đúng thứ mà tài liệu ghi là đã tránh được.
+
+- Bấm Lưu nay chỉ gửi **những dòng thực sự đổi**: thêm dòng nào thì POST dòng đó, sửa dòng nào thì
+  PUT dòng đó, xoá dòng nào thì DELETE dòng đó.
+- Khối cảnh báo nói rõ sắp gửi gì ("1 dòng thêm mới, 2 dòng đã sửa, đổi thứ tự"), mỗi dòng có nhãn
+  *Mới* / *Đã sửa*; máy chủ từ chối dòng nào thì báo đúng tên dòng đó thay vì một câu lỗi chung.
+- **Đổi thứ tự thành phần** bằng nút lên/xuống — trước đây không có cách nào đổi, thứ tự này chính
+  là thứ tự checklist hiện ra cho tác giả lúc nộp hồ sơ.
+
+### Kiểm thử
+
+- `ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Thu_Tu_Checklist`
+- `ThanhPhanVaBoNhoDemTests.Sap_Xep_Thanh_Phan_Doi_Hoi_Quyen_Cau_Hinh_Quy_Trinh`
+- 4 test E2E `REQ-13: Thành phần hồ sơ` — trong đó một test khẳng định lúc Lưu có
+  `POST .../thanh-phan-ho-so` và **không** có `PUT .../so-do`
+- `HoiDongTests.Phieu_Kin_Khong_Lo_Danh_Tinh_Nguoi_Bo_Phieu`
+- `HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Ket_Luan_Khong_Ket_Thuc_Duoc_Phien`
+- `HoiDongTests.Thanh_Vien_Bi_Tat_Quyen_Nhan_Xet_Khong_Ghi_Y_Kien_Duoc`
+
+227/227 kiểm thử tích hợp, 512/512 kiểm thử đơn vị, 405/405 E2E đều đạt.
+
+---
+
+## [1.7.0] — 2026-08-20
+
+Dọn nốt nhóm **cấu hình bật/tắt được nhưng không có tác dụng** (TD-011). Nguyên tắc áp dụng cho
+từng cờ: hoặc nối vào hành vi thật, hoặc bỏ khỏi giao diện và API — không để tồn tại một ô tick
+mà bật hay tắt cũng như nhau.
+
+### Nối vào hành vi thật
+
+- **Chức năng 14 — trạng thái kết thúc.** Trước đây máy chạy quy trình chỉ nhìn cờ *bước* kết
+  thúc; tick "là trạng thái kết thúc" trên một trạng thái không đổi gì cả. Nay trường hợp nào gán
+  trạng thái đó cho hồ sơ thì hồ sơ dừng hẳn: không sang bước kế tiếp, không đặt hạn xử lý mới,
+  ghi ngày hoàn thành. Trạng thái không tick thì đi tiếp y như cũ (có test chặn hồi quy).
+- **Chức năng 5 — đơn vị phê duyệt.** Máy chủ từ chối khai cấp phê duyệt trỏ vào đơn vị chưa bật
+  ô *Là đơn vị phê duyệt* (422), và ô chọn trên màn hình chỉ liệt kê đơn vị đã bật — không bày ra
+  những lựa chọn chắc chắn bị từ chối.
+- **Chức năng 18 — tự động tổng hợp điểm.** Người cuối cùng trong danh sách phân công gửi phiếu
+  là hệ thống tổng hợp ngay, thư ký không phải bấm nút nữa; điều kiện chuyển bước theo tổng điểm
+  nhờ đó dùng được luôn. Bản tổng hợp tự động **không** ghi "người kết luận" — máy làm thay, không
+  phải ai đó quyết định. Hai công tắc *Tự động tổng hợp* và *Loại điểm cao nhất/thấp nhất* nay có
+  trên form tạo bộ tiêu chí; riêng cái sau vốn có tác dụng thật trong công thức tính nhưng không
+  có chỗ đặt, nên bộ tiêu chí tạo từ màn hình luôn bị đưa về mặc định.
+- **Chức năng 48 — mở tab mới.** Mục menu khai "mở tab mới" nay mở thật ở tab mới.
+
+### Bỏ khỏi giao diện và API
+
+- **Đồng bộ hai chiều** (cấu hình liên thông theo bước): chiều nhận về đòi một đường GHI từ hệ
+  thống ngoài vào, mà `/api/public/v1` cố ý chỉ cho ĐỌC. Mở đường ghi phải có đặc tả thật của IOC
+  / Thi đua khen thưởng (REQ-41 đang chờ bên thành phố). Ô chọn cũ hứa một hành vi không tồn tại
+  nên đã gỡ; cột trong CSDL giữ lại kèm chú thích, không phải viết migration.
+- **Cho phép chấm độc lập** (bộ tiêu chí): hội đồng luôn chấm độc lập — điểm từng người chỉ lộ ra
+  sau khi gửi phiếu — nên vị trí "tắt" không có nghĩa gì để hiện thực. Đã bỏ khỏi API.
+
+### Kiểm thử
+
+- `BoMayQuyTrinhTests.Trang_Thai_Ket_Thuc_Dung_Ho_So_Lai_Du_Con_Buoc_Ke_Tiep`
+- `BoMayQuyTrinhTests.Trang_Thai_Thuong_Van_Cho_Ho_So_Di_Tiep`
+- `BienBanVaCauHinhTests.Don_Vi_Chua_Danh_Dau_Phe_Duyet_Khong_Khai_Lam_Cap_Xet_Duoc`
+- `LuongNghiepVuTests` — khẳng định điểm đã lên hồ sơ **trước** khi có ai bấm "Tổng hợp điểm"
+
+228/228 kiểm thử tích hợp, 514/514 kiểm thử đơn vị, 405/405 E2E đều đạt.
+
+---
+
+## [1.7.1] — 2026-08-20
+
+Dọn mã chết (TD-013). Ba mục, một trong đó có hại thật sự.
+
+- **Bảng `ma_xac_thuc_tam` không bao giờ được dọn.** Hàm dọn đã có sẵn nhưng không lịch nào gọi,
+  nên mỗi lần ai đó nhập sai mật khẩu 3 lần (sinh CAPTCHA) hoặc bấm quên mật khẩu (sinh OTP) là
+  bảng dài thêm một dòng, vĩnh viễn. Nay có công việc nền `don-ma-xac-thuc-tam` chạy 3h sáng hằng
+  ngày, đổi tần suất bằng `CongViecNen:Lich:DonMaXacThuc` không phải build lại.
+- **Xoá `DichVuWorkflow.KhoiTaoAsync`** (và bỏ luôn khỏi hợp đồng `IWorkflowEngine`). Nó trùng lặp
+  với đường nộp hồ sơ thật nhưng **bỏ qua** kiểm tra thành phần hồ sơ bắt buộc và các việc nền đi
+  kèm — ai gọi nhầm sẽ tạo ra hồ sơ chạy quy trình mà chưa qua kiểm tra nào.
+- **Xoá `DichVuKiemTraTrungLap.DanhDauDaXemXetAsync`** (bản theo id lần kiểm tra) — không lối vào
+  nào gọi tới; giao diện dùng bản theo hồ sơ.
+
+229/229 kiểm thử tích hợp, 514/514 đơn vị, 405/405 E2E.
+
+---
+
+## [1.8.0] — 2026-08-20
+
+Tìm ngữ nghĩa chạy được bằng **mô hình học sâu tiếng Việt** thay vì chỉ vector từ vựng (TD-001).
+Toàn bộ suy luận nằm trên máy chủ đơn vị bằng ONNX Runtime — không gọi API AI bên thứ ba, đúng
+ràng buộc Mục 3.2 E-HSMT và ADR 0001.
+
+### Thêm
+
+- `BoNhungOnnx` — nạp mô hình sentence-transformer định dạng `.onnx`, kèm bộ tách từ **WordPiece**
+  đọc `vocab.txt` của chính mô hình đó. Vận hành chỉ cần đặt hai tệp lên máy chủ và khai
+  `Ai:Nhung:DuongDanMoHinh` / `Ai:Nhung:DuongDanTuVung`; không khai gì thì hệ thống chạy y như cũ
+  bằng bộ băm từ vựng.
+- Công việc nền `nhung-lai-doan-van` (mỗi 10 phút, tự dừng khi hết việc).
+
+### Ba cái bẫy đã chặn sẵn
+
+- **Sai số chiều** → từ chối nạp ngay lúc khởi động kèm thông báo rõ. Nếu để tới lúc ghi, cột
+  `vector(768)` sẽ từ chối từng bản ghi một, rải rác trong log, không ai hiểu vì sao.
+- **Thiếu tệp mô hình** → cảnh báo rồi lùi về bộ băm từ vựng. Mất tìm ngữ nghĩa còn hơn cả hệ
+  thống không khởi động được.
+- **Đổi mô hình làm hỏng kho vector cũ** → mỗi đoạn văn nay ghi kèm tên mô hình đã sinh ra nó
+  (`sang_kien_doan_van.mo_hinh_nhung`). Tìm ngữ nghĩa chỉ so với vector của **đúng** mô hình đang
+  chạy, và công việc nền gặm dần kho cũ cho tới khi sạch. Không có chỗ này thì đổi mô hình xong
+  tìm kiếm vẫn chạy, vẫn trả kết quả — chỉ là kết quả sai mà không có dấu hiệu gì, vì cosine giữa
+  hai không gian vector khác nhau vẫn ra một con số.
+
+### Kiểm thử
+
+- `BoNhungOnnxTests` (10 test) chạy **suy luận ONNX thật** trên một mô hình tí hon dựng riêng cho
+  kiểm thử (1KB, kèm trong kho mã) — tách từ, mảnh nối `##`, `[UNK]`, cắt theo độ dài, gộp token
+  có loại `[PAD]`, chuẩn hoá L2, và phép kiểm số chiều lúc nạp.
+- `LuongBoSungTests.Doi_Mo_Hinh_Nhung_Thi_Bo_Qua_Vector_Cu_Va_Nhung_Lai` — đổi mô hình thì tìm
+  ngữ nghĩa bỏ qua vector cũ, việc nền nhúng lại tới khi hết.
+
+230/230 kiểm thử tích hợp, 524/524 đơn vị, 405/405 E2E.
+
+**Việc còn lại của đơn vị**: chọn một mô hình họ BERT tiếng Việt (có `vocab.txt`) xuất sang ONNX
+rồi đặt lên máy chủ. Mô hình dùng SentencePiece/BPE như PhoBERT chưa dùng được.
+
+---
+
+## [1.9.0] — 2026-08-20
+
+Cảnh báo chủ động cho quản trị viên (TD-003).
+
+Trước đây lỗi chỉ nằm trong bảng `nhat_ky_loi` và trong Seq: ai không mở màn hình đó thì không
+biết gì. Một đợt lỗi lúc 2h sáng có thể đến sáng hôm sau mới có người phát hiện.
+
+- Công việc nền `canh-bao-suc-khoe` (mỗi 15 phút) theo dõi hai dấu hiệu và báo thẳng lên **chuông
+  thông báo** của mọi tài khoản quản trị hệ thống, mức độ CAO, bấm vào là mở nhật ký lỗi:
+  - số lỗi chưa xử lý trong cửa sổ gần đây vượt ngưỡng;
+  - hàng đợi email/SMS ứ lại — với người dùng thì việc này trông giống hệ thống im lặng, chứ
+    không giống cấu hình SMTP đang hỏng.
+- **Chống lặp theo từng người**: một sự cố kéo dài chỉ sinh ra một cảnh báo phải xử lý, không
+  phải hàng chục thông báo giống nhau.
+- Bốn con số ngưỡng đều là cấu hình `GiamSat:*`, đổi được mà không phải build lại.
+
+Đây **không phải** một hệ APM: vẫn chưa có truy vết theo request, biểu đồ độ trễ hay giám sát
+uptime từ bên ngoài. `/health` và `/health/ready` vẫn là điểm đấu nối nếu đơn vị dựng hệ giám sát
+riêng.
+
+**Ngoài phạm vi**: kiểm thử tải (TD-007) được chủ đầu tư quyết định bỏ — yêu cầu của khách hàng là
+định tính, và số đo chạy ở máy khác máy chủ thật thì không nói lên điều gì.
+
+231/231 kiểm thử tích hợp, 524/524 đơn vị.
+
+---
+
+## [2.0.0] — 2026-08-20
+
+Ba luồng nghiệp vụ còn thiếu, phát hiện khi rà soát theo góc nhìn người dùng chứ không theo mã.
+
+### Gia hạn xử lý (mới)
+
+Hạn xử lý vốn chỉ do máy chạy quy trình đặt khi hồ sơ vào bước — không màn hình nào, không API
+nào sửa được. Thực tế hành chính thì luôn có lý do chính đáng phải kéo dài: cán bộ nghỉ, đợt cao
+điểm, phải chờ ý kiến đơn vị khác. Trước đây chỉ còn hai lối xấu: để hồ sơ quá hạn (báo đỏ + nhắc
+mỗi sáng), hoặc thu hồi bước rồi làm lại từ đầu.
+
+- `POST /api/v1/xu-ly/gia-han`, quyền mới `XU_LY.GIA_HAN`, nút **Gia hạn xử lý** trên trang hồ sơ.
+- **Chỉ kéo dài được, không rút ngắn**: ép tiến độ người đang xử lý là việc khác về nghiệp vụ,
+  không được núp dưới cái tên "gia hạn".
+- Bắt buộc nhập lý do; ghi nhật ký hệ thống và lịch sử hồ sơ (hạn cũ → hạn mới, lý do); đổi cả
+  mốc hạn của lượt xử lý đang mở nên tiến độ và cờ quá hạn không còn theo mốc cũ; báo cho người
+  đang giữ bước.
+
+### Huỷ hồ sơ (mới)
+
+Trạng thái `DA_HUY` có trong danh mục, hiển thị được trên báo cáo, nhưng **không một chức năng
+nào** đặt hồ sơ về trạng thái đó — nộp nhầm đợt, nộp trùng, phát hiện sai sót sau khi tiếp nhận
+đều không có lối ra.
+
+- `POST /api/v1/sang-kien/{id}/huy`, quyền mới `SANG_KIEN.HUY`, nút **Huỷ hồ sơ** trên trang hồ sơ.
+- Khác *rút hồ sơ* (việc của tác giả, chỉ trước bước chấm điểm): huỷ là việc của cán bộ điều phối.
+- Đóng mọi lượt xử lý đang mở nên hồ sơ đã huỷ không còn nằm trong "việc cần xử lý" của ai; báo
+  cho tác giả; ghi lịch sử kèm lý do. Không xoá mềm — hồ sơ vẫn tra cứu được với nhãn "Đã huỷ".
+- Chặn huỷ hồ sơ đã gán vào quyết định công nhận: việc đó phải đi bằng đường quyết định, có văn
+  bản hành chính kèm theo.
+
+### Hai loại bước nay làm đúng cái tên của nó
+
+Trình thiết kế cho chọn 10 loại bước, nhưng chỉ CHẤM_ĐIỂM và PHÊ_DUYỆT thực sự đổi hành vi.
+
+- **CÔNG_BỐ**: trước đây không một dòng logic nào đọc tới — ai khai một bước "Công bố" sẽ tưởng
+  hệ thống tự công bố, thực tế nó chỉ là bước bấm qua. Nay đi qua bước loại này là kết quả được
+  công bố ngay (đánh dấu đã công bố, mở hiển thị công khai), chỉ áp cho hồ sơ **Đạt**.
+- **BỎ_PHIẾU**: trước đây chỉ dùng để chặn rút hồ sơ, nên một bước tên "Bỏ phiếu" vẫn bấm qua
+  được khi chưa ai bỏ một lá phiếu nào — biến biên bản thành giấy tờ hình thức. Nay kết luận
+  "Đạt" ở bước loại này bị chặn nếu hội đồng chưa bỏ phiếu hoặc tỷ lệ chưa đạt ngưỡng thông qua.
+  Các nhánh trả lại / bổ sung / không đạt vẫn đi được, nếu không hồ sơ thiếu phiếu sẽ kẹt cứng.
+
+### Kiểm thử
+
+`LuongDieuPhoiHoSoTests` — 9 test: gia hạn (thành công, hạn sớm hơn bị chặn, thiếu lý do bị chặn,
+tác giả 403), huỷ (trạng thái + đóng lượt đang mở + lịch sử, huỷ lần hai 409, tác giả 403), bước
+BỎ_PHIẾU chưa kiểm phiếu bị chặn, bước CÔNG_BỐ tự công bố.
+
+240/240 kiểm thử tích hợp, 524/524 đơn vị, 405/405 E2E.
+
+### Ghi chú kỹ thuật
+
+Kiểm thử bắt được một lỗi thật khi viết: `SangKienXuLy.DaHoanThanh` là thuộc tính **tính** trong
+.NET, EF Core không dịch sang SQL được — mọi truy vấn lọc lượt xử lý đang mở phải viết theo
+`ThoiGianXuLy == null`.
+
+---
+
+## [2.1.0] — 2026-08-20
+
+Ký số bằng USB token: nối xong nhịp giữa và **kiểm chứng trên token thật** (REQ-49, TD-008).
+
+### Công cụ ký ở máy trạm
+
+`client-tools/BlueIdea.KySoUsb` (`blueidea-kyso`) chạy trọn ba nhịp thay cho thao tác sao chép/dán giá
+trị băm và chữ ký như trước. Tự đăng nhập lấy JWT nên người ký không phải đi lấy token từ trình
+duyệt. Không phụ thuộc nhà cung cấp: đọc chứng thư mà token đăng ký vào kho chứng thư Windows.
+
+- `liet-ke` — xem chứng thư đang cắm. **Không** chạm vào khoá bí mật: chạm vào là token đòi PIN
+  ngay, kể cả khi chỉ muốn đọc thông tin.
+- `ky --hash` — ký một giá trị băm, in JSON để dán tay (máy ký tách khỏi mạng).
+- `tu-dong` — xin băm, ký, gửi chữ ký về máy chủ.
+- `--van-tay` chọn chứng thư; máy có nhiều chứng thư còn hạn thì công cụ **không tự đoán**.
+- `--pin` cho chạy nền, `--cho <giây>` đặt thời gian chờ token.
+
+### Kiểm chứng trên chứng thư CA thật
+
+Chứng thư do **WINCA** (WINGROUP, chuỗi tin cậy về `rootca.gov.vn`) cấp, RSA 2048 nằm sau *WINCA
+Key Storage Provider v6.0*. Máy chủ phát băm SHA-256, token ký 256 byte PKCS#1 v1.5, máy chủ xác
+minh và ghi nhật ký (`nguonKhoa = USB_TOKEN`, `trangThaiKy = THANH_CONG`). **Phép thử ngược**: lật
+một byte của chính chữ ký hợp lệ đó thì máy chủ trả 422 — nhịp 3 xác minh thật chứ không chỉ ghi
+nhận. Chi tiết ở `docs/HUONG-DAN-KY-SO-USB.md`.
+
+REQ-49 chuyển từ `BLOCKED_EXTERNAL` sang `VERIFIED`. Phần còn lại là **dữ liệu triển khai**, không
+phải thiếu mã: đơn vị nạp PFX của mình cho đường ký trên máy chủ, và địa chỉ TSA nếu văn bản đòi
+PAdES-T.
+
+### Bài học ghi lại
+
+Lần chạy đầu **treo im lặng**. Công cụ được gọi từ tiến trình không gắn console tương tác; driver
+vẫn tạo hộp thoại "Xác nhận PIN" — enumerate ra thấy đủ lớp `#32770`, đúng session, toạ độ trong
+màn hình — nhưng không bao giờ được vẽ, vì luồng tạo ra nó chính là luồng đang bị chặn trong lệnh
+ký. Tiến trình đó còn giữ token làm mọi lệnh sau xếp hàng theo. Công cụ nay có thời gian chờ và
+báo đúng nguyên nhân đó thay vì đứng im.
+
+---
+
+## [2.2.0] — 2026-08-20
+
+Ba việc: hoàn thành hai hành động tự động cuối cùng, dọn ghi chú truy vết lỗi thời, bù kiểm thử
+còn thiếu. Việc thứ ba lôi ra một lỗ hổng leo thang đặc quyền.
+
+### Chức năng 12 — hai hành động tự động cuối cùng
+
+Trước đây `TAO_QUYET_DINH` và `YEU_CAU_KY_SO` chỉ ghi một dòng cảnh báo vào log rồi thôi: quản trị
+viên tick được, hệ thống báo lưu thành công, chạy thì không có gì xảy ra — mà log thì không ai đọc.
+
+- **TAO_QUYET_DINH** gom sáng kiến **Đạt** vào dự thảo quyết định của đợt, mở dự thảo mới nếu chưa
+  có. Không tạo mỗi hồ sơ một quyết định: quyết định công nhận là văn bản gồm nhiều sáng kiến của
+  cùng một đợt. Luỹ đẳng, và bỏ qua hồ sơ chưa Đạt.
+- **YEU_CAU_KY_SO** nhắc mọi tài khoản mang quyền `QUYET_DINH.KY_SO`. Không thể tự ký — khoá nằm
+  trong token của người ký — nên việc đúng nghĩa là không để văn bản nằm chờ mà không ai biết.
+
+10/10 hành động tự động nay đều có bộ xử lý.
+
+### Lỗ hổng leo thang đặc quyền (phát hiện khi viết test bù)
+
+`LayPhamViTruyCapAsync` mở phạm vi ra toàn hệ thống cho người có quyền `SANG_KIEN.XEM_TAT_CA` —
+đúng với **hồ sơ**, và chú thích trong mã cũng nói vậy. Nhưng chính hàm đó lại là phép kiểm phạm vi
+khi **quản trị tài khoản**. Hậu quả: vai trò *Quản trị đơn vị*, vốn cần quyền đó để nhìn hồ sơ mọi
+đơn vị, **đặt lại được mật khẩu và gỡ được MFA của bất kỳ tài khoản nào trong hệ thống** — kể cả
+quản trị viên hệ thống.
+
+Nhìn từ ngoài không thấy gì bất thường: mọi phép kiểm quyền đều qua, nhật ký ghi một thao tác hợp
+lệ, và phép kiểm phạm vi vẫn nằm đó trong mã — chỉ là nó trả lời sai câu hỏi.
+
+Đã tách `LayPhamViDonViAsync` (chỉ đọc `pham_vi_du_lieu`) cho quản trị tài khoản, gỡ MFA và sửa cây
+đơn vị. `PhamViQuanTriNguoiDungTests` — 5 test, có phép đối chứng cùng đơn vị vẫn đặt lại được, để
+test âm không thể xanh chỉ vì thiếu quyền.
+
+### Dọn ghi chú truy vết
+
+Bỏ 6 ghi chú `gaps` đã sai: REQ-39 nói thiếu xuất PDF (có từ 19/08), REQ-26 nói tới một hàm đã xoá,
+REQ-21 nói gỡ MFA không phân quyền/nhật ký (thực tế có đủ). Hai ghi chú viện lý do "môi trường
+không có Docker" — chính chỗ lỗ hổng trên nấp suốt nhiều tuần.
+
+### Bù kiểm thử
+
+`BuKiemThuConThieuTests` — 6 test cho những chỗ mà hỏng sẽ im lặng: ma trận điểm không lộ điểm của
+phiếu còn nháp (chấm độc lập chỉ là khẩu hiệu nếu lộ), chống gửi trùng bằng `Idempotency-Key`, tổng
+tỷ lệ đóng góp phải bằng 100%, tìm không dấu, xuất Excel, job chỉ đóng đợt có bật *tự động khoá*.
+
+254/254 kiểm thử tích hợp, 524/524 đơn vị, 405/405 E2E.
+
+---
+
+## [2.3.0] — 2026-08-20
+
+Bù nốt kiểm thử còn thiếu và đóng nợ kỹ thuật cuối cùng.
+
+### Bù kiểm thử (8 phép kiểm mới)
+
+`BuKiemThuDotHaiTests` phủ những chỗ trước ghi "no test for...": đường dẫn cây đơn vị tính lại cho
+cả cây con khi chuyển cấp trên (phạm vi dữ liệu `DON_VI_VA_CAP_DUOI` dựa vào đúng thứ này), sửa sơ
+đồ quy trình qua API, diff lịch sử trước/sau, bộ lọc yêu thích (kể cả việc người khác không thấy
+bộ lọc của mình), xử lý hàng loạt **không để lộ mã hồ sơ** của đơn vị khác trong câu báo lỗi, gán
+vai trò khi tạo tài khoản, ma trận phân quyền và đổi phạm vi dữ liệu, chặn tải lên tệp `.exe`.
+
+### TD-004 — phân vùng bảng nhật ký theo tháng
+
+- `deploy/phan-vung-nhat-ky.sql`: đổi ba bảng nhật ký sang `PARTITION BY RANGE` theo tháng. Đổi tên
+  bảng cũ, dựng bảng cha, tạo phân vùng phủ dữ liệu hiện có + 3 tháng, chép dữ liệu, **đối chiếu số
+  dòng trước khi xoá nguồn**, và tạo phân vùng DEFAULT làm lưới an toàn. Chạy lại là bỏ qua.
+- Việc nền `tao-phan-vung-thang` (2h sáng) tạo trước 3 tháng. Thiếu nó thì bảng phân vùng dồn hết
+  vào DEFAULT và toàn bộ lợi ích mất sạch. Bảng chưa phân vùng thì việc nền không làm gì.
+
+**Đã kiểm chứng trên dữ liệu thật** chứ không chỉ lược đồ trống: chạy trên CSDL phát triển
+(3.504 dòng nhật ký đăng nhập), số dòng giữ nguyên, ứng dụng vẫn chạy sau đó — đăng nhập ghi được
+qua bảng đã phân vùng (3.504 → 3.506), đọc nhật ký và thông báo đều 200.
+
+**Cố ý CHƯA bật ở bản triển khai hiện tại.** Bảng lớn nhất mới 3.504 dòng / 1,2 MB. Phân vùng có
+cái giá thật: khoá chính phải thành `(id, thoi_gian)`, nên CSDL không còn bảo đảm `id` duy nhất
+trên toàn bảng (chỉ trong từng phân vùng), và EF Core vẫn sinh `WHERE id = ...` không kèm cột thời
+gian nên UPDATE/DELETE phải quét mọi phân vùng. Đánh đổi đó hợp lý ở mức hàng triệu dòng và vô
+nghĩa ở mức ba nghìn. Runbook trong kịch bản ghi mốc nên chạy: khoảng 5 triệu dòng.
+
+264/264 kiểm thử tích hợp, 524/524 đơn vị.
+
+---
+
+## [2.4.0] — 2026-08-20
+
+Hai trong bảy loại tác nhân được đối xử đầy đủ (REQ-15).
+
+Trình thiết kế cho khai 7 loại tác nhân, nhưng lúc chạy chỉ 5 loại đầy đủ. **CHỨC_DANH_HỘI_ĐỒNG**
+và **LÃNH_ĐẠO_ĐƠN_VỊ_TÁC_GIẢ** khớp quyền được — người đó bấm xử lý vẫn qua — nhưng vắng mặt ở hai
+chỗ khác, và cả hai đều hỏng im lặng:
+
+- **Không được liệt kê** (`LayTacNhanBuocHienTaiAsync`): một bước mà tác nhân duy nhất là *"Chủ
+  tịch hội đồng"* thì **không ai được báo** là đến lượt mình, và hộp thoại *"Xử lý thay cho"*
+  không liệt kê họ nên không uỷ quyền được. Hồ sơ nằm chờ, không dấu hiệu gì.
+- **Không được đếm** (`DemTacNhanDuKienAsync` rơi vào nhánh mặc định `= 1`): bước khai quy tắc
+  **TẤT_CẢ** với tác nhân chức danh hội đồng sẽ chuyển bước ngay sau **người đầu tiên** xử lý,
+  thay vì chờ đủ.
+
+Nay cả hai được liệt kê và đếm đúng. Định nghĩa được viết để **trùng khít** với cách
+`BoMayQuyTrinh` quyết định ai được xử lý — lệch nhau là sinh nghịch lý: người xử lý được nhưng
+không được báo, hoặc được báo mà bấm vào thì bị từ chối.
+
+`TacNhanBuocDayDuTests` (3 test): chủ tịch hội đồng được liệt kê, lãnh đạo đơn vị tác giả được
+liệt kê, và quy tắc TẤT_CẢ đếm đúng số uỷ viên thay vì 1. **7/7 loại tác nhân nay đều có kiểm thử.**
+
+267/267 kiểm thử tích hợp, 524/524 đơn vị.
+
+---
+
+## [1.5.0] — 2026-08-19
+
+Rà soát độc lập lại 51 chức năng theo một chiều khác: **cấu hình nào khai báo được trên giao diện
+nhưng không một dòng logic nào đọc tới**, và **dịch vụ nào có mã nhưng không có endpoint hay lối
+vào**. Cách quét này bắt được nhóm thiếu sót nguy hiểm nhất khi nghiệm thu — quản trị viên bật một
+tuỳ chọn, hệ thống báo lưu thành công, nhưng hành vi không đổi.
+
+### Cấu hình có khai mà không có tác dụng — nay đã có
+
+- **Chức năng 13** — cờ *dùng để kiểm tra trùng lặp* của từng thành phần hồ sơ: pipeline trước đây
+  gom **toàn bộ** nội dung và tệp, bỏ qua cờ này. Nay chỉ thành phần được tick mới đi vào so khớp,
+  nên phụ lục và biểu mẫu hành chính giống nhau giữa mọi hồ sơ không còn đẩy tỷ lệ trùng lên.
+- **Chức năng 14** — cờ *hiển thị cho tác giả* của trạng thái bước: nay tác giả chỉ thấy nhãn
+  trung tính "Đang xử lý" với những trạng thái tắt cờ, và tiến độ ẩn ý kiến nội bộ của bước đó.
+  Máy chủ **không trả dữ liệu đó về**, không phải ẩn ở giao diện.
+- **Chức năng 11** — *cảnh báo trước hạn (giờ)* khai theo từng bước: job nhắc hạn trước đây chỉ
+  dùng cấu hình chung `SO_NGAY_NHAC_TRUOC_HAN`. Nay đọc ngưỡng của chính bước đó từ snapshot quy trình.
+- **Chức năng 5** — bảng `cau_hinh_cap_phe_duyet` trước đây chỉ có CRUD, không logic nào đọc. Nay
+  sinh ra 4 biến ngữ cảnh (`so_cap_phe_duyet`, `cap_phe_duyet_hien_tai`, `con_cap_phe_duyet_cao_hon`,
+  `don_vi_phe_duyet_ke_tiep`) để khai nhánh "Chuyển cấp cao hơn" bằng **điều kiện cấu hình** thay vì sửa mã.
+
+### Chức năng có mã nhưng không có lối vào — nay đã nối
+
+- **Chức năng 26** — *Đánh dấu đã xem xét* kèm ý kiến hội đồng: hàm xử lý đã tồn tại nhưng không có
+  endpoint, không có nút, không có kiểm thử. Nay có `POST /api/v1/sang-kien/{id}/trung-lap/xem-xet`
+  (quyền mới `TRUNG_LAP.XEM_XET`, ghi nhật ký ai/khi nào) và khối ghi ý kiến trên tab Trùng lặp.
+- **Chức năng 29** — *uỷ quyền xử lý bước*: máy chạy quy trình đã kiểm tra cờ `cho_phep_uy_quyen`
+  và API đã nhận `nguoiUyQuyenId`, nhưng không màn hình nào cho chọn. Nay hộp thoại xử lý có ô
+  "Xử lý thay cho" lấy từ `GET /api/v1/xu-ly/tac-nhan-buoc/{id}`, và **máy chủ chặn** uỷ quyền cho
+  người không phải tác nhân của bước.
+- **Chức năng 21** — thêm lối tắt tới trang *Bảo mật tài khoản* (bật MFA, mã khôi phục) ngay trong
+  menu người dùng, cạnh *Đổi mật khẩu*. Mục này vốn đã có ở menu bên trái (nạp từ `cau_hinh_menu`)
+  nên đây là cải thiện thao tác, không phải bù chức năng thiếu.
+
+### Bổ sung còn thiếu so với đặc tả
+
+- **Chức năng 26** — xuất báo cáo trùng lặp ra **PDF**, in cả trích dẫn đoạn trùng để đính kèm hồ sơ
+  hội đồng; một con số phần trăm không tự bảo vệ được trước tác giả bị kết luận.
+- **Chức năng 39, 40** — xuất **PDF** cho báo cáo chưa đạt, theo đơn vị, theo tác giả, thời gian xử
+  lý. Trước đây nút *Xuất PDF* ở mọi tab đều tải nhầm **danh sách sáng kiến đạt**.
+- **Chức năng 35** — xuất phiếu chấm bản **Word (.docx)** để thư ký biên tập trước khi đóng hồ sơ.
+- **Chức năng 49** — ký **XAdES-BES** cho tệp XML; đồng thời sửa lỗi **xác minh bản PAdES luôn báo
+  "không có chữ ký"** (bản PDF đã ký bị đọc nhầm như một khối CMS tách rời).
+- **Chức năng 21, 43** — `PUT /api/v1/xac-thuc/toi` và trang *Thông tin cá nhân*: người dùng tự sửa
+  họ tên, email, điện thoại, chức vụ, ngày sinh. Đơn vị và vai trò vẫn chỉ quản trị viên đổi được —
+  cho tự đổi là mở đường leo thang đặc quyền.
+- **Nhóm X** — `POST /api/v1/bao-cao/{loai}/xuat-nen`: báo cáo lớn chạy ở tiến trình nền rồi gửi
+  thông báo kèm liên kết tải về, thay vì giữ người dùng chờ trên một request dễ time-out.
+
+### Hạ tầng và tài liệu
+
+- **WAL archiving bật sẵn** trong `docker-compose.prod.yml` (đẩy WAL mỗi 5 phút) — trước đây chỉ có
+  bản dump hằng ngày nên điểm khôi phục gần nhất là 1h sáng hôm trước. Kèm quy trình khôi phục theo
+  thời điểm (PITR) trong tài liệu vận hành.
+- **`docs/API.md`** sinh từ mã nguồn (174 endpoint), **`docs/KE-HOACH-CONG-TAC.md`**,
+  **`docs/DEPLOYMENT.md`** — ba tài liệu bàn giao đặc tả yêu cầu nhưng chưa có.
+- **`docs/KICH-BAN-NGHIEM-THU.md`**: bổ sung 35 kịch bản, phủ đủ **51/51** chức năng (trước đây
+  thiếu hẳn dòng cho 13 chức năng: 2, 7, 8, 11, 12, 14, 31, 36, 42, 46, 47, 50, 51).
+- Đính chính ghi chú "dự án dùng antd Form thay vì react-hook-form + zod" — sai: toàn bộ 30 màn hình
+  có biểu mẫu đều đi qua `useBieuMau` (react-hook-form + zodResolver), không tệp nào gọi thẳng `<Form>`.
+
+### Kiểm thử
+
+- Unit: 512 (thêm XAdES ký/xác minh/phát hiện sửa nội dung, xuất Word, xuất PDF trùng lặp).
+- Integration trên PostgreSQL thật: 222 (thêm 17 cho các luồng trên).
+- E2E Playwright: 401 (thêm 21).
+
+---
+
 ## [1.4.0] — 2026-08-18
 
 Quét lại theo một chiều chưa từng kiểm: **bảng cơ sở dữ liệu nào không một dòng code nào chạm

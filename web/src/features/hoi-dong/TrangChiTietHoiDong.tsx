@@ -25,6 +25,7 @@ import {
 import {
   DeleteOutlined,
   FilePdfOutlined,
+  LockOutlined,
   PlusOutlined,
   SaveOutlined,
   TeamOutlined,
@@ -42,6 +43,8 @@ import {
   apiDanhGia,
   apiHoiDong,
   apiNhapXuat,
+  DUOI_TEP_PHIEU,
+  type DinhDangPhieuCham,
   apiSangKien,
   type DongMaTranDiem,
   type PhienHop,
@@ -277,11 +280,12 @@ export default function TrangChiTietHoiDong() {
               items: [
                 { key: 'PDF', label: 'Một tệp PDF (mỗi phiếu một trang)' },
                 { key: 'ZIP', label: 'ZIP — mỗi phiếu một tệp riêng' },
+                { key: 'DOCX', label: 'Word (.docx) — sửa được trước khi đóng hồ sơ' },
               ],
               onClick: ({ key }) =>
                 taiTep(
-                  apiNhapXuat.duongDanPhieuChamHoiDong(id, key as 'PDF' | 'ZIP'),
-                  `phieu-cham-${hoiDong.ma}.${key === 'ZIP' ? 'zip' : 'pdf'}`,
+                  apiNhapXuat.duongDanPhieuChamHoiDong(id, key as DinhDangPhieuCham),
+                  `phieu-cham-${hoiDong.ma}.${DUOI_TEP_PHIEU[key as DinhDangPhieuCham]}`,
                   hoiDong.dotDeNghiId ? { dotDeNghiId: hoiDong.dotDeNghiId } : undefined,
                 ).catch((loi: unknown) =>
                   message.error(
@@ -853,9 +857,26 @@ function ModalDieuHanhPhien({
 }) {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
-  const duocHopPhien = useAuthStore((s) => s.coQuyen('HOI_DONG.HOP_PHIEN'));
-  const duocBoPhieu = useAuthStore((s) => s.coQuyen('HOI_DONG.BO_PHIEU'));
-  const duocKetLuan = useAuthStore((s) => s.coQuyen('HOI_DONG.KET_LUAN'));
+  const nguoiDungId = useAuthStore((s) => s.nguoiDung?.id);
+  const coQuyenHopPhien = useAuthStore((s) => s.coQuyen('HOI_DONG.HOP_PHIEN'));
+  const coQuyenBoPhieu = useAuthStore((s) => s.coQuyen('HOI_DONG.BO_PHIEU'));
+  const coQuyenKetLuan = useAuthStore((s) => s.coQuyen('HOI_DONG.KET_LUAN'));
+
+  /*
+   * Quyền vai trò mới là một nửa: hội đồng còn khai riêng từng thành viên được nhận xét / bỏ
+   * phiếu / kết luận hay không. Máy chủ chặn theo đúng hai lớp này (DichVuHoiDong), ở đây chỉ
+   * mờ nút đi cho khỏi bấm rồi ăn lỗi. Người ngoài hội đồng — quản trị viên nhập hộ chẳng hạn —
+   * không có dòng thành viên nào nên vẫn đi tiếp bằng quyền vai trò.
+   */
+  const thanhVienCuaToi = useMemo(
+    () => (nguoiDungId ? thanhVien.find((tv) => tv.nguoiDungId === nguoiDungId) : undefined),
+    [thanhVien, nguoiDungId],
+  );
+
+  const duocHopPhien = coQuyenHopPhien;
+  const duocBoPhieu = coQuyenBoPhieu && (thanhVienCuaToi?.quyenBoPhieu ?? true);
+  const duocKetLuan = coQuyenKetLuan && (thanhVienCuaToi?.quyenKetLuan ?? true);
+  const duocNhanXet = coQuyenHopPhien && (thanhVienCuaToi?.quyenNhanXet ?? true);
 
   const [ketLuan, setKetLuan] = useState('');
 
@@ -1023,6 +1044,7 @@ function ModalDieuHanhPhien({
                           ketQuaBanDau={hs.ketQua ?? undefined}
                           duocBoPhieu={duocBoPhieu && !daKetThuc}
                           duocKetLuan={duocKetLuan && !daKetThuc}
+                          duocNhanXet={duocNhanXet && !daKetThuc}
                         />
                       ))}
                   </Space>
@@ -1078,6 +1100,7 @@ function TheHoSoBoPhieu({
   ketQuaBanDau,
   duocBoPhieu,
   duocKetLuan,
+  duocNhanXet,
 }: {
   phienHopId: string;
   sangKienId: string;
@@ -1087,11 +1110,11 @@ function TheHoSoBoPhieu({
   ketQuaBanDau?: string;
   duocBoPhieu: boolean;
   duocKetLuan: boolean;
+  duocNhanXet: boolean;
 }) {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [ghiChu, setGhiChu] = useState('');
-  const [phieuKin, setPhieuKin] = useState(false);
   const [ketLuanRieng, setKetLuanRieng] = useState(ketLuanRiengBanDau);
   const [ketQuaHoSo, setKetQuaHoSo] = useState<string | undefined>(ketQuaBanDau);
 
@@ -1107,7 +1130,7 @@ function TheHoSoBoPhieu({
 
   const boPhieu = useMutation({
     mutationFn: (yKien: string) =>
-      apiHoiDong.boPhieu({ phienHopId, sangKienId, yKien, ghiChu, laPhieuKin: phieuKin }),
+      apiHoiDong.boPhieu({ phienHopId, sangKienId, yKien, ghiChu }),
     onSuccess: () => {
       message.success('Đã ghi nhận phiếu');
       void queryClient.invalidateQueries({
@@ -1139,6 +1162,11 @@ function TheHoSoBoPhieu({
   const kq = ketQua.data;
   const datNguong = (kq?.tyLeDongY ?? 0) >= tyLeThongQua;
 
+  // Phiếu kín + phiên chưa chốt: máy chủ trả về 0 cho mọi ô đếm. Không nói rõ thì thư ký đọc
+  // thành "chưa ai bỏ phiếu" và đi nhắc nhầm người.
+  const phienKin = kq?.boPhieuKin === true;
+  const chuaLoSoLieu = phienKin && kq?.daChotPhien === false;
+
   return (
     <Card
       size="small"
@@ -1154,20 +1182,35 @@ function TheHoSoBoPhieu({
       <Row gutter={[12, 12]}>
         <Col xs={24} md={10}>
           <Space size="large">
-            <Statistic title="Tổng phiếu" value={kq?.tongPhieu ?? 0} />
-            <Statistic title="Đồng ý" value={kq?.dongY ?? 0} valueStyle={{ color: '#389e0d' }} />
-            <Statistic
-              title="Tỷ lệ đồng ý"
-              value={kq?.tyLeDongY ?? 0}
-              suffix="%"
-              valueStyle={{ color: datNguong ? '#389e0d' : '#cf1322' }}
-            />
+            <Statistic title="Đã bỏ phiếu" value={kq?.tongPhieu ?? 0} />
+            {!chuaLoSoLieu && (
+              <>
+                <Statistic
+                  title="Đồng ý"
+                  value={kq?.dongY ?? 0}
+                  valueStyle={{ color: '#389e0d' }}
+                />
+                <Statistic
+                  title="Tỷ lệ đồng ý"
+                  value={kq?.tyLeDongY ?? 0}
+                  suffix="%"
+                  valueStyle={{ color: datNguong ? '#389e0d' : '#cf1322' }}
+                />
+              </>
+            )}
           </Space>
           <div style={{ marginTop: 4 }}>
-            {kq && kq.tongPhieu > 0 && (
-              <Tag color={datNguong ? 'success' : 'error'}>
-                {datNguong ? 'Đạt' : 'Chưa đạt'} ngưỡng thông qua {tyLeThongQua}%
+            {chuaLoSoLieu ? (
+              <Tag color="purple" icon={<LockOutlined />}>
+                Kết quả kiểm phiếu chỉ lộ sau khi chốt phiên họp
               </Tag>
+            ) : (
+              kq &&
+              kq.tongPhieu > 0 && (
+                <Tag color={datNguong ? 'success' : 'error'}>
+                  {datNguong ? 'Đạt' : 'Chưa đạt'} ngưỡng thông qua {tyLeThongQua}%
+                </Tag>
+              )
             )}
           </div>
         </Col>
@@ -1182,13 +1225,16 @@ function TheHoSoBoPhieu({
             style={{ marginBottom: 8 }}
           />
           <Space wrap>
-            <Checkbox
-              checked={phieuKin}
-              disabled={!duocBoPhieu}
-              onChange={(e) => setPhieuKin(e.target.checked)}
-            >
-              Phiếu kín
-            </Checkbox>
+            {/*
+              Kín hay hở là luật của bước quy trình, không phải lựa chọn của người bỏ phiếu — trước
+              đây ô tick ở đây cho mỗi người tự quyết, nên cấu hình "Bỏ phiếu kín" của quản trị viên
+              không ép được ai. Nay chỉ hiển thị chế độ đang áp dụng.
+            */}
+            {phienKin && (
+              <Tag color="purple" icon={<LockOutlined />}>
+                Phiếu kín — danh tính được che, số liệu kiểm phiếu lộ sau khi chốt phiên
+              </Tag>
+            )}
             <Button
               type="primary"
               disabled={!duocBoPhieu}
@@ -1224,7 +1270,7 @@ function TheHoSoBoPhieu({
               rows={2}
               placeholder="Ý kiến / kết luận riêng cho hồ sơ này — nội dung này vào biên bản họp"
               value={ketLuanRieng}
-              disabled={!duocKetLuan}
+              disabled={!duocNhanXet}
               onChange={(e) => setKetLuanRieng(e.target.value)}
             />
             <Space wrap>
@@ -1242,7 +1288,7 @@ function TheHoSoBoPhieu({
                 onChange={(v) => setKetQuaHoSo(v)}
               />
               <Button
-                disabled={!duocKetLuan}
+                disabled={!duocNhanXet && !duocKetLuan}
                 loading={ghiYKien.isPending}
                 onClick={() => ghiYKien.mutate({})}
               >

@@ -230,6 +230,11 @@ namespace BlueIdea.Infrastructure.Persistence.Migrations
                         .HasColumnType("real[]")
                         .HasColumnName("embedding");
 
+                    b.Property<string>("MoHinhNhung")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("mo_hinh_nhung");
+
                     b.Property<DateTimeOffset?>("NgaySua")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ngay_sua");

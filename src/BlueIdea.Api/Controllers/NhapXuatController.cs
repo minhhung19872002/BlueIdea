@@ -5,6 +5,7 @@ using BlueIdea.Application.DanhMuc;
 using BlueIdea.Application.Chung;
 using BlueIdea.Application.DanhGia;
 using BlueIdea.Application.QuanTri;
+using BlueIdea.Application.XuLy;
 using BlueIdea.Domain.Chung;
 using BlueIdea.Reporting;
 using BlueIdea.Shared.KetQua;
@@ -42,11 +43,14 @@ public sealed class NhapXuatController : ControllerBase
     private readonly DichVuXuatPhieuCham _xuatPhieu;
     private readonly DichVuBaoCaoTuyBien _baoCaoTuyBien;
     private readonly IDichVuCauHinh _cauHinh;
+    private readonly DichVuChucNangBuoc _chucNangBuoc;
 
     public NhapXuatController(
         DichVuNhapNguoiDung nhapNguoiDung, DichVuNhapDanhMuc nhapDanhMuc,
-        DichVuXuatPhieuCham xuatPhieu, DichVuBaoCaoTuyBien baoCaoTuyBien, IDichVuCauHinh cauHinh)
+        DichVuXuatPhieuCham xuatPhieu, DichVuBaoCaoTuyBien baoCaoTuyBien,
+        IDichVuCauHinh cauHinh, DichVuChucNangBuoc chucNangBuoc)
     {
+        _chucNangBuoc = chucNangBuoc;
         _nhapNguoiDung = nhapNguoiDung;
         _nhapDanhMuc = nhapDanhMuc;
         _xuatPhieu = xuatPhieu;
@@ -134,13 +138,25 @@ public sealed class NhapXuatController : ControllerBase
 
     // ------------------------------------------------ Chức năng 35 — xuất phiếu chấm
 
-    /// <summary>Xuất toàn bộ phiếu chấm đã gửi của một hồ sơ ra PDF, mỗi phiếu một trang.</summary>
+    /// <summary>
+    /// Xuất toàn bộ phiếu chấm đã gửi của một hồ sơ.
+    ///
+    /// <c>dinhDang</c>: bỏ trống = PDF liền mạch (mặc định), <c>ZIP</c> = mỗi phiếu một tệp PDF,
+    /// <c>DOCX</c> = bản Word để thư ký sửa trước khi đóng vào hồ sơ hội đồng.
+    /// </summary>
     [HttpGet("phieu-cham/ho-so/{sangKienId:guid}")]
     [Authorize(Policy = MaQuyen.DanhGiaXem)]
     public async Task<IActionResult> XuatPhieuChamTheoHoSoAsync(
         Guid sangKienId, [FromQuery] string? dinhDang, CancellationToken ct)
     {
+        await BatBuocDuocXuatBieuMauAsync(sangKienId, ct);
+
         var duLieu = await _xuatPhieu.TheoHoSoAsync(sangKienId, ct);
+
+        if (LaWord(dinhDang))
+        {
+            return await TaoWordPhieuAsync(duLieu, $"phieu-cham-{duLieu[0].MaHoSo}.docx", ct);
+        }
 
         return LaZip(dinhDang)
             ? await TaoZipPhieuAsync(duLieu, $"phieu-cham-{duLieu[0].MaHoSo}.zip", ct)
@@ -155,6 +171,12 @@ public sealed class NhapXuatController : ControllerBase
         CancellationToken ct)
     {
         var duLieu = await _xuatPhieu.TheoHoiDongAsync(hoiDongId, dotDeNghiId, ct);
+
+        if (LaWord(dinhDang))
+        {
+            return await TaoWordPhieuAsync(
+                duLieu, $"phieu-cham-hoi-dong-{duLieu.Count}-phieu.docx", ct);
+        }
 
         return LaZip(dinhDang)
             ? await TaoZipPhieuAsync(duLieu, $"phieu-cham-hoi-dong-{duLieu.Count}-phieu.zip", ct)
@@ -308,8 +330,10 @@ public sealed class NhapXuatController : ControllerBase
     /// <summary>
     /// Nhập danh mục từ Excel. Mặc định <c>chayThu=true</c> để xem trước kết quả rồi mới ghi.
     /// </summary>
+    // Nhap hang loat la thao tac rieng trong ma tran phan quyen (chuc nang 1-8): mot tep Excel
+    // sai co the ghi de ca danh muc trong mot lan bam, khac han voi sua tung ban ghi.
     [HttpPost("danh-muc")]
-    [Authorize(Policy = MaQuyen.DanhMucSua)]
+    [Authorize(Policy = MaQuyen.DanhMucNhap)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> NhapDanhMucAsync(
         IFormFile tep, [FromQuery] string loai = "linh-vuc", [FromQuery] bool chayThu = true,
@@ -428,6 +452,40 @@ public sealed class NhapXuatController : ControllerBase
 
     private static bool LaZip(string? dinhDang)
         => string.Equals(dinhDang, "ZIP", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Chuc nang 12 — o tick "Xuat bieu mau" tren buoc quy trinh.
+    ///
+    /// Quy trinh khong khai bao gi thi khong gioi han (xem <c>DuocXuatBieuMauAsync</c>).
+    /// </summary>
+    private async Task BatBuocDuocXuatBieuMauAsync(Guid sangKienId, CancellationToken ct)
+    {
+        if (!await _chucNangBuoc.DuocXuatBieuMauAsync(sangKienId, ct))
+        {
+            throw new NghiepVuException(MaLoiHeThong.KhongCoQuyen,
+                "Bước hiện tại của hồ sơ không được cấu hình cho phép xuất biểu mẫu.");
+        }
+    }
+
+    private static bool LaWord(string? dinhDang)
+        => string.Equals(dinhDang, "DOCX", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(dinhDang, "WORD", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Chuc nang 35 - Ban Word de thu ky bien tap truoc khi dong ho so.</summary>
+    private async Task<IActionResult> TaoWordPhieuAsync(
+        IReadOnlyList<DuLieuPhieuCham> duLieu, string tenTep, CancellationToken ct)
+    {
+        var tenCoQuan = await _cauHinh.LayAsync(KhoaCauHinh.TenDonVi, string.Empty, ct);
+        var tenHeThong = await _cauHinh.LayAsync(KhoaCauHinh.TenHeThong, string.Empty, ct);
+
+        var tep = BoXuatPhieuChamWord.Xuat(
+            tenCoQuan, tenHeThong, duLieu.Select(ChuyenDoi).ToList());
+
+        return File(
+            tep,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            tenTep);
+    }
 
     /// <summary>
     /// Xuat moi phieu thanh MOT tep PDF rieng, nen lai thanh ZIP.

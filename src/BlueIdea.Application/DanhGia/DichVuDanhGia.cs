@@ -22,11 +22,14 @@ public sealed class DichVuDanhGia
     private readonly IDongHoHeThong _dongHo;
     private readonly IBoTinhDiem _tinhDiem;
     private readonly IDichVuThongBao _thongBao;
+    private readonly XuLy.DichVuChucNangBuoc _chucNangBuoc;
 
     public DichVuDanhGia(
         IAppDbContext db, INguoiDungHienTai nguoiDung, IDichVuPhanQuyen phanQuyen,
-        IDongHoHeThong dongHo, IBoTinhDiem tinhDiem, IDichVuThongBao thongBao)
+        IDongHoHeThong dongHo, IBoTinhDiem tinhDiem, IDichVuThongBao thongBao,
+        XuLy.DichVuChucNangBuoc chucNangBuoc)
     {
+        _chucNangBuoc = chucNangBuoc;
         _db = db;
         _nguoiDung = nguoiDung;
         _phanQuyen = phanQuyen;
@@ -447,7 +450,43 @@ public sealed class DichVuDanhGia
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        /*
+         * Co "tu dong tong hop" cua bo tieu chi phai co hieu luc that.
+         *
+         * Truoc day co nay duoc luu nhung khong noi vao dau: thu ky van phai bam "Tong hop diem"
+         * bang tay, bat hay tat khong khac gi nhau. Nay khi nguoi CUOI CUNG trong danh sach phan
+         * cong gui phieu, he thong tong hop luon — dieu kien chuyen buoc theo tong diem nho do
+         * dung ngay, khong cho mot thao tac thu cong nua.
+         */
+        if (guiChinhThuc
+            && boTieuChi.TuDongTongHop
+            && await TatCaPhanCongDaChamAsync(duLieu.SangKienId, duLieu.HoiDongId, ct)
+                .ConfigureAwait(false))
+        {
+            await ThucHienTongHopAsync(duLieu.SangKienId, duLieu.HoiDongId, null, true, ct)
+                .ConfigureAwait(false);
+        }
+
         return await LayPhieuChamAsync(duLieu.SangKienId, duLieu.HoiDongId, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Moi nguoi duoc phan cong cham ho so nay trong hoi dong nay deu da gui phieu chua.
+    ///
+    /// Chua phan cong ai thi tra ve false: tong hop khi khong co phieu nao chi tao ra mot ban ghi
+    /// ket qua rong.
+    /// </summary>
+    private async Task<bool> TatCaPhanCongDaChamAsync(
+        Guid sangKienId, Guid hoiDongId, CancellationToken ct)
+    {
+        var phanCong = await _db.SangKienPhanCong.AsNoTracking()
+            .Where(x => x.SangKienId == sangKienId && x.HoiDongId == hoiDongId)
+            .Select(x => x.TrangThaiPhanCong)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return phanCong.Count > 0 && phanCong.All(x => x == TrangThaiPhanCong.DaCham);
     }
 
     /// <summary>Thu ky mo lai phieu da gui de thanh vien sua.</summary>
@@ -483,6 +522,20 @@ public sealed class DichVuDanhGia
     {
         await _phanQuyen.BatBuocCoQuyenAsync(MaQuyen.DanhGiaTongHop, ct).ConfigureAwait(false);
 
+        return await ThucHienTongHopAsync(sangKienId, hoiDongId, phienHopId, false, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Loi tong hop diem, KHONG kiem quyen.
+    ///
+    /// Tach ra vi co hai duong goi toi: thu ky bam "Tong hop diem" (di qua TongHopDiemAsync, co
+    /// kiem quyen DANH_GIA.TONG_HOP), va duong tu dong khi bo tieu chi bat "tu dong tong hop" —
+    /// luc do nguoi dang dang nhap la thanh vien vua gui phieu, ho khong co quyen tong hop.
+    /// </summary>
+    private async Task<KetQuaTongHopDto> ThucHienTongHopAsync(
+        Guid sangKienId, Guid hoiDongId, Guid? phienHopId, bool tuDong, CancellationToken ct)
+    {
         var boTieuChi = await NapBoTieuChiAsync(sangKienId, hoiDongId, ct).ConfigureAwait(false);
 
         var phieus = await _db.PhieuDanhGia
@@ -521,7 +574,8 @@ public sealed class DichVuDanhGia
         ketQua.SoPhieuKhongDongY = soKhongDongY;
         ketQua.KetQua = tongHop.Dat ? KetQuaXetDuyetGiaTri.Dat : KetQuaXetDuyetGiaTri.KhongDat;
         ketQua.MucCongNhanId = tongHop.MucCongNhan?.Id;
-        ketQua.NguoiKetLuanId = _nguoiDung.Id;
+        // Tong hop tu dong khong co "nguoi ket luan": may lam thay, khong phai ai do quyet dinh.
+        ketQua.NguoiKetLuanId = tuDong ? ketQua.NguoiKetLuanId : _nguoiDung.Id;
         ketQua.NgayKetLuan = _dongHo.BayGio;
 
         // Cap nhat nguoc len ho so de dieu kien chuyen buoc su dung duoc.
@@ -575,8 +629,14 @@ public sealed class DichVuDanhGia
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        var choLoDiem = await LayHoSoDuocLoDiemAsync(hoiDongId, sangKienIds, phanCong, phieus
+            .Select(x => new PhieuTomTat(x.SangKienId, x.ThanhVienId, x.TrangThaiPhieu))
+            .ToList(), ct)
+            .ConfigureAwait(false);
+
         return hoSos.Select(hs =>
         {
+            var loDiemHoSoNay = choLoDiem.Contains(hs.Id);
             var o = thanhVien.Select(tv =>
             {
                 var phieu = phieus.FirstOrDefault(p => p.SangKienId == hs.Id && p.ThanhVienId == tv.Id);
@@ -586,9 +646,20 @@ public sealed class DichVuDanhGia
                     ? daPhanCong ? TrangThaiPhanCong.ChuaCham : "-"
                     : phieu.TrangThaiPhieu;
 
-                // Cham diem doc lap: chi hien diem khi phieu da gui.
+                /*
+                 * Cham diem doc lap (chuc nang 12 + dac ta Muc 5): "thanh vien khong thay diem cua
+                 * nguoi khac cho den khi Thu ky bam Tong hop hoac du 100% phieu".
+                 *
+                 * Truoc day chi kiem "phieu da gui", nen diem lo ra ngay khi tung nguoi bam gui.
+                 * Ai chua cham van mo duoc ma tran va nhin diem nhung nguoi da cham — dung dieu ma
+                 * cham doc lap sinh ra de ngan: nguoi cham sau neo diem theo nguoi cham truoc.
+                 * O tick "Cham diem doc lap" tren buoc thi khong co gi doc toi.
+                 *
+                 * Trang thai (da cham / chua cham) van hien: thu ky can biet con ai de nhac.
+                 */
                 var diem = phieu is not null
                            && phieu.TrangThaiPhieu != TrangThaiPhieuDanhGia.Nhap
+                           && loDiemHoSoNay
                     ? phieu.TongDiem
                     : (decimal?)null;
 
@@ -605,6 +676,70 @@ public sealed class DichVuDanhGia
                 diemDaCham.Count,
                 phanCong.Count(pc => pc.SangKienId == hs.Id));
         }).ToList();
+    }
+
+    private sealed record PhieuTomTat(Guid SangKienId, Guid ThanhVienId, string TrangThaiPhieu);
+
+    /// <summary>
+    /// Nhung ho so duoc phep lo diem tung thanh vien trong ma tran.
+    ///
+    /// Ho so KHONG bat cham diem doc lap thi lo binh thuong. Ho so co bat thi chi lo khi:
+    ///   - da tong hop (KetQuaXetDuyet.NgayKetLuan da co — thu ky bam "Tong hop diem"), HOAC
+    ///   - moi thanh vien duoc phan cong deu da gui phieu.
+    ///
+    /// Tinh mot lan cho ca ma tran roi tra ve tap hop, thay vi hoi tung o — ma tran co the vai tram
+    /// o va moi o mot truy van thi man hinh tong hop diem tro thanh cho nghen.
+    /// </summary>
+    private async Task<HashSet<Guid>> LayHoSoDuocLoDiemAsync(
+        Guid hoiDongId,
+        IReadOnlyList<Guid> sangKienIds,
+        IReadOnlyList<SangKienPhanCong> phanCong,
+        IReadOnlyList<PhieuTomTat> phieus,
+        CancellationToken ct)
+    {
+        var ketQua = new HashSet<Guid>();
+
+        if (sangKienIds.Count == 0)
+        {
+            return ketQua;
+        }
+
+        var daTongHop = await _db.KetQuaXetDuyet.AsNoTracking()
+            .Where(x => x.HoiDongId == hoiDongId
+                        && sangKienIds.Contains(x.SangKienId)
+                        && x.NgayKetLuan != null)
+            .Select(x => x.SangKienId)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var daTongHopSet = daTongHop.ToHashSet();
+
+        foreach (var sangKienId in sangKienIds)
+        {
+            var batDocLap = await _chucNangBuoc
+                .CoBatOBatKyBuocNaoAsync(sangKienId, Domain.QuyTrinh.MaChucNangBoSung.ChamDiemDocLap, ct)
+                .ConfigureAwait(false);
+
+            if (!batDocLap || daTongHopSet.Contains(sangKienId))
+            {
+                ketQua.Add(sangKienId);
+                continue;
+            }
+
+            var soPhanCong = phanCong.Count(pc => pc.SangKienId == sangKienId);
+
+            var soDaGui = phieus.Count(p => p.SangKienId == sangKienId
+                                            && p.TrangThaiPhieu != TrangThaiPhieuDanhGia.Nhap);
+
+            // soPhanCong == 0: chua phan cong ai thi khong co gi de giau, va dieu kien "du 100%"
+            // se dung thanh that mot cach vo nghia.
+            if (soPhanCong > 0 && soDaGui >= soPhanCong)
+            {
+                ketQua.Add(sangKienId);
+            }
+        }
+
+        return ketQua;
     }
 
     // ------------------------------------------------------------------------------------

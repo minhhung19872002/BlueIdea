@@ -96,6 +96,25 @@ public sealed class BoKySoPkcs7 : IBoKySo
                 }
             }
 
+            // Tep XML thi ky nhung theo XAdES-BES: ben nhan kiem tra bang cong cu XML-DSig chuan,
+            // khong phai duoc gui kem mot tep .p7s rieng roi tu doi chieu (dac ta chuc nang 49).
+            if (BoKySoXades.LaXml(noiDung))
+            {
+                try
+                {
+                    var xmlDaKy = BoKySoXades.Ky(noiDung, chungThu, DateTimeOffset.Now);
+
+                    return new KetQuaKySo(
+                        true, xmlDaKy, chungThu.SerialNumber, chungThu.Issuer,
+                        chungThu.NotBefore, chungThu.NotAfter, null, ChuanChuKySo.Xades);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Không ký XAdES được cho tệp XML, chuyển sang chữ ký tách rời.");
+                }
+            }
+
             var noiDungKy = new ContentInfo(noiDung);
 
             // detached = true: chữ ký KHÔNG bọc nội dung, giữ tệp gốc đọc được bình thường.
@@ -136,6 +155,27 @@ public sealed class BoKySoPkcs7 : IBoKySo
     {
         try
         {
+            // Chu ky nhung (PAdES trong PDF, XAdES trong XML) nam NGAY trong "tep chu ky", khong
+            // phai mot khoi CMS tach roi. Doc nham kieu thi SignedCms nem loi va he thong bao
+            // "khong co chu ky" cho mot van ban da ky hop le — sai nghiem trong khi doi chieu.
+            if (BoKySoXades.LaXml(chuKyEncoded))
+            {
+                var xades = BoKySoXades.XacMinh(chuKyEncoded);
+
+                return Task.FromResult(new KetQuaXacMinhChuKy(
+                    xades.CoChuKy, xades.HopLe, xades.Serial, xades.NguoiKy,
+                    xades.ThoiGianKy, xades.Loi));
+            }
+
+            if (BoKySoPades.LaPdf(chuKyEncoded))
+            {
+                var pades = BoKySoPades.XacMinh(chuKyEncoded);
+
+                return Task.FromResult(new KetQuaXacMinhChuKy(
+                    pades.CoChuKy, pades.HopLe, pades.Serial, pades.NguoiKy,
+                    pades.ThoiGianKy, pades.Loi));
+            }
+
             // Chu ky detached khong mang theo noi dung, nen phai nap lai ban goc truoc khi giai ma
             // — thieu buoc nay thi CheckSignature khong co gi de doi chieu va luon that bai.
             var chuKy = new SignedCms(new ContentInfo(noiDungGoc), detached: true);
